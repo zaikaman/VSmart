@@ -35,29 +35,29 @@
 
 **⚠️ CRITICAL**: Không có user story nào có thể bắt đầu cho đến khi phase này hoàn thành
 
-- [ ] T008 Create Prisma schema tại prisma/schema.prisma với 9 entities: PhongBan, NguoiDung, KyNangNguoiDung, DuAn, PhanDuAn, Task, GoiYPhanCong, LichSuTask, ThongBao (theo data-model.md)
-- [ ] T009 Run prisma migrate dev để tạo initial migration tại prisma/migrations/
-- [ ] T010 [P] Create Prisma client singleton tại lib/db/prisma.ts
-- [ ] T011 [P] Setup Auth.js v5 config tại lib/auth/auth-config.ts với credentials provider
-- [ ] T012 [P] Create auth API route tại app/api/auth/[...auth]/route.ts
-- [ ] T013 [P] Implement getSession helper tại lib/auth/get-session.ts
-- [ ] T014 [P] Create withAuth HOC tại lib/auth/with-auth.ts cho protected routes
-- [ ] T015 [P] Setup OpenAI client singleton tại lib/openai/client.ts với env vars (OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL)
-- [ ] T016 [P] Create Zod validation schemas tại lib/validations/project.schema.ts
-- [ ] T017 [P] Create Zod validation schemas tại lib/validations/task.schema.ts
-- [ ] T018 [P] Create Zod validation schemas tại lib/validations/user.schema.ts
-- [ ] T019 [P] Setup Socket.io server tại lib/socket/server.ts
-- [ ] T020 [P] Create Socket.io client hook tại lib/socket/client.ts
-- [ ] T021 [P] Define Socket.io event types tại lib/socket/events.ts
-- [ ] T022 [P] Create API socket handler tại app/api/socket/route.ts
-- [ ] T023 [P] Create root layout tại app/layout.tsx với Providers (TanStack Query, Zustand, Socket)
-- [ ] T024 [P] Create dashboard layout tại app/(dashboard)/layout.tsx với sidebar và header
-- [ ] T025 [P] Create dashboard header component tại components/layouts/dashboard-header.tsx
-- [ ] T026 [P] Create dashboard sidebar component tại components/layouts/dashboard-sidebar.tsx
-- [ ] T027 [P] Create loading spinner component tại components/shared/loading-spinner.tsx
-- [ ] T028 [P] Create error boundary component tại components/shared/error-boundary.tsx
-- [ ] T029 [P] Create seed script tại prisma/seed.ts với demo data (5 projects, 30 tasks, 10 users)
-- [ ] T030 Run npm run seed để populate database
+- [x] T008 Create Prisma schema tại prisma/schema.prisma với 9 entities: PhongBan, NguoiDung, KyNangNguoiDung, DuAn, PhanDuAn, Task, GoiYPhanCong, LichSuTask, ThongBao (theo data-model.md)
+- [x] T009 Run prisma migrate dev để tạo initial migration tại prisma/migrations/
+- [x] T010 [P] Create Prisma client singleton tại lib/db/prisma.ts
+- [x] T011 [P] Setup Auth.js v5 config tại lib/auth/auth-config.ts với credentials provider
+- [x] T012 [P] Create auth API route tại app/api/auth/[...auth]/route.ts
+- [x] T013 [P] Implement getSession helper tại lib/auth/get-session.ts
+- [x] T014 [P] Create withAuth HOC tại lib/auth/with-auth.ts cho protected routes
+- [x] T015 [P] Setup OpenAI client singleton tại lib/openai/client.ts với env vars (OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL)
+- [x] T016 [P] Create Zod validation schemas tại lib/validations/project.schema.ts
+- [x] T017 [P] Create Zod validation schemas tại lib/validations/task.schema.ts
+- [x] T018 [P] Create Zod validation schemas tại lib/validations/user.schema.ts
+- [x] T019 [P] Setup Socket.io server tại lib/socket/server.ts
+- [x] T020 [P] Create Socket.io client hook tại lib/socket/client.ts
+- [x] T021 [P] Define Socket.io event types tại lib/socket/events.ts
+- [x] T022 [P] Create API socket handler tại app/api/socket/route.ts
+- [x] T023 [P] Create root layout tại app/layout.tsx với Providers (TanStack Query, Zustand, Socket)
+- [x] T024 [P] Create dashboard layout tại app/(dashboard)/layout.tsx với sidebar và header
+- [x] T025 [P] Create dashboard header component tại components/layouts/dashboard-header.tsx
+- [x] T026 [P] Create dashboard sidebar component tại components/layouts/dashboard-sidebar.tsx
+- [x] T027 [P] Create loading spinner component tại components/shared/loading-spinner.tsx
+- [x] T028 [P] Create error boundary component tại components/shared/error-boundary.tsx
+- [x] T029 [P] Create seed script tại prisma/seed.ts với demo data (5 projects, 30 tasks, 10 users)
+- [x] T030 Run npm run seed để populate database
 
 **Checkpoint**: Foundation ready - user story implementation có thể bắt đầu song song
 
@@ -73,67 +73,67 @@
 
 #### Models & Database
 
-- [ ] T031 [P] [US1] Verify DuAn model có đầy đủ fields: id, ten, moTa, deadline, trangThai, nguoiTaoId, phanTramHoanThanh trong prisma/schema.prisma
-- [ ] T032 [P] [US1] Verify PhanDuAn model có fields: id, ten, moTa, deadline, duAnId, phongBanId, trangThai, phanTramHoanThanh
-- [ ] T033 [P] [US1] Verify Task model có fields: id, ten, moTa, deadline, phanDuAnId, assigneeId, trangThai, priority, progress, riskScore
+- [X] T031 [P] [US1] Verify DuAn model có đầy đủ fields: id, ten, moTa, deadline, trangThai, nguoiTaoId, phanTramHoanThanh trong prisma/schema.prisma
+- [X] T032 [P] [US1] Verify PhanDuAn model có fields: id, ten, moTa, deadline, duAnId, phongBanId, trangThai, phanTramHoanThanh
+- [X] T033 [P] [US1] Verify Task model có fields: id, ten, moTa, deadline, phanDuAnId, assigneeId, trangThai, priority, progress, riskScore
 
 #### API Endpoints - Projects
 
-- [ ] T034 [P] [US1] Implement GET /api/projects endpoint tại app/api/projects/route.ts với pagination (20/page) và filter trangThai
-- [ ] T035 [P] [US1] Implement POST /api/projects endpoint tại app/api/projects/route.ts với Zod validation
-- [ ] T036 [P] [US1] Implement GET /api/projects/[id] endpoint tại app/api/projects/[id]/route.ts với include parts
-- [ ] T037 [P] [US1] Implement PATCH /api/projects/[id] endpoint tại app/api/projects/[id]/route.ts
-- [ ] T038 [P] [US1] Implement DELETE /api/projects/[id] endpoint (soft delete) tại app/api/projects/[id]/route.ts
+- [X] T034 [P] [US1] Implement GET /api/projects endpoint tại app/api/projects/route.ts với pagination (20/page) và filter trangThai
+- [X] T035 [P] [US1] Implement POST /api/projects endpoint tại app/api/projects/route.ts với Zod validation
+- [X] T036 [P] [US1] Implement GET /api/projects/[id] endpoint tại app/api/projects/[id]/route.ts với include parts
+- [X] T037 [P] [US1] Implement PATCH /api/projects/[id] endpoint tại app/api/projects/[id]/route.ts
+- [X] T038 [P] [US1] Implement DELETE /api/projects/[id] endpoint (soft delete) tại app/api/projects/[id]/route.ts
 
 #### API Endpoints - Project Parts
 
-- [ ] T039 [P] [US1] Implement POST /api/projects/[id]/parts endpoint tại app/api/projects/[id]/parts/route.ts
-- [ ] T040 [P] [US1] Implement GET /api/project-parts/[id] endpoint tại app/api/project-parts/[id]/route.ts
-- [ ] T041 [P] [US1] Implement PATCH /api/project-parts/[id] endpoint tại app/api/project-parts/[id]/route.ts
-- [ ] T042 [P] [US1] Implement DELETE /api/project-parts/[id] endpoint (soft delete) tại app/api/project-parts/[id]/route.ts
+- [X] T039 [P] [US1] Implement POST /api/projects/[id]/parts endpoint tại app/api/projects/[id]/parts/route.ts
+- [X] T040 [P] [US1] Implement GET /api/project-parts/[id] endpoint tại app/api/project-parts/[id]/route.ts
+- [X] T041 [P] [US1] Implement PATCH /api/project-parts/[id] endpoint tại app/api/project-parts/[id]/route.ts
+- [X] T042 [P] [US1] Implement DELETE /api/project-parts/[id] endpoint (soft delete) tại app/api/project-parts/[id]/route.ts
 
 #### API Endpoints - Tasks
 
-- [ ] T043 [P] [US1] Implement GET /api/tasks endpoint tại app/api/tasks/route.ts với pagination, filters (trangThai, assigneeId, deadline)
-- [ ] T044 [P] [US1] Implement POST /api/tasks endpoint tại app/api/tasks/route.ts với Zod validation
-- [ ] T045 [P] [US1] Implement GET /api/tasks/[id] endpoint tại app/api/tasks/[id]/route.ts với include assignee
-- [ ] T046 [P] [US1] Implement PATCH /api/tasks/[id] endpoint tại app/api/tasks/[id]/route.ts (update trangThai, progress)
-- [ ] T047 [P] [US1] Implement DELETE /api/tasks/[id] endpoint (soft delete) tại app/api/tasks/[id]/route.ts
+- [X] T043 [P] [US1] Implement GET /api/tasks endpoint tại app/api/tasks/route.ts với pagination, filters (trangThai, assigneeId, deadline)
+- [X] T044 [P] [US1] Implement POST /api/tasks endpoint tại app/api/tasks/route.ts với Zod validation
+- [X] T045 [P] [US1] Implement GET /api/tasks/[id] endpoint tại app/api/tasks/[id]/route.ts với include assignee
+- [X] T046 [P] [US1] Implement PATCH /api/tasks/[id] endpoint tại app/api/tasks/[id]/route.ts (update trangThai, progress)
+- [X] T047 [P] [US1] Implement DELETE /api/tasks/[id] endpoint (soft delete) tại app/api/tasks/[id]/route.ts
 
 #### React Query Hooks
 
-- [ ] T048 [P] [US1] Create useProjects hook tại lib/hooks/use-projects.ts với useQuery, useMutation (create, update, delete)
-- [ ] T049 [P] [US1] Create useTasks hook tại lib/hooks/use-tasks.ts với useQuery, useMutation
-- [ ] T050 [P] [US1] Create useSocket hook tại lib/hooks/use-socket.ts để listen task updates
+- [X] T048 [P] [US1] Create useProjects hook tại lib/hooks/use-projects.ts với useQuery, useMutation (create, update, delete)
+- [X] T049 [P] [US1] Create useTasks hook tại lib/hooks/use-tasks.ts với useQuery, useMutation
+- [X] T050 [P] [US1] Create useSocket hook tại lib/hooks/use-socket.ts để listen task updates
 
 #### UI Components - Projects
 
-- [ ] T051 [P] [US1] Create project-card component tại components/projects/project-card.tsx
-- [ ] T052 [P] [US1] Create project-list component tại components/projects/project-list.tsx
-- [ ] T053 [US1] Create create-project-modal component tại components/projects/create-project-modal.tsx (depends on T051, T052)
-- [ ] T054 [US1] Create projects page tại app/(dashboard)/projects/page.tsx (depends on T051-T053)
+- [X] T051 [P] [US1] Create project-card component tại components/projects/project-card.tsx
+- [X] T052 [P] [US1] Create project-list component tại components/projects/project-list.tsx
+- [X] T053 [US1] Create create-project-modal component tại components/projects/create-project-modal.tsx (depends on T051, T052)
+- [X] T054 [US1] Create projects page tại app/(dashboard)/projects/page.tsx (depends on T051-T053)
 
 #### UI Components - Kanban Board
 
-- [ ] T055 [P] [US1] Install @dnd-kit/core v6.2+ và @dnd-kit/sortable
-- [ ] T056 [P] [US1] Create kanban-card component tại components/kanban/kanban-card.tsx với draggable
-- [ ] T057 [P] [US1] Create kanban-column component tại components/kanban/kanban-column.tsx với droppable
-- [ ] T058 [US1] Create kanban-board component tại components/kanban/kanban-board.tsx với DndContext (depends on T056, T057)
-- [ ] T059 [US1] Create kanban page tại app/(dashboard)/kanban/page.tsx với useSocket realtime updates (depends on T058)
-- [ ] T060 [US1] Create create-task-modal component tại components/kanban/create-task-modal.tsx (basic version, no AI yet)
-- [ ] T061 [US1] Create task-detail-modal component tại components/kanban/task-detail-modal.tsx
+- [X] T055 [P] [US1] Install @dnd-kit/core v6.2+ và @dnd-kit/sortable
+- [X] T056 [P] [US1] Create kanban-card component tại components/kanban/kanban-card.tsx với draggable
+- [X] T057 [P] [US1] Create kanban-column component tại components/kanban/kanban-column.tsx với droppable
+- [X] T058 [US1] Create kanban-board component tại components/kanban/kanban-board.tsx với DndContext (depends on T056, T057)
+- [X] T059 [US1] Create kanban page tại app/(dashboard)/kanban/page.tsx với useSocket realtime updates (depends on T058)
+- [X] T060 [US1] Create create-task-modal component tại components/kanban/create-task-modal.tsx (basic version, no AI yet)
+- [X] T061 [US1] Create task-detail-modal component tại components/kanban/task-detail-modal.tsx
 
 #### Socket.io Realtime Integration
 
-- [ ] T062 [US1] Implement task status change broadcast trong Socket.io server tại lib/socket/server.ts
-- [ ] T063 [US1] Implement Socket.io listeners trong kanban-board.tsx để update UI khi nhận event
-- [ ] T064 [US1] Add optimistic updates cho drag-drop actions trong kanban-board.tsx
+- [X] T062 [US1] Implement task status change broadcast trong Socket.io server tại lib/socket/server.ts
+- [X] T063 [US1] Implement Socket.io listeners trong kanban-board.tsx để update UI khi nhận event
+- [X] T064 [US1] Add optimistic updates cho drag-drop actions trong kanban-board.tsx
 
 #### Progress Calculation
 
-- [ ] T065 [P] [US1] Create calculateProgress utility tại lib/utils/calculate-progress.ts
-- [ ] T066 [US1] Implement auto-update phanTramHoanThanh cho PhanDuAn khi tasks change status
-- [ ] T067 [US1] Implement auto-update phanTramHoanThanh cho DuAn khi parts change status
+- [X] T065 [P] [US1] Create calculateProgress utility tại lib/utils/calculate-progress.ts
+- [X] T066 [US1] Implement auto-update phanTramHoanThanh cho PhanDuAn khi tasks change status
+- [X] T067 [US1] Implement auto-update phanTramHoanThanh cho DuAn khi parts change status
 
 **Checkpoint**: User Story 1 hoàn toàn functional. Users có thể tạo projects, parts, tasks, và sử dụng kanban board với realtime updates.
 
