@@ -95,6 +95,22 @@
 - **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
 - **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
+### User Experience Requirements *(aligned with Constitution II)*
+
+- **UX-001**: UI components MUST follow design system (colors, typography, spacing, patterns)
+- **UX-002**: All user actions MUST have immediate visual feedback (loading states, success/error messages)
+- **UX-003**: Interface MUST support keyboard navigation and screen readers (WCAG AA)
+- **UX-004**: Design MUST be responsive: mobile (320px+), tablet (768px+), desktop (1024px+)
+- **UX-005**: Terminology and messages MUST be consistent across the feature
+
+### Performance Requirements *(aligned with Constitution III)*
+
+- **PERF-001**: API responses MUST be < 200ms (p95) or < 1s with loading indicator
+- **PERF-002**: First Contentful Paint < 1.5s, Largest Contentful Paint < 2.5s
+- **PERF-003**: Memory usage < 150MB at idle, no memory leaks in 1h+ sessions
+- **PERF-004**: JavaScript bundles < 200KB gzipped for initial load
+- **PERF-005**: Database queries MUST have pagination, no N+1 patterns, < 100ms execution time
+
 ### Key Entities *(include if feature involves data)*
 
 - **[Entity 1]**: [What it represents, key attributes without implementation]

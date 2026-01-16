@@ -31,7 +31,28 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+**I. Code Quality Standards**:
+- [ ] Mã có tên biến/hàm tiếng Việt rõ ràng, mô tả đúng mục đích
+- [ ] Không có hàm nào có cyclomatic complexity > 10
+- [ ] Không có logic trùng lặp (DRY principle)
+- [ ] Tất cả error cases được xử lý rõ ràng
+- [ ] Public APIs có docstring/comment đầy đủ
+
+**II. User Experience Consistency**:
+- [ ] UI components tuân theo design system đã định nghĩa
+- [ ] Terminology và messages nhất quán trong toàn bộ feature
+- [ ] Mọi user actions có feedback trực quan (loading, success, error states)
+- [ ] Accessibility: keyboard navigation + WCAG AA contrast ratio
+- [ ] Responsive design: hoạt động tốt trên mobile/tablet/desktop
+
+**III. Performance Requirements**:
+- [ ] API response time < 200ms (p95), hoặc < 1s với loading indicator
+- [ ] UI metrics: FCP < 1.5s, LCP < 2.5s, TBT < 200ms
+- [ ] Memory usage < 150MB idle, không có memory leaks
+- [ ] JS bundles < 200KB gzipped, lazy loading cho non-critical paths
+- [ ] Không có N+1 queries, có pagination cho danh sách, query time < 100ms
+
+**Complexity Justification**: [Chỉ điền nếu có vi phạm principle cần justify]
 
 ## Project Structure
 
