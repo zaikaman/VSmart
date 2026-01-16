@@ -19,13 +19,13 @@
 
 **Purpose**: Khởi tạo project và cấu trúc cơ bản
 
-- [ ] T001 Create Next.js 16.1.2 project với TypeScript 5.9.3 strict mode tại d:\VSmart
-- [ ] T002 Install dependencies: React 19.2.3, Tailwind 4.1.18, Prisma 7.2.0, Auth.js v5, Socket.io 4.8.3, OpenAI SDK 6.16.0, Zod 4.3.5
-- [ ] T003 [P] Configure ESLint và Prettier theo .eslintrc.json và .prettierrc
-- [ ] T004 [P] Setup Tailwind config tại tailwind.config.ts với theme (màu risk: xanh/vàng/đỏ)
-- [ ] T005 [P] Create .env.example với OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, DATABASE_URL
-- [ ] T006 Setup Supabase PostgreSQL 17+ project và lấy DATABASE_URL
-- [ ] T007 [P] Install shadcn/ui components: button, dialog, dropdown-menu, input, select, badge, skeleton, toast tại components/ui/
+- [X] T001 Create Next.js 16.1.2 project với TypeScript 5.9.3 strict mode tại d:\VSmart
+- [X] T002 Install dependencies: React 19.2.3, Tailwind 4.1.18, Prisma 7.2.0, Auth.js v5, Socket.io 4.8.3, OpenAI SDK 6.16.0, Zod 4.3.5
+- [X] T003 [P] Configure ESLint và Prettier theo .eslintrc.json và .prettierrc
+- [X] T004 [P] Setup Tailwind config tại tailwind.config.ts với theme (màu risk: xanh/vàng/đỏ)
+- [X] T005 [P] Create .env.example với OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, DATABASE_URL
+- [X] T006 Setup Supabase PostgreSQL 17+ project và lấy DATABASE_URL
+- [X] T007 [P] Install shadcn/ui components: button, dialog, dropdown-menu, input, select, badge, skeleton, toast tại components/ui/
 
 ---
 
