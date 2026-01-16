@@ -1,0 +1,924 @@
+openapi: 3.0.3
+info:
+  title: VSmart Task Management API
+  description: API cho hệ thống quản lý công việc thông minh với AI
+  version: 1.0.0
+  contact:
+    name: VSmart Team
+    email: support@vsmart.vn
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://vsmart.vercel.app/api
+    description: Production server
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Projects
+    description: Quản lý dự án
+  - name: Project Parts
+    description: Quản lý phần dự án
+  - name: Tasks
+    description: Quản lý nhiệm vụ
+  - name: AI
+    description: AI-powered features
+  - name: Users
+    description: Quản lý người dùng
+  - name: Notifications
+    description: Thông báo
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Đăng nhập
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, matKhau]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@vsmart.vn
+                matKhau:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  nguoiDung:
+                    $ref: '#/components/schemas/NguoiDung'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /projects:
+    get:
+      tags: [Projects]
+      summary: Lấy danh sách dự án
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: trangThai
+          in: query
+          schema:
+            type: string
+            enum: [todo, in-progress, done]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Danh sách dự án
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DuAn'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+    
+    post:
+      tags: [Projects]
+      summary: Tạo dự án mới
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ten, deadline]
+              properties:
+                ten:
+                  type: string
+                  minLength: 3
+                  maxLength: 300
+                  example: Website Redesign
+                moTa:
+                  type: string
+                  example: Làm mới giao diện website công ty
+                deadline:
+                  type: string
+                  format: date-time
+                  example: 2026-06-30T00:00:00Z
+      responses:
+        '201':
+          description: Dự án đã tạo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuAn'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /projects/{id}:
+    get:
+      tags: [Projects]
+      summary: Lấy chi tiết dự án
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Chi tiết dự án
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuAnChiTiet'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    
+    patch:
+      tags: [Projects]
+      summary: Cập nhật dự án
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ten:
+                  type: string
+                moTa:
+                  type: string
+                deadline:
+                  type: string
+                  format: date-time
+                trangThai:
+                  type: string
+                  enum: [todo, in-progress, done]
+      responses:
+        '200':
+          description: Dự án đã cập nhật
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuAn'
+
+  /project-parts:
+    post:
+      tags: [Project Parts]
+      summary: Tạo phần dự án
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ten, duAnId, phongBanId, deadline]
+              properties:
+                ten:
+                  type: string
+                  example: Frontend Development
+                moTa:
+                  type: string
+                duAnId:
+                  type: string
+                  format: uuid
+                phongBanId:
+                  type: string
+                  format: uuid
+                deadline:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Phần dự án đã tạo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhanDuAn'
+
+  /tasks:
+    get:
+      tags: [Tasks]
+      summary: Lấy danh sách tasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: trangThai
+          in: query
+          schema:
+            type: string
+            enum: [todo, in-progress, done]
+        - name: assigneeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: phanDuAnId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: riskLevel
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Danh sách tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+    
+    post:
+      tags: [Tasks]
+      summary: Tạo task mới (kèm AI suggestions)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ten, phanDuAnId, deadline]
+              properties:
+                ten:
+                  type: string
+                  example: Implement Homepage UI
+                moTa:
+                  type: string
+                  example: Build responsive homepage with React and Tailwind CSS
+                phanDuAnId:
+                  type: string
+                  format: uuid
+                assigneeId:
+                  type: string
+                  format: uuid
+                  description: Optional - nếu không có sẽ dùng AI suggestion
+                deadline:
+                  type: string
+                  format: date-time
+                priority:
+                  type: string
+                  enum: [low, medium, high, urgent]
+                  default: medium
+      responses:
+        '201':
+          description: Task đã tạo (kèm AI suggestions nếu không có assigneeId)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    $ref: '#/components/schemas/Task'
+                  aiSuggestions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AIAssignmentSuggestion'
+                    description: Chỉ trả về nếu không có assigneeId trong request
+
+  /tasks/{id}:
+    get:
+      tags: [Tasks]
+      summary: Lấy chi tiết task
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Chi tiết task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskChiTiet'
+    
+    patch:
+      tags: [Tasks]
+      summary: Cập nhật task (trigger risk re-calculation)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ten:
+                  type: string
+                moTa:
+                  type: string
+                trangThai:
+                  type: string
+                  enum: [todo, in-progress, done]
+                progress:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                assigneeId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Task đã cập nhật
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+    
+    delete:
+      tags: [Tasks]
+      summary: Xóa task (soft delete)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204':
+          description: Task đã xóa
+
+  /ai/suggest-assignee:
+    post:
+      tags: [AI]
+      summary: Gợi ý người phù hợp cho task
+      description: Dùng embeddings matching + completion rate để gợi ý top 3
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [moTaTask, phongBanId]
+              properties:
+                moTaTask:
+                  type: string
+                  example: Optimize database queries using PostgreSQL and Redis caching
+                phongBanId:
+                  type: string
+                  format: uuid
+                taskId:
+                  type: string
+                  format: uuid
+                  description: Optional - để lưu suggestions vào DB
+      responses:
+        '200':
+          description: Top 3 gợi ý
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    maxItems: 3
+                    items:
+                      $ref: '#/components/schemas/AIAssignmentSuggestion'
+
+  /ai/predict-risk:
+    post:
+      tags: [AI]
+      summary: Dự báo rủi ro trễ hạn cho task
+      description: Dùng GPT-4o-mini phân tích context và trả về risk score
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [taskId]
+              properties:
+                taskId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Dự báo rủi ro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskPrediction'
+
+  /ai/chat:
+    post:
+      tags: [AI]
+      summary: Chat với AI assistant (streaming response)
+      description: Streaming SSE response với RAG context
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  example: Task 'API Integration' có nguy cơ trễ không?
+                conversationId:
+                  type: string
+                  format: uuid
+                  description: Optional - để maintain context
+      responses:
+        '200':
+          description: Streaming response
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"text": "Task"}
+                  data: {"text": " 'API"}
+                  data: {"text": " Integration'"}
+                  data: {"text": " có"}
+                  data: {"text": " 85%"}
+                  data: {"text": " nguy"}
+                  data: {"text": " cơ"}
+                  data: {"done": true}
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Lấy thông tin user hiện tại
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thông tin user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NguoiDung'
+
+  /users/me/skills:
+    get:
+      tags: [Users]
+      summary: Lấy skills của user hiện tại
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Danh sách skills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KyNang'
+    
+    post:
+      tags: [Users]
+      summary: Thêm skill mới (trigger re-vectorize)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenKyNang, trinhDo]
+              properties:
+                tenKyNang:
+                  type: string
+                  example: React
+                trinhDo:
+                  type: string
+                  enum: [beginner, intermediate, advanced, expert]
+                namKinhNghiem:
+                  type: integer
+                  example: 3
+      responses:
+        '201':
+          description: Skill đã thêm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KyNang'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Lấy thông báo của user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: daDoc
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Danh sách thông báo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ThongBao'
+    
+  /notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Đánh dấu đã đọc
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Đã đánh dấu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThongBao'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    NguoiDung:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ten:
+          type: string
+        email:
+          type: string
+          format: email
+        vaiTro:
+          type: string
+          enum: [admin, manager, member]
+        phongBanId:
+          type: string
+          format: uuid
+        avatarUrl:
+          type: string
+        tyLeHoanThanh:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        ngayTao:
+          type: string
+          format: date-time
+
+    KyNang:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenKyNang:
+          type: string
+        trinhDo:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+        namKinhNghiem:
+          type: integer
+
+    DuAn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ten:
+          type: string
+        moTa:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+        trangThai:
+          type: string
+          enum: [todo, in-progress, done]
+        nguoiTaoId:
+          type: string
+          format: uuid
+        phanTramHoanThanh:
+          type: number
+          format: float
+        ngayTao:
+          type: string
+          format: date-time
+
+    DuAnChiTiet:
+      allOf:
+        - $ref: '#/components/schemas/DuAn'
+        - type: object
+          properties:
+            phanDuAn:
+              type: array
+              items:
+                $ref: '#/components/schemas/PhanDuAn'
+            nguoiTao:
+              $ref: '#/components/schemas/NguoiDung'
+
+    PhanDuAn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ten:
+          type: string
+        moTa:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+        duAnId:
+          type: string
+          format: uuid
+        phongBanId:
+          type: string
+          format: uuid
+        trangThai:
+          type: string
+          enum: [todo, in-progress, done]
+        phanTramHoanThanh:
+          type: number
+          format: float
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ten:
+          type: string
+        moTa:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+        phanDuAnId:
+          type: string
+          format: uuid
+        assigneeId:
+          type: string
+          format: uuid
+        trangThai:
+          type: string
+          enum: [todo, in-progress, done]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        riskLevel:
+          type: string
+          enum: [low, medium, high]
+        isStale:
+          type: boolean
+        ngayTao:
+          type: string
+          format: date-time
+        capNhatCuoi:
+          type: string
+          format: date-time
+
+    TaskChiTiet:
+      allOf:
+        - $ref: '#/components/schemas/Task'
+        - type: object
+          properties:
+            assignee:
+              $ref: '#/components/schemas/NguoiDung'
+            phanDuAn:
+              $ref: '#/components/schemas/PhanDuAn'
+            lichSu:
+              type: array
+              items:
+                $ref: '#/components/schemas/LichSuTask'
+
+    LichSuTask:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        hanhDong:
+          type: string
+          enum: [created, assigned, status_changed, progress_updated, completed, deleted]
+        nguoiThucHienId:
+          type: string
+          format: uuid
+        giaTriCu:
+          type: object
+        giaTriMoi:
+          type: object
+        thoiGian:
+          type: string
+          format: date-time
+
+    AIAssignmentSuggestion:
+      type: object
+      properties:
+        nguoiDungId:
+          type: string
+          format: uuid
+        ten:
+          type: string
+        avatarUrl:
+          type: string
+        diemPhuHop:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 85.5
+        lyDo:
+          type: object
+          properties:
+            skillsMatch:
+              type: integer
+              example: 85
+            completionRate:
+              type: integer
+              example: 95
+            availability:
+              type: string
+              enum: [Available, Busy, Overloaded]
+
+    RiskPrediction:
+      type: object
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        riskLevel:
+          type: string
+          enum: [low, medium, high]
+        reasoning:
+          type: string
+          example: Task đã in-progress 10 ngày với 0% progress. Deadline còn 5 ngày. Assignee có 6 tasks active khác.
+        recommendations:
+          type: array
+          items:
+            type: string
+          example:
+            - Reassign task cho người khác có bandwidth
+            - Chia nhỏ task thành subtasks đơn giản hơn
+            - Extend deadline nếu có thể
+
+    ThongBao:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        loai:
+          type: string
+          enum: [risk_alert, stale_task, assignment, overload]
+        noiDung:
+          type: string
+        taskLienQuanId:
+          type: string
+          format: uuid
+        daDoc:
+          type: boolean
+        thoiGian:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: BAD_REQUEST
+            message: Validation failed
+            details:
+              ten: Tên phải có ít nhất 3 ký tự
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: UNAUTHORIZED
+            message: Invalid credentials
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: NOT_FOUND
+            message: Task not found
