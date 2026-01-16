@@ -7,7 +7,7 @@ Hệ thống quản lý công việc với AI, giúp tự động gợi ý phân
 - **Framework**: Next.js 16.1.2 với App Router
 - **Language**: TypeScript 5.9.3 (strict mode)
 - **UI**: React 19.2.3, Tailwind CSS 4.1.18, shadcn/ui
-- **Database**: PostgreSQL 17+ (Supabase) với Prisma 7.2.0
+- **Database**: PostgreSQL (Supabase) với Supabase Client
 - **Authentication**: Auth.js v5
 - **Realtime**: Socket.io 4.8.3
 - **AI**: OpenAI SDK 6.16.0 (GPT-4o-mini)
@@ -19,7 +19,7 @@ Hệ thống quản lý công việc với AI, giúp tự động gợi ý phân
 ### Prerequisites
 
 1. Node.js 18+ và npm
-2. PostgreSQL database (khuyến nghị Supabase)
+2. Supabase account
 3. OpenAI API key
 
 ### Setup
@@ -40,16 +40,15 @@ npm install
 cp .env.example .env
 ```
 
-4. Cập nhật các environment variables trong `.env`:
-   - `DATABASE_URL`: PostgreSQL connection string từ Supabase
+4. Setup Supabase:
+   - Tạo project trên https://supabase.com
+   - Copy Project URL và API keys vào `.env`
+   - Chạy migration files trong `supabase/migrations/` trên SQL Editor
+
+5. Cập nhật các environment variables trong `.env`:
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
    - `OPENAI_API_KEY`: API key từ OpenAI
    - `AUTH_SECRET`: Generate bằng `openssl rand -base64 32`
-
-5. Setup database với Prisma:
-```bash
-npx prisma migrate dev
-npx prisma db seed
-```
 
 6. Chạy development server:
 ```bash
@@ -57,6 +56,8 @@ npm run dev
 ```
 
 Mở [http://localhost:3000](http://localhost:3000) để xem ứng dụng.
+
+**Xem chi tiết**: [SETUP.md](SETUP.md)
 
 ## Scripts
 
@@ -76,9 +77,9 @@ VSmart/
 │   ├── components/       # React components
 │   │   └── ui/          # shadcn/ui components
 │   └── lib/             # Utilities, hooks, configs
-├── prisma/
-│   ├── schema.prisma    # Database schema
-│   └── migrations/      # Database migrations
+│       └── supabase/    # Supabase client & types
+├── supabase/
+│   └── migrations/      # SQL migration files
 ├── specs/               # Design documents
 │   └── 1-smart-task-management/
 │       ├── spec.md      # Feature specification
