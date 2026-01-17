@@ -2,15 +2,17 @@
 
 import { createSupabaseServerClient } from './server';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 
 // Đăng nhập với Google OAuth
 export async function signInWithGoogle() {
     const supabase = await createSupabaseServerClient();
+    const origin = (await headers()).get('origin');
 
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-            redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+            redirectTo: `${origin}/auth/callback`,
         },
     });
 
