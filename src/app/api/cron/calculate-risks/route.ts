@@ -13,20 +13,9 @@ import { isTaskStale, createStaleTaskMessage, createRiskAlertMessage } from '@/l
 // Cấu hình trên cron-job.org:
 // URL: https://yourdomain.com/api/cron/calculate-risks
 // Schedule: 0 0,6,12,18 * * * (mỗi 6 giờ: 0h, 6h, 12h, 18h)
-// Header: x-cron-secret: your-secret-value
 
 export async function GET(request: NextRequest) {
   try {
-    // Xác thực cron secret
-    const cronSecret = request.headers.get('x-cron-secret');
-    
-    if (cronSecret !== process.env.CRON_SECRET) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid cron secret' },
-        { status: 401 }
-      );
-    }
-    
     // Sử dụng service role client để bypass RLS
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

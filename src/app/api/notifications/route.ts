@@ -114,22 +114,6 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
     
-    // Kiểm tra cron secret hoặc auth
-    const cronSecret = request.headers.get('x-cron-secret');
-    const isValidCron = cronSecret === process.env.CRON_SECRET;
-    
-    if (!isValidCron) {
-      // Kiểm tra auth nếu không phải cron
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
-    }
-    
     // Parse và validate body
     const body = await request.json();
     const parsed = createNotificationSchema.safeParse(body);
