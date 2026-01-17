@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { sendProjectInvitationEmail } from '@/lib/email/project-invitation';
 
 export interface ProjectMember {
   id: string;
@@ -202,7 +203,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Gửi email thông báo cho người được mời
+    // Lấy thông tin dự án và người mời
+    const { data: projectInfo } = await supabase
+      .from('du_an')
+      .select('ten')
+      .eq('id', du_an_id)
+      .single();
+
+    const { data: inviterInfo } = await supabase
+      .from('nguoi_dung')
+      .select('ten, email')
+      .eq('id', inviterData.id)
+      .single();
+
+    // Tạo thông báo trong app nếu user đã tồn tại
+    if (invitedUser?.id) {
+      await supabase
+        .from('thong_bao')
+        .insert({
+          nguoi_dung_id: invitedUser.id,
+          loai: 'project_invitation',
+          noi_dung: `${inviterInfo?.ten || 'Ai đó'} đã mời bạn tham gia dự án "${projectInfo?.ten || 'một dự án'}"`,
+          du_an_lien_quan_id: du_an_id,
+          thanh_vien_du_an_id: member.id,
+        });
+    }
+
+    // Gửi email thông báo
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const acceptUrl = `${baseUrl}/dashboard?tab=invitations`;
+      
+      await sendProjectInvitationEmail({
+        to: email,
+        projectName: projectInfo?.ten || 'Dự án',
+        inviterName: inviterInfo?.ten || 'Người dùng',
+        inviterEmail: inviterInfo?.email || '',
+        role: vai_tro,
+        acceptUrl,
+      });
+      
+      console.log(`Invitation email sent to ${email}`);
+    } catch (emailError) {
+      console.error('Error sending invitation email:', emailError);
+      // Không throw error vì lời mời đã được tạo thành công
+    }
 
     return NextResponse.json(member, { status: 201 });
   } catch (error) {

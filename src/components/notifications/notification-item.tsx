@@ -8,7 +8,8 @@ import {
   UserPlus, 
   Clock, 
   Check,
-  ExternalLink
+  ExternalLink,
+  Mail
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -16,9 +17,11 @@ import { cn } from '@/lib/utils';
 export interface Notification {
   id: string;
   nguoi_dung_id: string;
-  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload';
+  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload' | 'project_invitation';
   noi_dung: string;
   task_lien_quan_id?: string | null;
+  du_an_lien_quan_id?: string | null;
+  thanh_vien_du_an_id?: string | null;
   da_doc: boolean;
   thoi_gian: string;
   task?: {
@@ -60,6 +63,12 @@ const notificationConfig = {
     iconColor: 'text-orange-500',
     bgColor: 'bg-orange-50',
     borderColor: 'border-l-orange-500',
+  },
+  project_invitation: {
+    icon: Mail,
+    iconColor: 'text-purple-500',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-l-purple-500',
   },
 };
 
@@ -117,6 +126,17 @@ export function NotificationItem({ notification, onMarkAsRead, onClose }: Notifi
                   className="text-xs text-[#b9ff66] hover:underline flex items-center gap-1"
                 >
                   Xem task
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              )}
+
+              {notification.loai === 'project_invitation' && (
+                <Link
+                  href="/dashboard?tab=invitations"
+                  onClick={handleViewTask}
+                  className="text-xs text-purple-600 hover:underline flex items-center gap-1"
+                >
+                  Xem lời mời
                   <ExternalLink className="w-3 h-3" />
                 </Link>
               )}

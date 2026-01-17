@@ -145,14 +145,18 @@ CREATE TABLE public.thanh_vien_du_an (
 CREATE TABLE public.thong_bao (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   nguoi_dung_id uuid NOT NULL,
-  loai character varying NOT NULL CHECK (loai::text = ANY (ARRAY['risk_alert'::character varying, 'stale_task'::character varying, 'assignment'::character varying, 'overload'::character varying]::text[])),
+  loai character varying NOT NULL CHECK (loai::text = ANY (ARRAY['risk_alert'::character varying::text, 'stale_task'::character varying::text, 'assignment'::character varying::text, 'overload'::character varying::text, 'project_invitation'::character varying::text])),
   noi_dung text NOT NULL,
   task_lien_quan_id uuid,
   da_doc boolean DEFAULT false,
   thoi_gian timestamp with time zone DEFAULT now(),
+  du_an_lien_quan_id uuid,
+  thanh_vien_du_an_id uuid,
   CONSTRAINT thong_bao_pkey PRIMARY KEY (id),
   CONSTRAINT thong_bao_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id),
-  CONSTRAINT thong_bao_task_lien_quan_id_fkey FOREIGN KEY (task_lien_quan_id) REFERENCES public.task(id)
+  CONSTRAINT thong_bao_task_lien_quan_id_fkey FOREIGN KEY (task_lien_quan_id) REFERENCES public.task(id),
+  CONSTRAINT thong_bao_du_an_lien_quan_id_fkey FOREIGN KEY (du_an_lien_quan_id) REFERENCES public.du_an(id),
+  CONSTRAINT thong_bao_thanh_vien_du_an_id_fkey FOREIGN KEY (thanh_vien_du_an_id) REFERENCES public.thanh_vien_du_an(id)
 );
 CREATE TABLE public.to_chuc (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

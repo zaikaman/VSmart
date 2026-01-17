@@ -1,20 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LayoutDashboard, TrendingUp, Users, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProjectCard } from '@/components/projects/project-card';
 import { CreateProjectModal } from '@/components/projects/create-project-modal';
+import ProjectInvitations from '@/components/projects/project-invitations';
 import { useProjects, Project } from '@/lib/hooks/use-projects';
 import { useStats } from '@/lib/hooks/use-stats';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'next/navigation';
 
 export default function DashboardPage() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: stats, isLoading: statsLoading } = useStats();
+  const searchParams = useSearchParams();
+  const showInvitations = searchParams.get('tab') === 'invitations';
 
   const isLoading = projectsLoading || statsLoading;
 
@@ -116,6 +120,11 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Project Invitations - Hiển thị khi có query param hoặc luôn hiển thị */}
+      <div className="mb-8">
+        <ProjectInvitations />
       </div>
 
       {/* Recent Projects */}

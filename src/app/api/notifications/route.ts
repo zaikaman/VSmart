@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 const createNotificationSchema = z.object({
   nguoi_dung_id: z.string().uuid(),
-  loai: z.enum(['risk_alert', 'stale_task', 'assignment', 'overload']),
+  loai: z.enum(['risk_alert', 'stale_task', 'assignment', 'overload', 'project_invitation']),
   noi_dung: z.string().min(1).max(500),
   task_lien_quan_id: z.string().uuid().optional().nullable(),
 });
