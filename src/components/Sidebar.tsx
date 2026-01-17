@@ -42,10 +42,18 @@ export function Sidebar({ className }: { className?: string }) {
     useEffect(() => {
         async function fetchUser() {
             try {
-                const res = await fetch("/api/auth/me")
+                const res = await fetch("/api/users/me")
                 if (res.ok) {
                     const data = await res.json()
-                    setUser(data.user)
+                    setUser({
+                        id: data.id,
+                        username: data.email?.split('@')[0] || 'User',
+                        email: data.email,
+                        displayName: data.ten,
+                        extendedData: {
+                            avatarUrl: data.avatar_url
+                        }
+                    })
                 }
             } catch {
                 // Silently fail
