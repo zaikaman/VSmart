@@ -40,6 +40,46 @@ export async function GET(request: Request) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error) {
+            // Lấy thông tin user sau khi đăng nhập
+            const { data: { user } } = await supabase.auth.getUser();
+            
+            if (user) {
+                // Kiểm tra xem user đã tồn tại trong bảng nguoi_dung chưa
+                const { data: existingUser } = await supabase
+                    .from('nguoi_dung')
+                    .select('id, avatar_url')
+                    .eq('email', user.email)
+                    .single();
+
+                // Nếu user mới hoặc chưa có avatar, lấy từ Google
+                if (!existingUser || !existingUser.avatar_url) {
+                    const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+                    
+                    if (googleAvatarUrl) {
+                        if (existingUser) {
+                            // Cập nhật avatar cho user đã tồn tại
+                            await supabase
+                                .from('nguoi_dung')
+                                .update({ avatar_url: googleAvatarUrl })
+                                .eq('id', existingUser.id);
+                        } else {
+                            // Tạo user mới với avatar từ Google
+                            const userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+                            
+                            await supabase
+                                .from('nguoi_dung')
+                                .insert({
+                                    email: user.email!,
+                                    ten: userName,
+                                    avatar_url: googleAvatarUrl,
+                                    mat_khau_hash: '', // OAuth users không cần password
+                                    onboarding_completed: false
+                                });
+                        }
+                    }
+                }
+            }
+
             const forwardedHost = request.headers.get('x-forwarded-host');
             const isLocalEnv = process.env.NODE_ENV === 'development';
 

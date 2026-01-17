@@ -30,7 +30,6 @@ export interface CreateProjectInput {
   ten: string;
   mo_ta?: string;
   deadline: string;
-  nguoi_tao_id: string;
 }
 
 export interface UpdateProjectInput {

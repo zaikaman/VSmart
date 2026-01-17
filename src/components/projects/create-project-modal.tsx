@@ -39,9 +39,6 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
                 ten: data.ten,
                 mo_ta: data.mo_ta,
                 deadline: new Date(data.deadline).toISOString(),
-                // TODO: Lấy user ID thực từ auth context khi có SessionProvider
-                // Hiện tại sẽ dùng mock user ID từ seed data
-                nguoi_tao_id: '00000000-0000-0000-0000-000000000001',
             };
 
             await createProjectMutation.mutateAsync(projectInput);

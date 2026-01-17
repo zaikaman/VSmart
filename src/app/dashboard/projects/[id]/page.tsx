@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, CheckCircle, AlertCircle, Loader2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useProject } from '@/lib/hooks/use-projects';
 import { useProjectParts, ProjectPart } from '@/lib/hooks/use-project-parts';
 import { CreatePartModal } from '@/components/projects/create-part-modal';
+import { ProjectMembersManager } from '@/components/projects/project-members-manager';
 
 export default function ProjectDetailPage() {
     const params = useParams();
@@ -188,6 +189,21 @@ export default function ProjectDetailPage() {
                         ))}
                     </div>
                 )}
+            </div>
+
+            {/* Project Members Section */}
+            <div className="mt-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center">
+                            <Users className="mr-2 h-5 w-5" />
+                            Quản lý thành viên
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ProjectMembersManager projectId={projectId} />
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Create Part Modal */}
