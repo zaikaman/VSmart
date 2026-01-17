@@ -54,6 +54,8 @@ export function useProjects(params?: { page?: number; limit?: number; trangThai?
       if (!response.ok) throw new Error('Failed to fetch projects');
       return response.json();
     },
+    staleTime: 3 * 60 * 1000, // 3 phút - projects ít thay đổi
+    gcTime: 10 * 60 * 1000, // 10 phút
   });
 }
 
@@ -67,6 +69,8 @@ export function useProject(id: string) {
       return response.json() as Promise<Project>;
     },
     enabled: !!id,
+    staleTime: 2 * 60 * 1000, // 2 phút - project detail cache
+    gcTime: 5 * 60 * 1000, // 5 phút
   });
 }
 

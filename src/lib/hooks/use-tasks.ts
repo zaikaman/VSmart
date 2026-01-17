@@ -74,6 +74,9 @@ export function useTasks(params?: TasksParams) {
       // API returns { data, pagination }, extract the array
       return result.data || [];
     },
+    staleTime: 1 * 60 * 1000, // 1 phút - tasks thay đổi thường xuyên
+    gcTime: 5 * 60 * 1000, // 5 phút
+    refetchInterval: 2 * 60 * 1000, // Auto refetch mỗi 2 phút cho realtime updates
   });
 }
 
@@ -87,6 +90,8 @@ export function useTask(id: string) {
       return response.json() as Promise<Task>;
     },
     enabled: !!id,
+    staleTime: 30 * 1000, // 30 giây - task detail cần fresh hơn
+    gcTime: 3 * 60 * 1000, // 3 phút
   });
 }
 

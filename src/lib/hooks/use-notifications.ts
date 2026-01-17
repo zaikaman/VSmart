@@ -81,8 +81,10 @@ export function useNotifications(options?: { unreadOnly?: boolean }) {
   } = useQuery({
     queryKey: ['notifications', page, options?.unreadOnly],
     queryFn: () => fetchNotifications(page, options?.unreadOnly),
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000, // 30 giây - notifications cần fresh
+    gcTime: 2 * 60 * 1000, // 2 phút cache
     refetchInterval: 60 * 1000, // Refetch mỗi phút
+    refetchOnWindowFocus: true, // Refetch khi user quay lại tab
   });
   
   // Mutation: mark as read
