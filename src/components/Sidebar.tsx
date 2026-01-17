@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { LogoutButton } from "@/components/LogoutButton"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 const navItems = [
     { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
@@ -62,11 +63,14 @@ export function Sidebar({ className }: { className?: string }) {
         >
             {/* Top Section */}
             <div className="flex flex-col p-4 space-y-6">
-                {/* Logo */}
-                <Link href="/" className="flex items-center px-2 hover:opacity-80 transition-opacity">
-                    <Command className="h-8 w-8 mr-3 text-[#b9ff66]" />
-                    <span className="text-xl font-bold text-white tracking-tight">VSmart</span>
-                </Link>
+                {/* Logo và Notification */}
+                <div className="flex items-center justify-between px-2">
+                    <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+                        <Command className="h-8 w-8 mr-3 text-[#b9ff66]" />
+                        <span className="text-xl font-bold text-white tracking-tight">VSmart</span>
+                    </Link>
+                    <NotificationBell />
+                </div>
 
                 {/* Nav Items */}
                 <nav className="flex flex-col space-y-1">

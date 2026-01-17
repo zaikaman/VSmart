@@ -15,6 +15,9 @@ export interface Task {
   progress: number;
   phan_du_an_id?: string;
   assignee_id?: string | null;
+  risk_score?: number;
+  risk_level?: 'low' | 'medium' | 'high';
+  is_stale?: boolean;
   nguoi_dung?: {
     id: string;
     ten: string;

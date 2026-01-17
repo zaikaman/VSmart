@@ -184,37 +184,37 @@
 
 #### OpenAI GPT-5-Nano Risk Analysis
 
-- [ ] T079 [P] [US3] Create risk analysis prompts tại lib/openai/prompts/system-prompts.ts
-- [ ] T080 [P] [US3] Implement duBaoRuiRo function tại lib/openai/risk-prediction.ts với GPT-5-Nano
-- [ ] T081 [US3] Implement POST /api/ai/predict-risk endpoint tại app/api/ai/predict-risk/route.ts (depends on T080)
+- [X] T079 [P] [US3] Create risk analysis prompts tại lib/openai/prompts/system-prompts.ts
+- [X] T080 [P] [US3] Implement duBaoRuiRo function tại lib/openai/risk-prediction.ts với GPT-5-Nano
+- [X] T081 [US3] Implement POST /api/ai/predict-risk endpoint tại app/api/ai/predict-risk/route.ts (depends on T080)
 
 #### Background Risk Calculation
 
-- [ ] T082 [P] [US3] Create risk-utils.ts tại lib/utils/risk-utils.ts với calculateRiskLevel function (0-40: low, 40-70: medium, >70: high)
-- [ ] T083 [P] [US3] Implement cron job (hoặc Vercel Cron) để re-calculate risk cho all in-progress tasks mỗi 6h
-- [ ] T084 [US3] Update Task.riskScore trong database khi risk analysis complete
+- [X] T082 [P] [US3] Create risk-utils.ts tại lib/utils/risk-utils.ts với calculateRiskLevel function (0-40: low, 40-70: medium, >70: high)
+- [X] T083 [P] [US3] Implement cron job endpoint cho cron-job.org tại app/api/cron/calculate-risks/route.ts
+- [X] T084 [US3] Update Task.riskScore trong database khi risk analysis complete
 
 #### UI Components
 
-- [ ] T085 [P] [US3] Create risk-badge component tại components/kanban/risk-badge.tsx với màu sắc (xanh/vàng/đỏ)
-- [ ] T086 [US3] Add risk-badge vào kanban-card.tsx để hiển thị risk level
-- [ ] T087 [US3] Add risk filtering trong kanban page (filter by risk level)
+- [X] T085 [P] [US3] Create risk-badge component tại components/kanban/risk-badge.tsx với màu sắc (xanh/vàng/đỏ)
+- [X] T086 [US3] Add risk-badge vào kanban-card.tsx để hiển thị risk level
+- [X] T087 [US3] Add risk filtering trong kanban page (filter by risk level)
 
 #### Notifications
 
-- [ ] T088 [P] [US3] Verify ThongBao model có fields: userId, type (risk_alert/stale_task/assignment), message, relatedTaskId, read
-- [ ] T089 [P] [US3] Implement POST /api/notifications endpoint để tạo notification khi risk >70%
-- [ ] T090 [P] [US3] Implement GET /api/notifications endpoint tại app/api/notifications/route.ts
-- [ ] T091 [P] [US3] Implement PATCH /api/notifications/[id]/read endpoint tại app/api/notifications/[id]/read/route.ts
-- [ ] T092 [P] [US3] Create notification-bell component tại components/notifications/notification-bell.tsx
-- [ ] T093 [P] [US3] Create notification-item component tại components/notifications/notification-item.tsx
-- [ ] T094 [US3] Create useNotifications hook tại lib/hooks/use-notifications.ts
-- [ ] T095 [US3] Add notification-bell vào dashboard-header.tsx
+- [X] T088 [P] [US3] Verify ThongBao model có fields: userId, type (risk_alert/stale_task/assignment), message, relatedTaskId, read
+- [X] T089 [P] [US3] Implement POST /api/notifications endpoint để tạo notification khi risk >70%
+- [X] T090 [P] [US3] Implement GET /api/notifications endpoint tại app/api/notifications/route.ts
+- [X] T091 [P] [US3] Implement PATCH /api/notifications/[id]/read endpoint tại app/api/notifications/[id]/read/route.ts
+- [X] T092 [P] [US3] Create notification-bell component tại components/notifications/notification-bell.tsx
+- [X] T093 [P] [US3] Create notification-item component tại components/notifications/notification-item.tsx
+- [X] T094 [US3] Create useNotifications hook tại lib/hooks/use-notifications.ts
+- [X] T095 [US3] Add notification-bell vào Sidebar.tsx
 
 #### Stale Task Detection
 
-- [ ] T096 [P] [US3] Implement stale task detection (in-progress >7 ngày không update) trong cron job
-- [ ] T097 [US3] Send notification khi task bị stale cho assignee và manager
+- [X] T096 [P] [US3] Implement stale task detection (in-progress >7 ngày không update) trong cron job
+- [X] T097 [US3] Send notification khi task bị stale cho assignee và manager
 
 **Checkpoint**: Risk prediction hoạt động realtime hoặc background. Tasks có risk badges, users nhận notifications cho high-risk và stale tasks.
 

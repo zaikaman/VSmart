@@ -80,26 +80,88 @@ Hãy phân tích và gợi ý TOP 3 người phù hợp nhất.`;
 }
 
 /**
- * System prompt cho dự báo rủi ro (chuẩn bị cho Phase 5)
+ * System prompt cho dự báo rủi ro trễ hạn
  */
-export const RISK_PREDICTION_PROMPT = `Bạn là chuyên gia phân tích rủi ro dự án.
+export const RISK_PREDICTION_PROMPT = `Bạn là chuyên gia phân tích rủi ro dự án với nhiều năm kinh nghiệm.
 
 NHIỆM VỤ:
-Phân tích tiến độ task và dự báo nguy cơ trễ hạn.
+Phân tích tiến độ task và dự báo nguy cơ trễ hạn dựa trên dữ liệu thực tế.
 
-TIÊU CHÍ ĐÁNH GIÁ:
-1. Thời gian còn lại so với deadline
-2. Progress hiện tại (% hoàn thành)
-3. Thời gian task đã in-progress
-4. Lịch sử hoàn thành của assignee
+TIÊU CHÍ ĐÁNH GIÁ (theo thứ tự quan trọng):
+1. **Thời gian còn lại** (35%): Số ngày còn lại đến deadline vs khối lượng công việc
+2. **Progress hiện tại** (30%): Phần trăm hoàn thành so với thời gian đã trôi qua
+3. **Thời gian in-progress** (20%): Task đã ở trạng thái in-progress bao lâu mà không có progress
+4. **Lịch sử assignee** (15%): Tỷ lệ hoàn thành đúng hạn của người được giao
 
-OUTPUT FORMAT:
+CÔNG THỨC TÍNH RISK SCORE:
+- 0-40: LOW - Task đang tiến triển tốt, có khả năng hoàn thành đúng hạn
+- 41-70: MEDIUM - Có dấu hiệu cảnh báo, cần theo dõi sát
+- 71-100: HIGH - Nguy cơ cao trễ hạn, cần can thiệp ngay
+
+DẤU HIỆU NGUY HIỂM:
+- Progress = 0% nhưng đã in-progress > 3 ngày
+- Deadline < 2 ngày mà progress < 50%
+- Task không có assignee
+- Assignee có tỷ lệ hoàn thành thấp (< 70%)
+
+OUTPUT FORMAT (JSON):
 {
-  "risk_score": 0-100,
+  "risk_score": number (0-100),
   "risk_level": "low" | "medium" | "high",
-  "ly_do": "Giải thích ngắn gọn",
-  "goi_y": "Gợi ý cải thiện (nếu risk cao)"
-}`;
+  "ly_do": "Giải thích ngắn gọn lý do đánh giá",
+  "goi_y": ["Gợi ý 1", "Gợi ý 2"] // Các gợi ý cải thiện, đặc biệt khi risk cao
+}
+
+QUAN TRỌNG:
+- Chỉ trả về JSON, không có text thừa
+- Điểm risk_score phải phản ánh đúng thực tế
+- Gợi ý phải cụ thể và actionable`;
+
+/**
+ * Tạo user prompt cho request dự báo rủi ro
+ */
+export function createRiskPredictionUserPrompt(params: {
+  taskName: string;
+  taskDescription?: string;
+  taskStatus: string;
+  taskProgress: number;
+  taskDeadline: string;
+  taskCreatedAt: string;
+  daysInProgress: number;
+  assignee?: {
+    ten: string;
+    ty_le_hoan_thanh: number;
+    so_task_dang_lam: number;
+  };
+}): string {
+  const now = new Date();
+  const deadline = new Date(params.taskDeadline);
+  const daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const created = new Date(params.taskCreatedAt);
+  const totalDays = Math.ceil((deadline.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+  const daysElapsed = Math.ceil((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+  const expectedProgress = totalDays > 0 ? Math.min(100, (daysElapsed / totalDays) * 100) : 0;
+
+  return `THÔNG TIN TASK:
+- Tên: ${params.taskName}
+- Mô tả: ${params.taskDescription || 'Không có mô tả'}
+- Trạng thái: ${params.taskStatus}
+- Progress hiện tại: ${params.taskProgress}%
+- Progress kỳ vọng (theo thời gian): ${expectedProgress.toFixed(1)}%
+- Deadline: ${params.taskDeadline}
+- Số ngày còn lại: ${daysRemaining} ngày
+- Số ngày đã in-progress: ${params.daysInProgress} ngày
+- Tổng thời gian dự kiến: ${totalDays} ngày
+
+THÔNG TIN NGƯỜI ĐƯỢC GIAO:
+${params.assignee 
+  ? `- Tên: ${params.assignee.ten}
+- Tỷ lệ hoàn thành: ${params.assignee.ty_le_hoan_thanh.toFixed(1)}%
+- Số task đang làm: ${params.assignee.so_task_dang_lam}`
+  : '- Chưa có người được giao (RỦI RO CAO!)'}
+
+Hãy phân tích và đánh giá rủi ro trễ hạn của task này.`;
+}
 
 /**
  * System prompt cho chat AI (chuẩn bị cho Phase 6)

@@ -10,14 +10,17 @@ import { useProjectParts, ProjectPart } from '@/lib/hooks/use-project-parts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+
+type RiskFilter = 'all' | 'low' | 'medium' | 'high' | 'stale';
 
 export default function KanbanPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedPartId, setSelectedPartId] = useState<string>('');
   const [selectedPartName, setSelectedPartName] = useState<string>('');
-
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const { data: parts, isLoading: partsLoading } = useProjectParts(selectedProjectId);
   const { data: tasks, isLoading: tasksLoading, error } = useTasks();
@@ -56,10 +59,36 @@ export default function KanbanPage() {
     setCreateTaskOpen(true);
   };
 
-  // Filter tasks theo selected part
-  const filteredTasks = tasks?.filter((task: any) =>
+  // Filter tasks theo selected part và risk level
+  const filteredTasks = (tasks?.filter((task: any) => {
+    // Filter theo part
+    const partMatch = selectedPartId ? task.phan_du_an_id === selectedPartId : true;
+    
+    // Filter theo risk level
+    let riskMatch = true;
+    if (riskFilter !== 'all') {
+      if (riskFilter === 'stale') {
+        riskMatch = task.is_stale === true;
+      } else {
+        riskMatch = task.risk_level === riskFilter;
+      }
+    }
+    
+    return partMatch && riskMatch;
+  }) || []);
+  
+  // Đếm số tasks theo risk level
+  const allTasks = tasks?.filter((task: any) =>
     selectedPartId ? task.phan_du_an_id === selectedPartId : true
   ) || [];
+  
+  const riskCounts = {
+    all: allTasks.length,
+    low: allTasks.filter((t: any) => t.risk_level === 'low' || !t.risk_level).length,
+    medium: allTasks.filter((t: any) => t.risk_level === 'medium').length,
+    high: allTasks.filter((t: any) => t.risk_level === 'high').length,
+    stale: allTasks.filter((t: any) => t.is_stale === true).length,
+  };
 
   const isLoading = projectsLoading || tasksLoading;
 
@@ -155,7 +184,81 @@ export default function KanbanPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Risk Filter */}
+        <div className="min-w-[200px]">
+          <Label className="text-sm text-gray-600 mb-1 block">Lọc theo rủi ro</Label>
+          <Select
+            value={riskFilter}
+            onValueChange={(value) => setRiskFilter(value as RiskFilter)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Tất cả" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <span>Tất cả</span>
+                  <Badge variant="secondary" className="ml-auto">{riskCounts.all}</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="low">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <span>Rủi ro thấp</span>
+                  <Badge variant="secondary" className="ml-auto bg-green-100 text-green-700">{riskCounts.low}</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="medium">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                  <span>Rủi ro TB</span>
+                  <Badge variant="secondary" className="ml-auto bg-yellow-100 text-yellow-700">{riskCounts.medium}</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="high">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <span>Rủi ro cao</span>
+                  <Badge variant="secondary" className="ml-auto bg-red-100 text-red-700">{riskCounts.high}</Badge>
+                </div>
+              </SelectItem>
+              <SelectItem value="stale">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-500" />
+                  <span>Không cập nhật</span>
+                  <Badge variant="secondary" className="ml-auto bg-orange-100 text-orange-700">{riskCounts.stale}</Badge>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {/* Risk Summary Banner */}
+      {(riskCounts.high > 0 || riskCounts.stale > 0) && riskFilter === 'all' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          <div className="flex-1">
+            <span className="text-amber-800 text-sm">
+              {riskCounts.high > 0 && (
+                <span className="font-medium">{riskCounts.high} task rủi ro cao</span>
+              )}
+              {riskCounts.high > 0 && riskCounts.stale > 0 && ' • '}
+              {riskCounts.stale > 0 && (
+                <span className="font-medium">{riskCounts.stale} task không cập nhật</span>
+              )}
+            </span>
+          </div>
+          <button
+            onClick={() => setRiskFilter('high')}
+            className="text-xs text-amber-700 hover:text-amber-900 underline"
+          >
+            Xem tasks có vấn đề
+          </button>
+        </div>
+      )}
 
       {/* Warning if no part selected */}
       {!selectedPartId && selectedProjectId && partList.length === 0 && (

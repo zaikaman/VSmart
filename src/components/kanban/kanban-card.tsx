@@ -3,8 +3,9 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
-import { Clock, User } from 'lucide-react';
+import { Clock, User, AlertCircle } from 'lucide-react';
 import { Task } from './kanban-column';
+import { RiskBadge, RiskIndicator, RiskProgressBar } from './risk-badge';
 
 interface KanbanCardProps {
   task: Task;
@@ -36,6 +37,12 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Xác định risk level từ task (mặc định là 'low')
+  const riskLevel = (task.risk_level as 'low' | 'medium' | 'high') || 'low';
+  const riskScore = task.risk_score || 0;
+  const isHighRisk = riskLevel === 'high';
+  const isStale = task.is_stale || false;
+
   return (
     <div
       ref={setNodeRef}
@@ -43,13 +50,30 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
       {...attributes}
       {...listeners}
       onClick={() => onTaskClick?.(task)}
-      className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+      className={`bg-white p-4 rounded-lg shadow-sm border transition-shadow cursor-pointer ${
+        isHighRisk
+          ? 'border-red-300 hover:shadow-red-100 hover:shadow-md'
+          : isStale
+          ? 'border-yellow-300 hover:shadow-yellow-100 hover:shadow-md'
+          : 'border-gray-200 hover:shadow-md'
+      }`}
     >
-      <div className="flex justify-between items-start mb-2">
-        <h4 className="font-semibold text-sm line-clamp-2">{task.ten}</h4>
-        <Badge className={priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}>
-          {priorityLabels[task.priority as keyof typeof priorityLabels] || priorityLabels.medium}
-        </Badge>
+      <div className="flex justify-between items-start mb-2 gap-2">
+        <h4 className="font-semibold text-sm line-clamp-2 flex-1">{task.ten}</h4>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Risk badge - chỉ hiển thị khi có risk đáng kể hoặc stale */}
+          {(riskLevel !== 'low' || isStale) && (
+            <RiskIndicator riskLevel={riskLevel} riskScore={riskScore} />
+          )}
+          {isStale && (
+            <span title="Task không có cập nhật">
+              <AlertCircle className="w-3.5 h-3.5 text-yellow-600" />
+            </span>
+          )}
+          <Badge className={priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}>
+            {priorityLabels[task.priority as keyof typeof priorityLabels] || priorityLabels.medium}
+          </Badge>
+        </div>
       </div>
 
       {task.mo_ta && (
@@ -76,14 +100,14 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
       <div className="mt-3">
         <div className="flex justify-between text-xs text-gray-600 mb-1">
           <span>Tiến độ</span>
-          <span>{task.progress}%</span>
+          <div className="flex items-center gap-2">
+            {riskLevel !== 'low' && (
+              <RiskBadge riskLevel={riskLevel} riskScore={riskScore} showScore size="sm" />
+            )}
+            <span>{task.progress}%</span>
+          </div>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-1.5">
-          <div
-            className="bg-[#b9ff66] h-1.5 rounded-full transition-all"
-            style={{ width: `${task.progress}%` }}
-          />
-        </div>
+        <RiskProgressBar progress={task.progress} riskLevel={riskLevel} />
       </div>
     </div>
   );
