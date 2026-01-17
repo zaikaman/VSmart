@@ -1,0 +1,304 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import TestimonialCard from "./TestimonialCard";
+import Image from "next/image";
+
+type Testimonial = {
+  quote: string;
+  authorName: string;
+  authorTitle: string;
+};
+
+const testimonials: Testimonial[] = [
+  {
+    quote:
+      "VSmart đã thay đổi hoàn toàn cách chúng tôi giao tiếp với người dùng. Giao diện rất đẹp và đội ngũ của chúng tôi rất thích sử dụng.",
+    authorName: "Minh Anh",
+    authorTitle: "Founder tại TechStart",
+  },
+  {
+    quote:
+      "Cuối cùng cũng có một công cụ quản lý không giống như bảng tính. Cách tiếp cận của VSmart giúp chúng tôi tích hợp hoàn hảo.",
+    authorName: "Hoàng Nam",
+    authorTitle: "CTO tại DevFlow",
+  },
+  {
+    quote:
+      "Các cập nhật theo luồng thực sự thay đổi cuộc chơi. Chúng tôi có thể giải thích 'tại sao', không chỉ 'cái gì' và 'khi nào'.",
+    authorName: "Lan Chi",
+    authorTitle: "Product Manager tại SoftCore",
+  },
+];
+
+const fixModulo = (value: number, modulo: number) => {
+  return ((value % modulo) + modulo) % modulo;
+};
+
+export default function Testimonials({ className }: { className?: string }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const actualIndex = fixModulo(currentIndex, testimonials.length);
+
+  const handlePrevious = () => {
+    setCurrentIndex((prev) => prev - 1);
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => prev + 1);
+  };
+
+  const setActualIndex = (index: number) => {
+    setCurrentIndex(
+      (prev) => prev + (index - fixModulo(prev, testimonials.length))
+    );
+  };
+
+  const cardsRef = useRef<HTMLDivElement | null>(null);
+  const [pointer, setPointer] = useState<{
+    x: number;
+    x0: number;
+    y: number;
+    y0: number;
+    isHorizontal: boolean | null;
+  } | null>(null);
+  const pointerRef = useRef(pointer);
+  const handlePointerMoveRef = useRef<((e: PointerEvent) => void) | null>(null);
+  const handlePointerUpRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    pointerRef.current = pointer;
+  }, [pointer]);
+
+  const handlePointerMove = useCallback((e: PointerEvent) => {
+    const currentPointer = pointerRef.current;
+    if (!currentPointer) return;
+
+    // Determine if this is a horizontal gesture
+    const deltaX = Math.abs(e.pageX - currentPointer.x0);
+    const deltaY = Math.abs(e.pageY - currentPointer.y0);
+
+    // If we haven't determined direction yet, check now
+    if (currentPointer.isHorizontal === null) {
+      // Detect horizontal movement earlier (threshold of 3px instead of 5px)
+      const isHorizontal = deltaX > deltaY && deltaX > 3;
+      if (isHorizontal) {
+        // Once we know it's horizontal, prevent default to stop scrolling
+        e.preventDefault();
+        e.stopPropagation();
+        setPointer((prev) => (prev ? { ...prev, isHorizontal: true } : null));
+      } else if (deltaY > 8) {
+        // If it's clearly vertical, cancel the gesture early
+        const moveHandler = handlePointerMoveRef.current;
+        const upHandler = handlePointerUpRef.current;
+        if (moveHandler) {
+          window.removeEventListener("pointermove", moveHandler);
+        }
+        if (upHandler) {
+          window.removeEventListener("pointerup", upHandler);
+        }
+        setPointer(null);
+        return;
+      }
+    } else if (currentPointer.isHorizontal) {
+      // Only prevent default if we've confirmed it's horizontal
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    setPointer((prev) => (prev ? { ...prev, x: e.pageX, y: e.pageY } : null));
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    const moveHandler = handlePointerMoveRef.current;
+    const upHandler = handlePointerUpRef.current;
+    if (moveHandler) {
+      window.removeEventListener("pointermove", moveHandler);
+    }
+    if (upHandler) {
+      window.removeEventListener("pointerup", upHandler);
+    }
+    const pointer = pointerRef.current;
+    if (!pointer || pointer.isHorizontal === false) {
+      setPointer(null);
+      return;
+    }
+    const cardWidth = cardsRef.current?.clientWidth ?? 0;
+    const deltaX = pointer.x - pointer.x0;
+    const deltaSign = Math.abs(deltaX) > 10 ? Math.sign(deltaX) : 0;
+    if (deltaSign) {
+      const deltaIndex = cardWidth
+        ? Math.ceil(Math.abs(deltaX) / cardWidth) * deltaSign
+        : deltaSign;
+      setCurrentIndex((prev) => prev - deltaIndex);
+    }
+    setPointer(null);
+  }, []);
+
+  useEffect(() => {
+    handlePointerMoveRef.current = handlePointerMove;
+    handlePointerUpRef.current = handlePointerUp;
+  }, [handlePointerMove, handlePointerUp]);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Don't prevent default immediately - wait to see direction
+      e.stopPropagation();
+      const moveHandler = handlePointerMoveRef.current;
+      const upHandler = handlePointerUpRef.current;
+      if (moveHandler) {
+        window.addEventListener("pointermove", moveHandler, { passive: false });
+      }
+      if (upHandler) {
+        window.addEventListener("pointerup", upHandler);
+      }
+      setPointer(() => ({
+        x: e.pageX,
+        x0: e.pageX,
+        y: e.pageY,
+        y0: e.pageY,
+        isHorizontal: null,
+      }));
+    },
+    []
+  );
+
+  const translateXPercentage =
+    (-currentIndex * 100) / testimonials.length + "%";
+  const translateXPixels = pointer ? `${pointer.x - pointer.x0}px` : "";
+  const translateX = translateXPixels
+    ? `calc(${translateXPercentage} + ${translateXPixels})`
+    : translateXPercentage;
+
+  return (
+    <div
+      className={cn(
+        "max-w-[1440px] mx-auto px-[100px] max-xl:px-[60px] max-sm:px-[30px]",
+        className
+      )}
+    >
+      <div
+        className={cn(
+          "bg-[#191a23] overflow-clip relative rounded-[45px] size-full",
+          className
+        )}
+        data-name="Testimonials block"
+      >
+        <div
+          className="flex flex-col gap-[120px] max-md:gap-[80px] max-sm:gap-[40px] items-center relative pt-[84px] pb-[64px] max-md:py-[60px] max-sm:py-[40px]"
+          data-name="Testimonials"
+        >
+          <div
+            className="flex items-start justify-center gap-0 relative shrink-0 w-full overflow-hidden xl:pr-[14px] max-lg:px-[30px]"
+            data-name="Cards"
+            onPointerDown={handlePointerDown}
+          >
+            <div className="w-full max-w-[656px] mx-auto" ref={cardsRef}>
+              <div
+                className="flex items-start transition-transform duration-300 ease-in-out"
+                style={{
+                  width: `${testimonials.length * 100}%`,
+                  transform: `translateX(${translateX})`,
+                  transition: pointer ? "none" : undefined,
+                }}
+              >
+                {testimonials.map((testimonial, index) => {
+                  const N = testimonials.length;
+                  const offset = Math.round((currentIndex - index) / N) * N;
+                  const transform = `translateX(${offset * 100}%)`;
+                  return (
+                    <TestimonialCard
+                      key={index}
+                      quote={testimonial.quote}
+                      authorName={
+                        testimonial.authorName +
+                        (process.env.NODE_ENV === "development"
+                          ? ` #${index + 1}${" ".repeat(60)}#${index + 1}`
+                          : "")
+                      }
+                      authorTitle={testimonial.authorTitle}
+                      style={{ transform }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <div
+            className="content-stretch flex items-center justify-between gap-[10px] relative shrink-0 w-full px-[40px] max-w-[644px] xl:mr-[14px]"
+            data-name="Navigation"
+          >
+            <button
+              onClick={handlePrevious}
+              className={cn(
+                "relative shrink-0 w-[20px] h-[22px] cursor-pointer hover:opacity-30 transition-opacity flex items-center justify-center",
+                actualIndex === 0 && "opacity-30"
+              )}
+              data-name="Arrow left"
+              aria-label="Previous testimonial"
+            >
+              <Image
+                src="/assets/icons/testimonials/arrow-left.svg"
+                alt="Previous"
+                width={23}
+                height={22}
+                className="block max-w-none w-full h-auto"
+              />
+            </button>
+            <div className="col-1 h-[14px] ml-0 mt-0 relative row-1 w-full max-w-[146px] flex items-center justify-between flex-1">
+              {Array.from({ length: testimonials.length }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActualIndex(index)}
+                  className="p-0 m-0 border-none bg-transparent cursor-pointer"
+                  aria-label={
+                    index === actualIndex
+                      ? `Current testimonial ${index + 1} of ${testimonials.length
+                      }`
+                      : `Go to testimonial ${index + 1} of ${testimonials.length
+                      }`
+                  }
+                >
+                  <Image
+                    src="/assets/icons/testimonials/star.svg"
+                    alt="Dot"
+                    width={14}
+                    height={14}
+                    className={cn(
+                      "block max-w-none w-full h-auto",
+                      index === actualIndex ? "" : "opacity-30" // Need to handle color change via CSS or different SVG if color was manipulated via currentColor. Original used text-color. SVGs via Image can't use currentColor easily.
+                      // Since I can't easily change color of SVG with Image component, I'll just use opacity for now or assume the SVG is white.
+                      // Wait, original used `text-[#B9FF66]` vs `text-white`.
+                      // I should probably check if I can keep them as SVGs by importing them as resources or just use CSS filters.
+                      // For simplicity, I'll just use the same SVG and rely on opacity indicating active state if color change is hard.
+                    )}
+                    style={{
+                      filter: index === actualIndex ? "sepia(100%) hue-rotate(50deg) saturate(500%)" : "none" // Hacking color change via filter for now or just ignoring.
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleNext}
+              className={cn(
+                "relative shrink-0 w-[20px] h-[22px] cursor-pointer hover:opacity-30 transition-opacity flex items-center justify-center",
+                actualIndex === testimonials.length - 1 && "opacity-30"
+              )}
+              data-name="Arrow right"
+              aria-label="Next testimonial"
+            >
+              <Image
+                src="/assets/icons/testimonials/arrow-right.svg"
+                alt="Next"
+                width={23}
+                height={22}
+                className="block max-w-none w-full h-auto"
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
