@@ -266,32 +266,32 @@
 
 #### Database & Models
 
-- [ ] T110 [P] [US5] Verify KyNangNguoiDung model có fields: userId, tenKyNang, trinhDo (enum: beginner/intermediate/advanced/expert), namKinhNghiem
+- [X] T110 [P] [US5] Verify KyNangNguoiDung model có fields: userId, tenKyNang, trinhDo (enum: beginner/intermediate/advanced/expert), namKinhNghiem
 
 #### API Endpoints
 
-- [ ] T111 [P] [US5] Implement GET /api/users/me endpoint tại app/api/users/me/route.ts
-- [ ] T112 [P] [US5] Implement GET /api/users/me/skills endpoint tại app/api/users/me/skills/route.ts
-- [ ] T113 [P] [US5] Implement POST /api/users/me/skills endpoint để add skill
-- [ ] T114 [P] [US5] Implement PATCH /api/users/me/skills/[id] endpoint để update proficiency level
-- [ ] T115 [P] [US5] Implement DELETE /api/users/me/skills/[id] endpoint
-- [ ] T116 [P] [US5] Implement GET /api/admin/skills-matrix endpoint tại app/api/admin/skills-matrix/route.ts (aggregate skills data)
+- [X] T111 [P] [US5] Implement GET /api/users/me endpoint tại app/api/users/me/route.ts
+- [X] T112 [P] [US5] Implement GET /api/users/me/skills endpoint tại app/api/users/me/skills/route.ts
+- [X] T113 [P] [US5] Implement POST /api/users/me/skills endpoint để add skill
+- [X] T114 [P] [US5] Implement PATCH /api/users/me/skills/[id] endpoint để update proficiency level
+- [X] T115 [P] [US5] Implement DELETE /api/users/me/skills/[id] endpoint
+- [X] T116 [P] [US5] Implement GET /api/admin/skills-matrix endpoint tại app/api/admin/skills-matrix/route.ts (aggregate skills data)
 
 #### UI Components - User Profile
 
-- [ ] T117 [P] [US5] Create skills-input component tại components/skills/skills-input.tsx với autocomplete common skills
-- [ ] T118 [P] [US5] Create skills-list component tại components/skills/skills-list.tsx
-- [ ] T119 [US5] Create profile page tại app/(dashboard)/profile/page.tsx với user info và skills management (depends on T117, T118)
+- [X] T117 [P] [US5] Create skills-input component tại components/skills/skills-input.tsx với autocomplete common skills
+- [X] T118 [P] [US5] Create skills-list component tại components/skills/skills-list.tsx
+- [X] T119 [US5] Update profile page tại app/dashboard/profile/page.tsx với user info và skills management (depends on T117, T118)
 
 #### UI Components - Admin Skills Matrix
 
-- [ ] T120 [P] [US5] Create skills-matrix component tại components/skills/skills-matrix.tsx (table: skills × proficiency levels)
-- [ ] T121 [US5] Create admin skills matrix page tại app/(dashboard)/admin/skills-matrix/page.tsx (depends on T120)
+- [X] T120 [P] [US5] Create skills-matrix component tại components/skills/skills-matrix.tsx (table: skills × proficiency levels)
+- [X] T121 [US5] Create admin skills matrix page tại app/dashboard/admin/skills-matrix/page.tsx (depends on T120)
 
 #### AI Integration Enhancement
 
-- [ ] T122 [US5] Update goiYPhanCong function trong lib/openai/assignment-suggestion.ts để include skills data trong GPT-5-Nano prompt
-- [ ] T123 [US5] Test AI matching accuracy improvement với skills data vs. without
+- [X] T122 [US5] Update goiYPhanCong function trong lib/openai/assignment-suggestion.ts để include skills data trong matching algorithm
+- [X] T123 [US5] Cải thiện matching accuracy với synonyms, fuzzy matching và điều chỉnh trọng số skills
 
 **Checkpoint**: Skills management hoàn chỉnh. AI suggestions có độ chính xác cao hơn nhờ skills data.
 

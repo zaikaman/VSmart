@@ -284,58 +284,71 @@ export function goiYPhanCongAI(
       khoi_luong_hien_tai: `${c.so_task_dang_lam} tasks`,
     };
 
-    // 1. SKILL MATCHING (0-40 điểm)
+    // 1. SKILL MATCHING (0-50 điểm) - tăng trọng số vì skills rất quan trọng
     let skillScore = 0;
     const matchedSkills: string[] = [];
     
     c.skills.forEach((skill) => {
       const skillName = skill.ten_ky_nang.toLowerCase();
-      const isMatch = taskKeywords.some(keyword => 
-        skillName.includes(keyword) || keyword.includes(skillName)
-      );
+      const skillWords = skillName.split(/[\s\-_.]+/); // Split skill name thành từng word
+      
+      // Check match với nhiều cách
+      const isMatch = taskKeywords.some(keyword => {
+        // Exact or partial match
+        if (skillName.includes(keyword) || keyword.includes(skillName)) return true;
+        
+        // Word-level match
+        if (skillWords.some(sw => sw.includes(keyword) || keyword.includes(sw))) return true;
+        
+        // Fuzzy match - check if first 3+ chars match
+        if (keyword.length >= 3 && skillName.startsWith(keyword.substring(0, 3))) return true;
+        if (skillName.length >= 3 && keyword.startsWith(skillName.substring(0, 3))) return true;
+        
+        return false;
+      });
       
       if (isMatch) {
         matchedSkills.push(skill.ten_ky_nang);
         // Điểm dựa trên trình độ
         const proficiencyScore = {
-          expert: 15,
-          advanced: 12,
-          intermediate: 8,
-          beginner: 5,
-        }[skill.trinh_do] || 5;
+          expert: 18,
+          advanced: 14,
+          intermediate: 10,
+          beginner: 6,
+        }[skill.trinh_do] || 6;
         
-        // Bonus cho kinh nghiệm
-        const experienceBonus = Math.min(skill.nam_kinh_nghiem * 2, 10);
+        // Bonus cho kinh nghiệm (max 12 điểm)
+        const experienceBonus = Math.min(skill.nam_kinh_nghiem * 2, 12);
         
         skillScore += proficiencyScore + experienceBonus;
       }
     });
 
-    // Cap skill score at 40
-    skillScore = Math.min(skillScore, 40);
+    // Cap skill score at 50
+    skillScore = Math.min(skillScore, 50);
     score += skillScore;
     reasoning.ky_nang_phu_hop = matchedSkills;
 
-    // 2. COMPLETION RATE (0-30 điểm)
+    // 2. COMPLETION RATE (0-25 điểm)
     let completionScore = 0;
-    if (c.ty_le_hoan_thanh >= 90) completionScore = 30;
-    else if (c.ty_le_hoan_thanh >= 80) completionScore = 25;
-    else if (c.ty_le_hoan_thanh >= 70) completionScore = 20;
-    else if (c.ty_le_hoan_thanh >= 60) completionScore = 15;
-    else if (c.ty_le_hoan_thanh >= 50) completionScore = 10;
-    else completionScore = 5;
+    if (c.ty_le_hoan_thanh >= 90) completionScore = 25;
+    else if (c.ty_le_hoan_thanh >= 80) completionScore = 20;
+    else if (c.ty_le_hoan_thanh >= 70) completionScore = 16;
+    else if (c.ty_le_hoan_thanh >= 60) completionScore = 12;
+    else if (c.ty_le_hoan_thanh >= 50) completionScore = 8;
+    else completionScore = 4;
     
     score += completionScore;
 
-    // 3. WORKLOAD (0-20 điểm - càng ít task càng cao điểm)
+    // 3. WORKLOAD (0-15 điểm - càng ít task càng cao điểm)
     let workloadScore = 0;
-    if (c.so_task_dang_lam === 0) workloadScore = 20;
-    else if (c.so_task_dang_lam === 1) workloadScore = 18;
-    else if (c.so_task_dang_lam === 2) workloadScore = 15;
-    else if (c.so_task_dang_lam === 3) workloadScore = 12;
-    else if (c.so_task_dang_lam === 4) workloadScore = 8;
-    else if (c.so_task_dang_lam === 5) workloadScore = 5;
-    else workloadScore = Math.max(0, 5 - (c.so_task_dang_lam - 5) * 2);
+    if (c.so_task_dang_lam === 0) workloadScore = 15;
+    else if (c.so_task_dang_lam === 1) workloadScore = 13;
+    else if (c.so_task_dang_lam === 2) workloadScore = 11;
+    else if (c.so_task_dang_lam === 3) workloadScore = 9;
+    else if (c.so_task_dang_lam === 4) workloadScore = 6;
+    else if (c.so_task_dang_lam === 5) workloadScore = 3;
+    else workloadScore = Math.max(0, 3 - (c.so_task_dang_lam - 5));
     
     score += workloadScore;
 
@@ -413,20 +426,98 @@ export function goiYPhanCongAI(
 
 /**
  * Extract keywords từ text để matching skills
+ * Cải thiện với tech keywords phổ biến và synonyms
  */
 function extractKeywords(text: string): string[] {
   // Common tech keywords và variations
-  const keywords = text.match(/\b[\wáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ]+\b/gi) || [];
+  const keywords = text.match(/\b[\wáàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵ.#+-]+\b/gi) || [];
   
   // Filter out common words
   const stopWords = new Set([
     'cho', 'của', 'và', 'là', 'có', 'được', 'này', 'các', 'một', 'trong', 'với',
     'để', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+    'cần', 'làm', 'thực', 'hiện', 'công', 'việc', 'task', 'tạo', 'xây', 'dựng',
+    'phát', 'triển', 'cập', 'nhật', 'sửa', 'lỗi', 'fix', 'bug', 'feature', 'implement',
   ]);
   
-  return keywords
-    .filter(k => k.length > 2 && !stopWords.has(k.toLowerCase()))
+  const extractedKeywords = keywords
+    .filter(k => k.length > 1 && !stopWords.has(k.toLowerCase()))
     .map(k => k.toLowerCase());
+
+  // Thêm các synonyms và categories
+  const techSynonyms: Record<string, string[]> = {
+    // Frontend
+    'frontend': ['react', 'vue', 'angular', 'nextjs', 'next.js', 'html', 'css', 'javascript', 'typescript'],
+    'giao diện': ['frontend', 'ui', 'ux', 'css', 'html'],
+    'ui': ['css', 'tailwind', 'figma', 'design'],
+    'ux': ['design', 'figma', 'ui'],
+    'react': ['frontend', 'javascript', 'typescript', 'next.js'],
+    'vue': ['frontend', 'javascript', 'vue.js'],
+    'angular': ['frontend', 'typescript'],
+    
+    // Backend
+    'backend': ['node', 'python', 'java', 'go', 'api', 'server', 'database'],
+    'server': ['backend', 'node', 'python', 'api'],
+    'api': ['backend', 'rest', 'graphql', 'node', 'python'],
+    'node': ['javascript', 'backend', 'express', 'node.js'],
+    'python': ['backend', 'fastapi', 'django', 'flask'],
+    'java': ['backend', 'spring', 'spring boot'],
+    
+    // Database
+    'database': ['sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'supabase'],
+    'sql': ['database', 'postgresql', 'mysql'],
+    'nosql': ['mongodb', 'redis', 'database'],
+    'postgresql': ['sql', 'database', 'postgres'],
+    'mongodb': ['nosql', 'database'],
+    
+    // DevOps
+    'devops': ['docker', 'kubernetes', 'ci/cd', 'aws', 'cloud', 'linux'],
+    'cloud': ['aws', 'azure', 'gcp', 'google cloud'],
+    'docker': ['devops', 'kubernetes', 'container'],
+    'deploy': ['devops', 'ci/cd', 'docker'],
+    
+    // AI/ML
+    'ai': ['machine learning', 'deep learning', 'python', 'tensorflow', 'pytorch', 'openai'],
+    'ml': ['machine learning', 'python', 'tensorflow', 'pytorch'],
+    'machine learning': ['python', 'tensorflow', 'pytorch', 'ai'],
+    'chatbot': ['ai', 'nlp', 'openai', 'langchain'],
+    
+    // Mobile
+    'mobile': ['react native', 'flutter', 'ios', 'android', 'swift', 'kotlin'],
+    'ios': ['swift', 'mobile', 'apple'],
+    'android': ['kotlin', 'java', 'mobile'],
+    
+    // Testing
+    'test': ['testing', 'jest', 'cypress', 'unittest'],
+    'testing': ['jest', 'cypress', 'selenium', 'qa'],
+    
+    // Security
+    'bảo mật': ['security', 'authentication', 'authorization'],
+    'security': ['authentication', 'authorization', 'encryption'],
+    
+    // Performance
+    'tối ưu': ['performance', 'optimization'],
+    'performance': ['optimization', 'caching', 'redis'],
+  };
+
+  // Expand keywords với synonyms
+  const expandedKeywords = new Set(extractedKeywords);
+  extractedKeywords.forEach(keyword => {
+    // Check direct match
+    if (techSynonyms[keyword]) {
+      techSynonyms[keyword].forEach(syn => expandedKeywords.add(syn));
+    }
+    
+    // Check partial match
+    Object.entries(techSynonyms).forEach(([key, values]) => {
+      if (keyword.includes(key) || key.includes(keyword)) {
+        values.forEach(syn => expandedKeywords.add(syn));
+        expandedKeywords.add(key);
+      }
+    });
+  });
+
+  return Array.from(expandedKeywords);
 }
 
 // Helper functions

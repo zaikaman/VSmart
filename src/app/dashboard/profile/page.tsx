@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AvatarUpload } from '@/components/ui/avatar-upload';
+import { SkillsInput } from '@/components/skills/skills-input';
+import { SkillsList, type Skill } from '@/components/skills/skills-list';
 import { toast } from 'sonner';
 import { User, Mail, Building, Briefcase, Save, Loader2 } from 'lucide-react';
 
@@ -43,6 +45,18 @@ export default function ProfilePage() {
     },
   });
 
+  // Lấy danh sách kỹ năng
+  const { data: skillsResponse, isLoading: isLoadingSkills } = useQuery<{ data: Skill[] }>({
+    queryKey: ['user-skills'],
+    queryFn: async () => {
+      const response = await fetch('/api/users/me/skills');
+      if (!response.ok) throw new Error('Không thể lấy danh sách kỹ năng');
+      return response.json();
+    },
+  });
+
+  const skills = skillsResponse?.data || [];
+
   // Mutation cập nhật profile
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { ten?: string; ten_phong_ban?: string }) => {
@@ -61,6 +75,73 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       toast.success('Đã cập nhật thông tin thành công');
       setIsEditing(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Mutation thêm kỹ năng
+  const addSkillMutation = useMutation({
+    mutationFn: async (data: { ten_ky_nang: string; trinh_do: string; nam_kinh_nghiem: number }) => {
+      const response = await fetch('/api/users/me/skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Không thể thêm kỹ năng');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-skills'] });
+      toast.success('Đã thêm kỹ năng thành công');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Mutation cập nhật kỹ năng
+  const updateSkillMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { trinh_do?: string; nam_kinh_nghiem?: number } }) => {
+      const response = await fetch(`/api/users/me/skills/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Không thể cập nhật kỹ năng');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-skills'] });
+      toast.success('Đã cập nhật kỹ năng');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Mutation xóa kỹ năng
+  const deleteSkillMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/users/me/skills/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Không thể xóa kỹ năng');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-skills'] });
+      toast.success('Đã xóa kỹ năng');
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -106,6 +187,15 @@ export default function ProfilePage() {
             <Skeleton className="h-32 w-32 rounded-full mx-auto" />
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
+          </CardContent>
+        </Card>
+        <Card className="mt-6">
+          <CardHeader>
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-4 w-80" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-40 w-full" />
           </CardContent>
         </Card>
       </div>
@@ -271,6 +361,41 @@ export default function ProfilePage() {
               <span className="text-sm font-medium text-gray-600">ID người dùng</span>
               <span className="text-sm text-gray-700 font-mono">{user.id.slice(0, 8)}...</span>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Skills Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Kỹ năng</CardTitle>
+            <CardDescription>
+              Quản lý danh sách kỹ năng của bạn để hệ thống gợi ý phân công task phù hợp
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Skills Input */}
+            <SkillsInput
+              onAddSkill={(skill) => addSkillMutation.mutate(skill)}
+              isLoading={addSkillMutation.isPending}
+              existingSkills={skills.map(s => s.ten_ky_nang)}
+            />
+
+            {/* Skills List */}
+            {isLoadingSkills ? (
+              <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : (
+              <SkillsList
+                skills={skills}
+                onUpdateSkill={(id, data) => updateSkillMutation.mutate({ id, data })}
+                onDeleteSkill={(id) => deleteSkillMutation.mutate(id)}
+                isUpdating={updateSkillMutation.isPending}
+                isDeleting={deleteSkillMutation.isPending}
+              />
+            )}
           </CardContent>
         </Card>
       </div>

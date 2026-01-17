@@ -11,6 +11,7 @@ import {
     User,
     Settings,
     Command,
+    Award,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
@@ -26,11 +27,17 @@ const navItems = [
     { name: "Cài đặt", href: "/dashboard/settings", icon: Settings },
 ]
 
+// Các mục chỉ dành cho admin/manager
+const adminNavItems = [
+    { name: "Ma trận kỹ năng", href: "/dashboard/admin/skills-matrix", icon: Award },
+]
+
 interface UserInfo {
     id: string
     username: string
     email: string
     displayName?: string
+    vai_tro?: string
     extendedData?: {
         avatarUrl?: string
     }
@@ -51,6 +58,7 @@ export function Sidebar({ className }: { className?: string }) {
                         username: data.email?.split('@')[0] || 'User',
                         email: data.email,
                         displayName: data.ten,
+                        vai_tro: data.vai_tro,
                         extendedData: {
                             avatarUrl: data.avatar_url
                         }
@@ -101,6 +109,35 @@ export function Sidebar({ className }: { className?: string }) {
                             </Link>
                         )
                     })}
+                    
+                    {/* Admin/Manager Only Items */}
+                    {(user?.vai_tro === 'admin' || user?.vai_tro === 'manager') && (
+                        <>
+                            <div className="pt-3 pb-1">
+                                <span className="text-xs font-medium text-white/40 uppercase tracking-wider px-3">
+                                    Quản trị
+                                </span>
+                            </div>
+                            {adminNavItems.map((item) => {
+                                const isActive = pathname === item.href
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={cn(
+                                            "flex items-center space-x-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                                            isActive
+                                                ? "bg-[#2a2b35] text-[#b9ff66]"
+                                                : "text-white/70 hover:bg-[#2a2b35]/50 hover:text-white"
+                                        )}
+                                    >
+                                        <item.icon className={cn("h-4 w-4", isActive ? "text-[#b9ff66]" : "text-white/70")} />
+                                        <span>{item.name}</span>
+                                    </Link>
+                                )
+                            })}
+                        </>
+                    )}
                     
                     {/* Chat AI Button */}
                     <ChatButton />
