@@ -1,5 +1,6 @@
 import { sendMail } from './mail';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getHtmlTemplate } from './email-template';
 
 interface TaskInfo {
     taskId: string;
@@ -42,66 +43,41 @@ export async function sendTaskAssignedEmail(
         urgent: 'Khẩn cấp',
     };
 
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #b9ff66 0%, #8bc34a 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }
-            .header h1 { margin: 0; color: #1a1a1a; font-size: 24px; }
-            .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; }
-            .task-card { background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0; }
-            .task-name { font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 12px; }
-            .task-meta { display: flex; gap: 20px; flex-wrap: wrap; }
-            .meta-item { color: #6b7280; font-size: 14px; }
-            .meta-item strong { color: #374151; }
-            .priority-badge { display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 500; color: white; }
-            .btn { display: inline-block; background: #b9ff66; color: #1a1a1a; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 20px; }
-            .footer { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>📋 Task Mới Được Giao</h1>
-            </div>
-            <div class="content">
-                <p>Xin chào <strong>${recipientName}</strong>,</p>
-                <p>Bạn vừa được giao một task mới trong dự án <strong>${task.projectName}</strong>:</p>
-                
-                <div class="task-card">
-                    <div class="task-name">${task.taskName}</div>
-                    <div class="task-meta">
-                        <div class="meta-item">
-                            <strong>📅 Deadline:</strong> ${deadlineText}
-                        </div>
-                        ${task.priority ? `
-                        <div class="meta-item">
-                            <strong>🎯 Độ ưu tiên:</strong> 
-                            <span class="priority-badge" style="background: ${priorityColors[task.priority] || '#6b7280'}">
-                                ${priorityLabels[task.priority] || task.priority}
-                            </span>
-                        </div>
-                        ` : ''}
-                    </div>
+    const content = `
+        <p>Xin chào <strong>${recipientName}</strong>,</p>
+        <p>Bạn vừa được giao một task mới trong dự án <strong>${task.projectName}</strong>:</p>
+        
+        <div class="highlight-box">
+            <h3 style="margin-top:0">${task.taskName}</h3>
+            <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:10px;">
+                <div>
+                    <strong>📅 Deadline:</strong> <span class="text-muted">${deadlineText}</span>
                 </div>
-
-                <a href="${appUrl}/dashboard/kanban" class="btn">Xem Task</a>
-                
-                <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
-                    Hãy hoàn thành task đúng deadline nhé! 💪
-                </p>
-            </div>
-            <div class="footer">
-                <p>Email này được gửi tự động từ VSmart. Vui lòng không trả lời email này.</p>
+                ${task.priority ? `
+                <div>
+                    <strong>🎯 Độ ưu tiên:</strong> 
+                    <span style="color: ${priorityColors[task.priority] || '#6b7280'}; font-weight:bold;">
+                        ${priorityLabels[task.priority] || task.priority}
+                    </span>
+                </div>
+                ` : ''}
             </div>
         </div>
-    </body>
-    </html>
+        
+        <p class="text-muted" style="margin-top: 30px; font-size: 14px;">
+            Hãy hoàn thành task đúng deadline nhé! 💪
+        </p>
     `;
+
+    const html = getHtmlTemplate({
+        title: '📋 Task Mới Được Giao',
+        content,
+        action: {
+            text: 'Xem Task',
+            url: `${appUrl}/dashboard/kanban`,
+        },
+        previewText: `Bạn được giao task mới: ${task.taskName}`,
+    });
 
     return sendMail({
         to: recipientEmail,
@@ -130,48 +106,28 @@ export async function sendDeadlineReminderEmail(
             ? '⏰ Còn 1 ngày!'
             : `⏰ Còn ${daysRemaining} ngày`;
 
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: ${daysRemaining <= 0 ? '#fecaca' : daysRemaining <= 1 ? '#fef3c7' : '#dbeafe'}; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }
-            .header h1 { margin: 0; color: #1a1a1a; font-size: 24px; }
-            .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; }
-            .task-card { background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid ${daysRemaining <= 0 ? '#ef4444' : daysRemaining <= 1 ? '#f59e0b' : '#3b82f6'}; }
-            .task-name { font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 8px; }
-            .deadline { font-size: 16px; color: ${daysRemaining <= 0 ? '#dc2626' : '#6b7280'}; }
-            .btn { display: inline-block; background: #b9ff66; color: #1a1a1a; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 20px; }
-            .footer { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>${urgencyText}</h1>
+    const content = `
+        <p>Xin chào <strong>${recipientName}</strong>,</p>
+        <p>Đây là nhắc nhở về deadline task của bạn:</p>
+        
+        <div class="highlight-box" style="border-left-color: ${daysRemaining <= 0 ? '#ef4444' : daysRemaining <= 1 ? '#f59e0b' : '#3b82f6'};">
+            <h3 style="margin-top:0">${task.taskName}</h3>
+            <div style="font-size: 16px; color: ${daysRemaining <= 0 ? '#ef4444' : '#ffffff'}; font-weight:bold;">
+                📅 Deadline: ${deadlineText}
             </div>
-            <div class="content">
-                <p>Xin chào <strong>${recipientName}</strong>,</p>
-                <p>Đây là nhắc nhở về deadline task của bạn:</p>
-                
-                <div class="task-card">
-                    <div class="task-name">${task.taskName}</div>
-                    <div class="deadline">📅 Deadline: ${deadlineText}</div>
-                    <div style="color: #6b7280; margin-top: 8px;">📁 Dự án: ${task.projectName}</div>
-                </div>
-
-                <a href="${appUrl}/dashboard/kanban" class="btn">Xem Task</a>
-            </div>
-            <div class="footer">
-                <p>Email này được gửi tự động từ VSmart. Vui lòng không trả lời email này.</p>
-            </div>
+            <div class="text-muted" style="margin-top: 8px;">📁 Dự án: ${task.projectName}</div>
         </div>
-    </body>
-    </html>
     `;
+
+    const html = getHtmlTemplate({
+        title: urgencyText,
+        content,
+        action: {
+            text: 'Xem Task',
+            url: `${appUrl}/dashboard/kanban`,
+        },
+        previewText: `${urgencyText}: ${task.taskName}`,
+    });
 
     return sendMail({
         to: recipientEmail,
@@ -188,49 +144,28 @@ export async function sendNewCommentEmail(
 ): Promise<boolean> {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #e0e7ff; padding: 30px; border-radius: 12px 12px 0 0; text-align: center; }
-            .header h1 { margin: 0; color: #1a1a1a; font-size: 24px; }
-            .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; }
-            .comment-card { background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #6366f1; }
-            .commenter { font-weight: 600; color: #111827; margin-bottom: 8px; }
-            .comment-text { color: #374151; white-space: pre-wrap; }
-            .task-info { color: #6b7280; font-size: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
-            .btn { display: inline-block; background: #b9ff66; color: #1a1a1a; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 20px; }
-            .footer { text-align: center; padding: 20px; color: #9ca3af; font-size: 12px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>💬 Bình Luận Mới</h1>
-            </div>
-            <div class="content">
-                <p>Xin chào <strong>${recipientName}</strong>,</p>
-                <p>Có bình luận mới trong task của bạn:</p>
-                
-                <div class="comment-card">
-                    <div class="commenter">${comment.commenterName} đã bình luận:</div>
-                    <div class="comment-text">${comment.commentContent}</div>
-                    <div class="task-info">📋 Task: ${comment.taskName}</div>
-                </div>
-
-                <a href="${appUrl}/dashboard/kanban" class="btn">Xem Bình Luận</a>
-            </div>
-            <div class="footer">
-                <p>Email này được gửi tự động từ VSmart. Vui lòng không trả lời email này.</p>
+    const content = `
+        <p>Xin chào <strong>${recipientName}</strong>,</p>
+        <p>Có bình luận mới trong task của bạn:</p>
+        
+        <div class="highlight-box" style="border-left-color: #6366f1;">
+            <div style="font-weight: 600; color: #b9ff66; margin-bottom: 8px;">${comment.commenterName} đã bình luận:</div>
+            <div style="color: #ffffff; white-space: pre-wrap;">${comment.commentContent}</div>
+            <div class="text-muted" style="font-size: 14px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                📋 Task: ${comment.taskName}
             </div>
         </div>
-    </body>
-    </html>
     `;
+
+    const html = getHtmlTemplate({
+        title: '💬 Bình Luận Mới',
+        content,
+        action: {
+            text: 'Xem Bình Luận',
+            url: `${appUrl}/dashboard/kanban`,
+        },
+        previewText: `${comment.commenterName} đã bình luận trong ${comment.taskName}`,
+    });
 
     return sendMail({
         to: recipientEmail,
