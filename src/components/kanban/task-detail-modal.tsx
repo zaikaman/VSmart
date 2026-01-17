@@ -146,18 +146,17 @@ export function TaskDetailModal({ task, open, onOpenChange }: TaskDetailModalPro
           {task.riskScore !== null && task.riskScore !== undefined && (
             <div>
               <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                <span className="font-medium">Risk Score</span>
+                <span className="font-medium">Chỉ số rủi ro</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all ${
-                      task.riskScore > 70
+                    className={`h-2 rounded-full transition-all ${task.riskScore > 70
                         ? 'bg-red-600'
                         : task.riskScore > 40
-                        ? 'bg-yellow-500'
-                        : 'bg-green-600'
-                    }`}
+                          ? 'bg-yellow-500'
+                          : 'bg-green-600'
+                      }`}
                     style={{ width: `${task.riskScore}%` }}
                   />
                 </div>

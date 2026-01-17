@@ -14,13 +14,15 @@ interface KanbanCardProps {
 const priorityColors = {
   low: 'bg-green-100 text-green-800',
   medium: 'bg-yellow-100 text-yellow-800',
-  high: 'bg-red-100 text-red-800',
+  high: 'bg-orange-100 text-orange-800',
+  urgent: 'bg-red-100 text-red-800',
 };
 
 const priorityLabels = {
   low: 'Thấp',
   medium: 'Trung bình',
   high: 'Cao',
+  urgent: 'Khẩn cấp',
 };
 
 export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
@@ -45,13 +47,13 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
     >
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-semibold text-sm line-clamp-2">{task.ten}</h4>
-        <Badge className={priorityColors[task.priority as keyof typeof priorityColors]}>
-          {priorityLabels[task.priority as keyof typeof priorityLabels]}
+        <Badge className={priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}>
+          {priorityLabels[task.priority as keyof typeof priorityLabels] || priorityLabels.medium}
         </Badge>
       </div>
 
-      {task.moTa && (
-        <p className="text-xs text-gray-600 line-clamp-2 mb-3">{task.moTa}</p>
+      {task.mo_ta && (
+        <p className="text-xs text-gray-600 line-clamp-2 mb-3">{task.mo_ta}</p>
       )}
 
       <div className="flex items-center justify-between text-xs text-gray-500">
@@ -59,7 +61,7 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
           {task.nguoi_dung && (
             <>
               <User className="w-3 h-3" />
-              <span>{task.nguoi_dung.hoTen}</span>
+              <span>{task.nguoi_dung.ten}</span>
             </>
           )}
         </div>
@@ -78,7 +80,7 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-1.5">
           <div
-            className="bg-blue-600 h-1.5 rounded-full transition-all"
+            className="bg-[#b9ff66] h-1.5 rounded-full transition-all"
             style={{ width: `${task.progress}%` }}
           />
         </div>

@@ -1,34 +1,25 @@
-import { ReactNode } from 'react';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+import type { Metadata } from 'next'
+import { Sidebar } from '@/components/Sidebar'
+
+export const metadata: Metadata = {
+  title: 'Bảng điều khiển VSmart',
+  description: 'Quản lý nhiệm vụ thông minh',
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        {/* Sidebar placeholder */}
-        <aside className="w-64 bg-white border-r min-h-screen p-4">
-          <div className="font-bold text-xl mb-6">VSmart</div>
-          <nav className="space-y-2">
-            <a href="/dashboard" className="block p-2 rounded hover:bg-gray-100">
-              Dashboard
-            </a>
-            <a
-              href="/dashboard/projects"
-              className="block p-2 rounded hover:bg-gray-100"
-            >
-              Dự Án
-            </a>
-            <a
-              href="/dashboard/kanban"
-              className="block p-2 rounded hover:bg-gray-100"
-            >
-              Kanban Board
-            </a>
-          </nav>
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1">{children}</main>
-      </div>
+    <div className="flex min-h-screen bg-slate-50">
+      <Sidebar className="hidden md:flex" />
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          {children}
+        </div>
+      </main>
     </div>
-  );
+  )
 }

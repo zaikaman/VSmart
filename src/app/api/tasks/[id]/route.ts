@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase/client';
+import { supabaseAdmin as supabase, supabaseAdmin } from '@/lib/supabase/client';
 import { z } from 'zod';
 import { calculatePhanDuAnProgress } from '@/lib/utils/calculate-progress';
 

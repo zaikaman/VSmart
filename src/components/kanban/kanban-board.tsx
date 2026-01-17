@@ -25,9 +25,14 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [optimisticTasks, setOptimisticTasks] = useState<Task[]>(tasks);
   const updateTaskMutation = useUpdateTask();
   const { on, off, isConnected } = useSocket();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setOptimisticTasks(tasks);
+  }, [tasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -74,14 +79,14 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
 
   // Nhóm tasks theo trạng thái
   const tasksByStatus = {
-    todo: tasks.filter((task) => task.trangThai === 'todo'),
-    'in-progress': tasks.filter((task) => task.trangThai === 'in-progress'),
-    done: tasks.filter((task) => task.trangThai === 'done'),
+    todo: optimisticTasks.filter((task) => task.trang_thai === 'todo'),
+    'in-progress': optimisticTasks.filter((task) => task.trang_thai === 'in-progress'),
+    done: optimisticTasks.filter((task) => task.trang_thai === 'done'),
   };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const task = tasks.find((t) => t.id === active.id);
+    const task = optimisticTasks.find((t) => t.id === active.id);
     if (task) {
       setActiveTask(task);
     }
@@ -96,10 +101,17 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
     const taskId = active.id as string;
     const newStatus = over.id as string;
 
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || task.trangThai === newStatus) return;
+    const task = optimisticTasks.find((t) => t.id === taskId);
+    if (!task || task.trang_thai === newStatus) return;
 
-    // Optimistic update with error handling and rollback
+    // Optimistic update: Cập nhật state local ngay lập tức
+    setOptimisticTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, trang_thai: newStatus } : t
+      )
+    );
+
+    // Call API update
     updateTaskMutation.mutate(
       {
         id: taskId,
@@ -111,7 +123,8 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
         },
         onError: () => {
-          // On error, refetch to restore correct state
+          // On error, revert local state (sẽ được override khi fetch lại từ server nếu invalidate)
+          // Hoặc force revert thủ công nếu cần
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
         },
       }

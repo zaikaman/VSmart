@@ -8,13 +8,18 @@ import { Plus } from 'lucide-react';
 export interface Task {
   id: string;
   ten: string;
-  moTa?: string | null;
+  mo_ta?: string | null;
   deadline?: string | null;
-  trangThai?: string;
+  trang_thai?: string;
   priority: string;
   progress: number;
+  phan_du_an_id?: string;
+  assignee_id?: string | null;
   nguoi_dung?: {
-    hoTen: string;
+    id: string;
+    ten: string;
+    email: string;
+    avatar_url?: string | null;
   } | null;
 }
 
@@ -27,9 +32,9 @@ interface KanbanColumnProps {
 }
 
 const columnStyles = {
-  todo: 'bg-gray-100 border-gray-300',
-  'in-progress': 'bg-blue-50 border-blue-300',
-  done: 'bg-green-50 border-green-300',
+  todo: 'bg-gray-50/50 border-gray-200',
+  'in-progress': 'bg-[#b9ff66]/5 border-[#b9ff66]/30',
+  done: 'bg-gray-50/50 border-gray-200',
 };
 
 const columnTitles = {
@@ -48,8 +53,8 @@ export function KanbanColumn({ id, title, tasks, onTaskClick, onAddTask }: Kanba
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col min-w-[320px] max-w-[380px] rounded-lg border-2 p-4 transition-colors ${columnStyles[id as keyof typeof columnStyles]
-        } ${isOver ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+      className={`flex flex-col min-w-[320px] max-w-[380px] rounded-xl border-2 p-4 transition-colors ${columnStyles[id as keyof typeof columnStyles]
+        } ${isOver ? 'ring-2 ring-[#b9ff66] ring-offset-2 border-[#b9ff66]' : ''}`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">

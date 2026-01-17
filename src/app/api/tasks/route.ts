@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { supabaseAdmin as supabase } from '@/lib/supabase/client';
 import { z } from 'zod';
 
 const taskSchema = z.object({
@@ -7,7 +7,7 @@ const taskSchema = z.object({
   mo_ta: z.string().optional(),
   deadline: z.string().datetime(),
   phan_du_an_id: z.string().uuid(),
-  assignee_id: z.string().uuid().optional(),
+  assignee_id: z.string().uuid().optional().nullable(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
 });
 

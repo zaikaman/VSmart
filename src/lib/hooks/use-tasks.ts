@@ -101,7 +101,18 @@ export function useCreateTask() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
-      if (!response.ok) throw new Error('Failed to create task');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Create task error:', errorData);
+        // Handle Zod validation errors (array format)
+        if (Array.isArray(errorData.error)) {
+          const messages = errorData.error.map((e: { path?: string[], message?: string }) =>
+            `${e.path?.join('.') || 'field'}: ${e.message || 'invalid'}`
+          ).join(', ');
+          throw new Error(messages);
+        }
+        throw new Error(errorData.error || 'Failed to create task');
+      }
       return response.json();
     },
     onSuccess: () => {

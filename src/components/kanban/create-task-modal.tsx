@@ -14,13 +14,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateTask, CreateTaskInput } from '@/lib/hooks/use-tasks';
+import { useUsers } from '@/lib/hooks/use-users';
 import { Label } from '@/components/ui/label';
 
 interface CreateTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialStatus?: string;
-  phanDuAnId?: string;
+  phanDuAnId: string;
+  phanDuAnName?: string;
 }
 
 interface TaskFormData {
@@ -29,10 +31,18 @@ interface TaskFormData {
   deadline?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   trang_thai: string;
+  assignee_id?: string;
 }
 
-export function CreateTaskModal({ open, onOpenChange, initialStatus = 'todo', phanDuAnId }: CreateTaskModalProps) {
+export function CreateTaskModal({
+  open,
+  onOpenChange,
+  initialStatus = 'todo',
+  phanDuAnId,
+  phanDuAnName
+}: CreateTaskModalProps) {
   const createTaskMutation = useCreateTask();
+  const { data: users, isLoading: usersLoading } = useUsers();
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<TaskFormData>({
     defaultValues: {
       trang_thai: initialStatus,
@@ -40,19 +50,34 @@ export function CreateTaskModal({ open, onOpenChange, initialStatus = 'todo', ph
     },
   });
 
+  const [selectedAssignee, setSelectedAssignee] = useState<string>('unassigned');
+  const [selectedPriority, setSelectedPriority] = useState<string>('medium');
+
   const onSubmit = async (data: TaskFormData) => {
     try {
-      // Build the CreateTaskInput with required fields
+      // Validate phanDuAnId
+      if (!phanDuAnId || phanDuAnId.trim() === '') {
+        console.error('Lỗi: Chưa chọn phần dự án');
+        return;
+      }
+
       const taskInput: CreateTaskInput = {
         ten: data.ten,
         mo_ta: data.mo_ta,
         deadline: data.deadline ? new Date(data.deadline).toISOString() : new Date().toISOString(),
-        phan_du_an_id: phanDuAnId || '', // This should be provided via props
-        priority: data.priority,
+        phan_du_an_id: phanDuAnId,
+        priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
       };
+
+      // Chỉ thêm assignee_id nếu đã chọn người thực hiện
+      if (selectedAssignee !== 'unassigned') {
+        taskInput.assignee_id = selectedAssignee;
+      }
 
       await createTaskMutation.mutateAsync(taskInput);
       reset();
+      setSelectedAssignee('unassigned');
+      setSelectedPriority('medium');
       onOpenChange(false);
     } catch (error) {
       console.error('Lỗi tạo task:', error);
@@ -65,7 +90,11 @@ export function CreateTaskModal({ open, onOpenChange, initialStatus = 'todo', ph
         <DialogHeader>
           <DialogTitle>Tạo Task Mới</DialogTitle>
           <DialogDescription>
-            Điền thông tin task. AI gợi ý sẽ được thêm trong phiên bản sau.
+            {phanDuAnName ? (
+              <>Tạo task cho phần dự án: <strong>{phanDuAnName}</strong></>
+            ) : (
+              'Điền thông tin task. AI gợi ý sẽ được thêm trong phiên bản sau.'
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -90,12 +119,32 @@ export function CreateTaskModal({ open, onOpenChange, initialStatus = 'todo', ph
             />
           </div>
 
+          <div>
+            <Label htmlFor="assignee_id">Người Thực Hiện</Label>
+            <Select
+              value={selectedAssignee}
+              onValueChange={setSelectedAssignee}
+            >
+              <SelectTrigger id="assignee_id">
+                <SelectValue placeholder={usersLoading ? "Đang tải..." : "Chọn người thực hiện (tùy chọn)"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Chưa phân công</SelectItem>
+                {users?.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.ten} ({user.email})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="priority">Độ Ưu Tiên</Label>
               <Select
-                defaultValue="medium"
-                onValueChange={(value) => setValue('priority', value as 'low' | 'medium' | 'high' | 'urgent')}
+                value={selectedPriority}
+                onValueChange={setSelectedPriority}
               >
                 <SelectTrigger id="priority">
                   <SelectValue placeholder="Chọn độ ưu tiên" />
@@ -104,6 +153,7 @@ export function CreateTaskModal({ open, onOpenChange, initialStatus = 'todo', ph
                   <SelectItem value="low">Thấp</SelectItem>
                   <SelectItem value="medium">Trung bình</SelectItem>
                   <SelectItem value="high">Cao</SelectItem>
+                  <SelectItem value="urgent">Khẩn cấp</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -116,23 +166,6 @@ export function CreateTaskModal({ open, onOpenChange, initialStatus = 'todo', ph
                 {...register('deadline')}
               />
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="trang_thai">Trạng Thái</Label>
-            <Select
-              defaultValue={initialStatus}
-              onValueChange={(value) => setValue('trang_thai', value)}
-            >
-              <SelectTrigger id="trang_thai">
-                <SelectValue placeholder="Chọn trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todo">Cần Làm</SelectItem>
-                <SelectItem value="in-progress">Đang Làm</SelectItem>
-                <SelectItem value="done">Hoàn Thành</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <DialogFooter>
