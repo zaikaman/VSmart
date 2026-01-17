@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function KanbanPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
@@ -48,7 +49,7 @@ export default function KanbanPage() {
 
   const handleAddTask = (columnId: string) => {
     if (!selectedPartId) {
-      alert('Vui lòng chọn phần dự án trước khi tạo task');
+      toast.error('Vui lòng chọn phần dự án trước khi tạo task');
       return;
     }
     setInitialStatus(columnId);
@@ -181,6 +182,7 @@ export default function KanbanPage() {
         initialStatus={initialStatus}
         phanDuAnId={selectedPartId}
         phanDuAnName={selectedPartName}
+        projectId={selectedProjectId}
       />
 
       <TaskDetailModal

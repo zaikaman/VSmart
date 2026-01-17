@@ -23,6 +23,7 @@ interface CreateTaskModalProps {
   initialStatus?: string;
   phanDuAnId: string;
   phanDuAnName?: string;
+  projectId?: string; // Thêm projectId để lọc users
 }
 
 interface TaskFormData {
@@ -39,10 +40,11 @@ export function CreateTaskModal({
   onOpenChange,
   initialStatus = 'todo',
   phanDuAnId,
-  phanDuAnName
+  phanDuAnName,
+  projectId
 }: CreateTaskModalProps) {
   const createTaskMutation = useCreateTask();
-  const { data: users, isLoading: usersLoading } = useUsers();
+  const { data: users, isLoading: usersLoading } = useUsers(projectId);
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<TaskFormData>({
     defaultValues: {
       trang_thai: initialStatus,

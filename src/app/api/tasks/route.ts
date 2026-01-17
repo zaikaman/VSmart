@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin as supabase } from '@/lib/supabase/client';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 
 const taskSchema = z.object({
@@ -11,26 +11,66 @@ const taskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
 });
 
-// GET /api/tasks - List tasks với pagination và filters
+// GET /api/tasks - List tasks của các dự án mà user tham gia
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createSupabaseServerClient();
+    
+    // Lấy thông tin user hiện tại
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = parseInt(searchParams.get('limit') || '100'); // Tăng limit cho kanban board
     const trangThai = searchParams.get('trangThai');
     const assigneeId = searchParams.get('assigneeId');
     const deadline = searchParams.get('deadline');
+    const duAnId = searchParams.get('duAnId'); // Filter theo dự án cụ thể
+
+    // Lấy danh sách project IDs mà user tham gia
+    const { data: userProjects } = await supabase
+      .from('thanh_vien_du_an')
+      .select('du_an_id')
+      .eq('email', user.email)
+      .eq('trang_thai', 'active');
+
+    const projectIds = userProjects?.map(p => p.du_an_id) || [];
+
+    if (projectIds.length === 0) {
+      return NextResponse.json({
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        },
+      });
+    }
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
+    // Query tasks từ các dự án mà user tham gia
     let query = supabase
       .from('task')
       .select(
         `
         *,
         nguoi_dung:assignee_id (id, ten, email, avatar_url),
-        phan_du_an (id, ten, du_an_id)
+        phan_du_an (
+          id, 
+          ten, 
+          du_an_id,
+          du_an (id, ten)
+        )
       `,
         { count: 'exact' }
       )
@@ -38,6 +78,31 @@ export async function GET(request: NextRequest) {
       .range(from, to)
       .order('ngay_tao', { ascending: false });
 
+    // Filter tasks theo projects của user thông qua phan_du_an
+    // Lấy tất cả part IDs của các projects user tham gia
+    const { data: projectParts } = await supabase
+      .from('phan_du_an')
+      .select('id')
+      .in('du_an_id', projectIds);
+
+    const partIds = projectParts?.map(p => p.id) || [];
+    
+    if (partIds.length > 0) {
+      query = query.in('phan_du_an_id', partIds);
+    } else {
+      // Không có part nào, return empty
+      return NextResponse.json({
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        },
+      });
+    }
+
+    // Apply filters
     if (trangThai) {
       query = query.eq('trang_thai', trangThai);
     }
@@ -53,6 +118,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
 
     if (error) {
+      console.error('Error fetching tasks:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
@@ -66,6 +132,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error('Error in GET /api/tasks:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -76,8 +143,50 @@ export async function GET(request: NextRequest) {
 // POST /api/tasks - Create new task
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createSupabaseServerClient();
+    
+    // Lấy thông tin user hiện tại
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const validated = taskSchema.parse(body);
+
+    // Verify user có quyền tạo task trong project này không
+    const { data: partData } = await supabase
+      .from('phan_du_an')
+      .select('du_an_id')
+      .eq('id', validated.phan_du_an_id)
+      .single();
+
+    if (!partData) {
+      return NextResponse.json(
+        { error: 'Phần dự án không tồn tại' },
+        { status: 404 }
+      );
+    }
+
+    // Check user có phải thành viên của project này không
+    const { data: membership } = await supabase
+      .from('thanh_vien_du_an')
+      .select('id')
+      .eq('du_an_id', partData.du_an_id)
+      .eq('email', user.email)
+      .eq('trang_thai', 'active')
+      .single();
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: 'Bạn không có quyền tạo task trong dự án này' },
+        { status: 403 }
+      );
+    }
 
     const { data, error } = await supabase
       .from('task')
@@ -100,6 +209,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      console.error('Error creating task:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
@@ -108,6 +218,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
+    console.error('Error in POST /api/tasks:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
