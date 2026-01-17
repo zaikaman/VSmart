@@ -13,7 +13,7 @@ import {
     Command,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Avatar } from "@/components/ui/avatar"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { LogoutButton } from "@/components/LogoutButton"
 
 const navItems = [
@@ -95,11 +95,12 @@ export function Sidebar({ className }: { className?: string }) {
             <div className="border-t border-[#2a2b35] p-4">
                 <div className="group flex items-center w-full justify-between hover:bg-[#2a2b35]/50 p-2 rounded-md cursor-pointer transition-colors relative">
                     <div className="flex items-center space-x-3">
-                        <Avatar
-                            src={user?.extendedData?.avatarUrl}
-                            fallback={user?.displayName?.[0] || user?.username?.[0] || "U"}
-                            className="bg-[#2a2b35] text-white"
-                        />
+                        <Avatar className="bg-[#2a2b35] text-white">
+                            <AvatarImage src={user?.extendedData?.avatarUrl} />
+                            <AvatarFallback>
+                                {user?.displayName?.[0] || user?.username?.[0] || "U"}
+                            </AvatarFallback>
+                        </Avatar>
                         <div className="flex flex-col max-w-[120px]">
                             <span className="text-sm font-medium text-white truncate">
                                 {user?.displayName || user?.username || "Đang tải..."}

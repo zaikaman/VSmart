@@ -149,26 +149,26 @@
 
 #### OpenAI GPT-5-Nano Integration
 
-- [ ] T068 [P] [US2] Create system prompts library tại lib/openai/prompts/system-prompts.ts cho assignment matching
-- [ ] T069 [P] [US2] Implement goiYPhanCong function tại lib/openai/assignment-suggestion.ts với GPT-5-Nano direct analysis
-- [ ] T070 [US2] Implement POST /api/ai/suggest-assignee endpoint tại app/api/ai/suggest-assignee/route.ts (depends on T069)
+- [X] T068 [P] [US2] Create system prompts library tại lib/openai/prompts/system-prompts.ts cho assignment matching
+- [X] T069 [P] [US2] Implement goiYPhanCong function tại lib/openai/assignment-suggestion.ts với GPT-5-Nano direct analysis
+- [X] T070 [US2] Implement POST /api/ai/suggest-assignee endpoint tại app/api/ai/suggest-assignee/route.ts (depends on T069)
 
 #### Database & Models
 
-- [ ] T071 [P] [US2] Verify GoiYPhanCong model có fields: taskId, suggestedUserId, matchScore, reasoning (JSON), accepted
-- [ ] T072 [P] [US2] Create helper để lưu AI suggestions vào GoiYPhanCong table
+- [X] T071 [P] [US2] Verify GoiYPhanCong model có fields: taskId, suggestedUserId, matchScore, reasoning (JSON), accepted
+- [X] T072 [P] [US2] Create helper để lưu AI suggestions vào GoiYPhanCong table
 
 #### UI Components
 
-- [ ] T073 [US2] Update create-task-modal.tsx để gọi AI suggestions khi nhập task title và description
-- [ ] T074 [US2] Add AI suggestions list UI trong create-task-modal.tsx với top 3 users, match scores, reasoning
-- [ ] T075 [US2] Add "Chọn thủ công" option trong create-task-modal.tsx với dropdown toàn bộ members
-- [ ] T076 [US2] Add loading spinner và "Không có gợi ý phù hợp" fallback message
+- [X] T073 [US2] Update create-task-modal.tsx để gọi AI suggestions khi nhập task title và description
+- [X] T074 [US2] Add AI suggestions list UI trong create-task-modal.tsx với top 3 users, match scores, reasoning
+- [X] T075 [US2] Add "Chọn thủ công" option trong create-task-modal.tsx với dropdown toàn bộ members
+- [X] T076 [US2] Add loading spinner và "Không có gợi ý phù hợp" fallback message
 
 #### Tracking & Analytics
 
-- [ ] T077 [P] [US2] Log AI suggestion acceptance rate (track accepted=true/false trong GoiYPhanCong)
-- [ ] T078 [P] [US2] Add metric logging cho AI call latency và cost estimation
+- [X] T077 [P] [US2] Log AI suggestion acceptance rate (track accepted=true/false trong GoiYPhanCong)
+- [X] T078 [P] [US2] Add metric logging cho AI call latency và cost estimation
 
 **Checkpoint**: AI assignment suggestions hoạt động. Users thấy top 3 gợi ý với reasoning và có thể chấp nhận hoặc chọn thủ công.
 
