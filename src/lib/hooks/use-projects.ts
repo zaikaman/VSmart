@@ -41,12 +41,13 @@ export interface UpdateProjectInput {
 }
 
 // Fetch all projects
-export function useProjects(params?: { page?: number; trangThai?: string }) {
+export function useProjects(params?: { page?: number; limit?: number; trangThai?: string }) {
   return useQuery({
     queryKey: ['projects', params],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       if (params?.page) searchParams.set('page', params.page.toString());
+      if (params?.limit) searchParams.set('limit', params.limit.toString());
       if (params?.trangThai) searchParams.set('trangThai', params.trangThai);
 
       const response = await fetch(`/api/projects?${searchParams}`);

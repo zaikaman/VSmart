@@ -16,7 +16,7 @@ export async function GET() {
         const { data: userData, error } = await supabase
             .from('nguoi_dung')
             .select('settings')
-            .eq('id', user.id)
+            .eq('email', user.email)
             .single();
 
         if (error) {
@@ -68,7 +68,7 @@ export async function PATCH(request: Request) {
         const { data: userData, error: fetchError } = await supabase
             .from('nguoi_dung')
             .select('settings')
-            .eq('id', user.id)
+            .eq('email', user.email)
             .single();
 
         if (fetchError) {
@@ -84,7 +84,7 @@ export async function PATCH(request: Request) {
         const { error: updateError } = await supabase
             .from('nguoi_dung')
             .update({ settings: newSettings })
-            .eq('id', user.id);
+            .eq('email', user.email);
 
         if (updateError) {
             console.error('Error updating settings:', updateError);

@@ -1,6 +1,17 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.binh_luan (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  task_id uuid NOT NULL,
+  nguoi_dung_id uuid NOT NULL,
+  noi_dung text NOT NULL,
+  ngay_tao timestamp with time zone DEFAULT now(),
+  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
+  CONSTRAINT binh_luan_pkey PRIMARY KEY (id),
+  CONSTRAINT binh_luan_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.task(id),
+  CONSTRAINT binh_luan_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id)
+);
 CREATE TABLE public.du_an (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   ten character varying NOT NULL,
@@ -65,6 +76,7 @@ CREATE TABLE public.nguoi_dung (
   onboarding_completed boolean DEFAULT false,
   ten_cong_ty character varying,
   ten_phong_ban character varying,
+  settings jsonb DEFAULT '{"dashboard": {"defaultPage": "/dashboard", "itemsPerPage": 10}, "notifications": {"pushEnabled": false, "emailComments": true, "emailTaskAssigned": true, "emailDeadlineReminder": true}}'::jsonb,
   CONSTRAINT nguoi_dung_pkey PRIMARY KEY (id),
   CONSTRAINT nguoi_dung_phong_ban_id_fkey FOREIGN KEY (phong_ban_id) REFERENCES public.phong_ban(id),
   CONSTRAINT nguoi_dung_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id)

@@ -7,6 +7,7 @@ import { TaskDetailModal } from '@/components/kanban/task-detail-modal';
 import { useTasks } from '@/lib/hooks/use-tasks';
 import { useProjects } from '@/lib/hooks/use-projects';
 import { useProjectParts, ProjectPart } from '@/lib/hooks/use-project-parts';
+import { useUserSettings } from '@/lib/hooks/use-settings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -17,11 +18,14 @@ import { Badge } from '@/components/ui/badge';
 type RiskFilter = 'all' | 'low' | 'medium' | 'high' | 'stale';
 
 export default function KanbanPage() {
+  const { data: settingsResponse } = useUserSettings();
+  const itemsPerPage = settingsResponse?.data?.dashboard?.itemsPerPage || 10;
+
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedPartId, setSelectedPartId] = useState<string>('');
   const [selectedPartName, setSelectedPartName] = useState<string>('');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
-  const { data: projects, isLoading: projectsLoading } = useProjects();
+  const { data: projects, isLoading: projectsLoading } = useProjects({ limit: itemsPerPage });
   const { data: parts, isLoading: partsLoading } = useProjectParts(selectedProjectId);
   const { data: tasks, isLoading: tasksLoading, error } = useTasks();
 
@@ -63,7 +67,7 @@ export default function KanbanPage() {
   const filteredTasks = (tasks?.filter((task: any) => {
     // Filter theo part
     const partMatch = selectedPartId ? task.phan_du_an_id === selectedPartId : true;
-    
+
     // Filter theo risk level
     let riskMatch = true;
     if (riskFilter !== 'all') {
@@ -73,15 +77,15 @@ export default function KanbanPage() {
         riskMatch = task.risk_level === riskFilter;
       }
     }
-    
+
     return partMatch && riskMatch;
   }) || []);
-  
+
   // Đếm số tasks theo risk level
   const allTasks = tasks?.filter((task: any) =>
     selectedPartId ? task.phan_du_an_id === selectedPartId : true
   ) || [];
-  
+
   const riskCounts = {
     all: allTasks.length,
     low: allTasks.filter((t: any) => t.risk_level === 'low' || !t.risk_level).length,

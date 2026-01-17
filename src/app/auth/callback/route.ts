@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         if (!error) {
             // Lấy thông tin user sau khi đăng nhập
             const { data: { user } } = await supabase.auth.getUser();
-            
+
             if (user) {
                 // Kiểm tra xem user đã tồn tại trong bảng nguoi_dung chưa
                 const { data: existingUser } = await supabase
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
                 // Nếu user mới hoặc chưa có avatar, lấy từ Google
                 if (!existingUser || !existingUser.avatar_url) {
                     const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-                    
+
                     if (googleAvatarUrl) {
                         if (existingUser) {
                             // Cập nhật avatar cho user đã tồn tại
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
                         } else {
                             // Tạo user mới với avatar từ Google
                             const userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
-                            
+
                             await supabase
                                 .from('nguoi_dung')
                                 .insert({
@@ -80,16 +80,33 @@ export async function GET(request: Request) {
                 }
             }
 
+            // Lấy settings của user để redirect đến trang mặc định
+            let redirectPath = next; // Default fallback
+
+            if (next === '/dashboard') {
+                // Chỉ override nếu không có explicit next param
+                const { data: userData } = await supabase
+                    .from('nguoi_dung')
+                    .select('settings')
+                    .eq('email', user?.email)
+                    .single();
+
+                const userSettings = userData?.settings;
+                if (userSettings?.dashboard?.defaultPage) {
+                    redirectPath = userSettings.dashboard.defaultPage;
+                }
+            }
+
             const forwardedHost = request.headers.get('x-forwarded-host');
             const isLocalEnv = process.env.NODE_ENV === 'development';
 
             if (isLocalEnv) {
                 // Trong môi trường local, không có load balancer
-                return NextResponse.redirect(`${origin}${next}`);
+                return NextResponse.redirect(`${origin}${redirectPath}`);
             } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`);
+                return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`);
             } else {
-                return NextResponse.redirect(`${origin}${next}`);
+                return NextResponse.redirect(`${origin}${redirectPath}`);
             }
         }
     }

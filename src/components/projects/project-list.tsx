@@ -1,11 +1,14 @@
 'use client';
 
 import { useProjects, Project } from '@/lib/hooks/use-projects';
+import { useUserSettings } from '@/lib/hooks/use-settings';
 import { ProjectCard } from './project-card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function ProjectList() {
-  const { data, isLoading, error } = useProjects();
+  const { data: settingsResponse } = useUserSettings();
+  const itemsPerPage = settingsResponse?.data?.dashboard?.itemsPerPage || 10;
+  const { data, isLoading, error } = useProjects({ limit: itemsPerPage });
 
   if (isLoading) {
     return (

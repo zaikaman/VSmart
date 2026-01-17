@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notifications';
 
 const taskSchema = z.object({
   ten: z.string().min(1).max(200),
@@ -15,10 +16,10 @@ const taskSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
+
     // Lấy thông tin user hiện tại
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
       .in('du_an_id', projectIds);
 
     const partIds = projectParts?.map(p => p.id) || [];
-    
+
     if (partIds.length > 0) {
       query = query.in('phan_du_an_id', partIds);
     } else {
@@ -144,10 +145,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
+
     // Lấy thông tin user hiện tại
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
     // Verify user có quyền tạo task trong project này không
     const { data: partData } = await supabase
       .from('phan_du_an')
-      .select('du_an_id')
+      .select('du_an_id, du_an:du_an_id (ten)')
       .eq('id', validated.phan_du_an_id)
       .single();
 
@@ -211,6 +212,42 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating task:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Gửi email thông báo cho assignee nếu có
+    if (validated.assignee_id) {
+      try {
+        const { data: assigneeData } = await supabase
+          .from('nguoi_dung')
+          .select('email, ten')
+          .eq('id', validated.assignee_id)
+          .single();
+
+        if (assigneeData && assigneeData.email !== user.email) {
+          const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
+          if (shouldSend) {
+            // Get project name
+            const projectName = Array.isArray(partData.du_an)
+              ? partData.du_an[0]?.ten
+              : (partData.du_an as { ten: string })?.ten || 'Chưa xác định';
+
+            sendTaskAssignedEmail(
+              assigneeData.email,
+              assigneeData.ten,
+              {
+                taskId: data.id,
+                taskName: validated.ten,
+                projectName,
+                deadline: validated.deadline,
+                priority: validated.priority,
+              }
+            ).catch(err => console.error('Error sending task assigned email:', err));
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending task assignment notification:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json(data, { status: 201 });
