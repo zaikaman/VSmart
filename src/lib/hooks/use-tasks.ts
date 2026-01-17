@@ -70,7 +70,9 @@ export function useTasks(params?: TasksParams) {
 
       const response = await fetch(`/api/tasks?${searchParams}`);
       if (!response.ok) throw new Error('Failed to fetch tasks');
-      return response.json();
+      const result = await response.json();
+      // API returns { data, pagination }, extract the array
+      return result.data || [];
     },
   });
 }
