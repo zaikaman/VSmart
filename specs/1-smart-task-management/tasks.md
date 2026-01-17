@@ -230,27 +230,27 @@
 
 #### OpenAI Streaming Chat
 
-- [ ] T098 [P] [US4] Create chat prompts tại lib/openai/prompts/chat-prompts.ts với system prompt cho RAG context
-- [ ] T099 [P] [US4] Implement chat completion với streaming tại lib/openai/chat-completion.ts
-- [ ] T100 [US4] Implement POST /api/ai/chat endpoint với Server-Sent Events streaming tại app/api/ai/chat/route.ts (depends on T099)
+- [X] T098 [P] [US4] Create chat prompts tại lib/openai/prompts/chat-prompts.ts với system prompt cho RAG context
+- [X] T099 [P] [US4] Implement chat completion với streaming tại lib/openai/chat-completion.ts
+- [X] T100 [US4] Implement POST /api/ai/chat endpoint với Server-Sent Events streaming tại app/api/ai/chat/route.ts (depends on T099)
 
 #### RAG Context Injection
 
-- [ ] T101 [US4] Implement context fetching: user's active tasks, recent projects, team members trong chat endpoint
-- [ ] T102 [US4] Format context thành structured prompt cho GPT-5-Nano
+- [X] T101 [US4] Implement context fetching: user's active tasks, recent projects, team members trong chat endpoint
+- [X] T102 [US4] Format context thành structured prompt cho GPT-5-Nano
 
 #### UI Components
 
-- [ ] T103 [P] [US4] Create chat-message component tại components/chat/chat-message.tsx với user/assistant bubbles
-- [ ] T104 [P] [US4] Create chat-input component tại components/chat/chat-input.tsx với loading state
-- [ ] T105 [US4] Create chat-sidebar component tại components/chat/chat-sidebar.tsx với message history và streaming typewriter effect (depends on T103, T104)
-- [ ] T106 [US4] Add chat icon button vào dashboard layout để toggle sidebar
-- [ ] T107 [US4] Implement chat history persistence (localStorage hoặc database)
+- [X] T103 [P] [US4] Create chat-message component tại components/chat/chat-message.tsx với user/assistant bubbles
+- [X] T104 [P] [US4] Create chat-input component tại components/chat/chat-input.tsx với loading state
+- [X] T105 [US4] Create chat-sidebar component tại components/chat/chat-sidebar.tsx với message history và streaming typewriter effect (depends on T103, T104)
+- [X] T106 [US4] Add chat icon button vào dashboard layout để toggle sidebar
+- [X] T107 [US4] Implement chat history persistence (localStorage hoặc database)
 
 #### Natural Language Understanding
 
-- [ ] T108 [US4] Test AI với các câu hỏi phổ biến: "Ai phù hợp làm task X?", "Task Y có risk không?", "Gợi ý chia nhỏ task Z"
-- [ ] T109 [US4] Add fallback message cho unclear questions: "Bạn muốn hỏi về task nào? Vui lòng cung cấp task ID hoặc tên."
+- [X] T108 [US4] Test AI với các câu hỏi phổ biến: "Ai phù hợp làm task X?", "Task Y có risk không?", "Gợi ý chia nhỏ task Z"
+- [X] T109 [US4] Add fallback message cho unclear questions: "Bạn muốn hỏi về task nào? Vui lòng cung cấp task ID hoặc tên."
 
 **Checkpoint**: Chat sidebar hoạt động với streaming responses. AI trả lời dựa trên dữ liệu thực của hệ thống.
 

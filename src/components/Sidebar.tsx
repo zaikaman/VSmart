@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { LogoutButton } from "@/components/LogoutButton"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { ChatButton } from "@/components/chat/chat-button"
 
 const navItems = [
     { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
@@ -100,6 +101,9 @@ export function Sidebar({ className }: { className?: string }) {
                             </Link>
                         )
                     })}
+                    
+                    {/* Chat AI Button */}
+                    <ChatButton />
                 </nav>
             </div>
 

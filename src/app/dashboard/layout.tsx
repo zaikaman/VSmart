@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { DashboardWrapper } from '@/components/layouts/dashboard-wrapper'
 
 export const metadata: Metadata = {
   title: 'Bảng điều khiển VSmart',
@@ -35,13 +36,15 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <Sidebar className="hidden md:flex" />
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
-          {children}
-        </div>
-      </main>
-    </div>
+    <DashboardWrapper>
+      <div className="flex min-h-screen bg-slate-50">
+        <Sidebar className="hidden md:flex" />
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            {children}
+          </div>
+        </main>
+      </div>
+    </DashboardWrapper>
   )
 }

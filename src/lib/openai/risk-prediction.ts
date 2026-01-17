@@ -213,8 +213,6 @@ export async function duBaoRuiRo(
         { role: 'system', content: RISK_PREDICTION_PROMPT },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.3, // Lower temperature cho analysis tasks
-      max_tokens: 500,
       response_format: { type: 'json_object' },
     });
     
