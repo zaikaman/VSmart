@@ -12,7 +12,7 @@ import Footer from "@/components/landing/Footer";
 
 export default function Home() {
   return (
-    <div className="relative pt-[60px] max-sm:pt-[30px]">
+    <div className="relative">
       <NavigationBar />
       <Header className="mt-[70px] max-sm:mt-[40px]" />
       <Logotypes className="mt-[70px] max-sm:mt-[40px]" />
