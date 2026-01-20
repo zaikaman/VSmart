@@ -95,7 +95,8 @@ export async function PATCH(
           const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
           if (shouldSend) {
             // Get project name
-            const projectName = oldTask?.phan_du_an?.du_an?.ten || 'Chưa xác định';
+            const phanDuAn = oldTask?.phan_du_an as any;
+            const projectName = phanDuAn?.du_an?.ten || 'Chưa xác định';
 
             sendTaskAssignedEmail(
               assigneeData.email,

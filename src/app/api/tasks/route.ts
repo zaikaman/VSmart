@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
     // Broadcast task creation qua socket để cập nhật realtime
     try {
       const { broadcastTaskCreate } = await import('@/lib/socket/server');
-      broadcastTaskCreate(data, user.email);
+      broadcastTaskCreate(data, user.email || 'unknown');
     } catch (socketError) {
       console.error('Error broadcasting task creation:', socketError);
     }
