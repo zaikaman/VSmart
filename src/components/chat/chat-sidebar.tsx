@@ -248,8 +248,18 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
         }));
 
         // Gọi lại AI với tool results
+        // Quan trọng: messagesToSend không nên chứa tool_calls hay tool messages
+        // Chỉ gửi user/assistant messages thuần túy
+        const cleanMessages = messagesToSend.filter(m => 
+          m.role !== 'tool' && !m.tool_call_id
+        ).map(m => ({
+          role: m.role,
+          content: m.content,
+          // Không gửi tool_calls cũ
+        }));
+
         const summaryMessages = [
-          ...messagesToSend,
+          ...cleanMessages,
           {
             role: 'assistant',
             content: fullContent || '',
