@@ -207,6 +207,16 @@ QUAN TRỌNG:
   const messagesWithSystem: ChatCompletionMessageParam[] = [
     { role: 'system', content: systemMessage },
     ...options.messages.map(msg => {
+      // Nếu là tool message, return luôn với format đúng
+      if (msg.tool_call_id) {
+        return {
+          role: 'tool' as const,
+          content: msg.content || '',
+          tool_call_id: msg.tool_call_id,
+        };
+      }
+      
+      // Nếu là assistant với tool_calls
       const param: ChatCompletionMessageParam = {
         role: msg.role,
         content: msg.content || '',
@@ -214,14 +224,6 @@ QUAN TRỌNG:
       
       if (msg.tool_calls) {
         (param as any).tool_calls = msg.tool_calls;
-      }
-      
-      if (msg.tool_call_id && msg.name) {
-        return {
-          role: 'tool' as const,
-          content: msg.content || '',
-          tool_call_id: msg.tool_call_id,
-        };
       }
       
       return param;
