@@ -215,9 +215,9 @@ export class AgentToolExecutor {
           nguoi_dung_id: invitedUser?.id || null,
           email: params.email,
           vai_tro: params.vai_tro || 'member',
-          trang_thai: invitedUser ? 'active' : 'pending',
+          trang_thai: 'pending', // Luôn để pending, đợi user accept
           nguoi_moi_id: userData?.id,
-          ngay_tham_gia: invitedUser ? new Date().toISOString() : null,
+          ngay_tham_gia: null, // Chỉ set khi user accept
         },
       ])
       .select()
@@ -233,14 +233,10 @@ export class AgentToolExecutor {
       return { success: false, error: error.message };
     }
 
-    const statusText = invitedUser 
-      ? `Đã thêm ${params.email} vào dự án với vai trò ${params.vai_tro || 'member'}`
-      : `Đã gửi lời mời đến ${params.email} với vai trò ${params.vai_tro || 'member'} (chờ người dùng chấp nhận)`;
-
     return {
       success: true,
       data: {
-        message: statusText,
+        message: `Đã gửi lời mời đến ${params.email} với vai trò ${params.vai_tro || 'member'}. Đang chờ người dùng chấp nhận.`,
         member: data,
       },
     };
