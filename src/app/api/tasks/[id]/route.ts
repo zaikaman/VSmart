@@ -116,15 +116,8 @@ export async function PATCH(
       }
     }
 
-    // Broadcast task update qua socket
-    try {
-      const { broadcastTaskUpdate } = await import('@/lib/socket/server');
-      const supabaseAuth = await createSupabaseServerClient();
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      broadcastTaskUpdate(id, validated, user?.email || 'unknown');
-    } catch (socketError) {
-      console.error('Error broadcasting task update:', socketError);
-    }
+    // Socket broadcast đã bị vô hiệu hóa - sử dụng polling thay thế
+    // Task update sẽ được hiển thị qua polling mỗi 10 giây
 
     // Auto-update phan_tram_hoan_thanh cho PhanDuAn nếu task thuộc về một phần dự án
     if (updatedTask.phan_du_an_id && (validated.trang_thai || validated.progress !== undefined)) {
@@ -224,15 +217,8 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Broadcast task deletion qua socket
-    try {
-      const { broadcastTaskDelete } = await import('@/lib/socket/server');
-      const supabaseAuth = await createSupabaseServerClient();
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      broadcastTaskDelete(id, user?.email || 'unknown');
-    } catch (socketError) {
-      console.error('Error broadcasting task deletion:', socketError);
-    }
+    // Socket broadcast đã bị vô hiệu hóa - sử dụng polling thay thế
+    // Task deletion sẽ được hiển thị qua polling mỗi 10 giây
 
     return NextResponse.json({ message: 'Task deleted', data });
   } catch (error) {

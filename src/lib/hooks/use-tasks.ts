@@ -74,9 +74,11 @@ export function useTasks(params?: TasksParams) {
       // API returns { data, pagination }, extract the array
       return result.data || [];
     },
-    staleTime: 1 * 60 * 1000, // 1 phút - tasks thay đổi thường xuyên
+    staleTime: 5 * 1000, // 5 giây - tasks cần fresh
     gcTime: 5 * 60 * 1000, // 5 phút
-    refetchInterval: 2 * 60 * 1000, // Auto refetch mỗi 2 phút cho realtime updates
+    refetchInterval: 10 * 1000, // Polling mỗi 10 giây cho realtime updates
+    refetchOnWindowFocus: true, // Refetch khi quay lại tab
+    refetchIntervalInBackground: false, // Không poll khi tab không active
   });
 }
 

@@ -250,13 +250,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Broadcast task creation qua socket để cập nhật realtime
-    try {
-      const { broadcastTaskCreate } = await import('@/lib/socket/server');
-      broadcastTaskCreate(data, user.email || 'unknown');
-    } catch (socketError) {
-      console.error('Error broadcasting task creation:', socketError);
-    }
+    // Socket broadcast đã bị vô hiệu hóa - sử dụng polling thay thế
+    // Task mới sẽ được hiển thị qua polling mỗi 10 giây
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

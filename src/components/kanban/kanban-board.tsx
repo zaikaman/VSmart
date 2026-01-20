@@ -13,8 +13,6 @@ import {
 import { KanbanColumn, Task } from './kanban-column';
 import { KanbanCard } from './kanban-card';
 import { useUpdateTask } from '@/lib/hooks/use-tasks';
-import { useSocket } from '@/lib/hooks/use-socket';
-import { SOCKET_EVENTS } from '@/lib/socket/events';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface KanbanBoardProps {
@@ -27,7 +25,6 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [optimisticTasks, setOptimisticTasks] = useState<Task[]>(tasks);
   const updateTaskMutation = useUpdateTask();
-  const { on, off, isConnected } = useSocket();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -41,41 +38,6 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
       },
     })
   );
-
-  // Socket.io realtime listeners
-  useEffect(() => {
-    if (!isConnected) return;
-
-    // Listen for task status changes from other users
-    const handleTaskStatusChange = (data: any) => {
-      // Invalidate tasks query to refetch and show updates
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    };
-
-    const handleTaskUpdate = (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    };
-
-    const handleTaskCreate = (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    };
-
-    const handleTaskDelete = (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    };
-
-    on(SOCKET_EVENTS.TASK_STATUS_CHANGE as any, handleTaskStatusChange);
-    on(SOCKET_EVENTS.TASK_UPDATE as any, handleTaskUpdate);
-    on(SOCKET_EVENTS.TASK_CREATE as any, handleTaskCreate);
-    on(SOCKET_EVENTS.TASK_DELETE as any, handleTaskDelete);
-
-    return () => {
-      off(SOCKET_EVENTS.TASK_STATUS_CHANGE as any, handleTaskStatusChange);
-      off(SOCKET_EVENTS.TASK_UPDATE as any, handleTaskUpdate);
-      off(SOCKET_EVENTS.TASK_CREATE as any, handleTaskCreate);
-      off(SOCKET_EVENTS.TASK_DELETE as any, handleTaskDelete);
-    };
-  }, [isConnected, on, off, queryClient]);
 
   // Nhóm tasks theo trạng thái
   const tasksByStatus = {
