@@ -196,11 +196,16 @@ export class AgentToolExecutor {
       .single();
 
     // Kiểm tra email người được mời có tồn tại không
-    const { data: invitedUser } = await this.supabase
+    const { data: invitedUser, error: userCheckError } = await this.supabase
       .from('nguoi_dung')
       .select('id, ten')
       .eq('email', params.email)
-      .single();
+      .maybeSingle(); // Dùng maybeSingle() thay vì single() để không throw error khi không tìm thấy
+
+    // Nếu có lỗi từ DB (không phải lỗi "không tìm thấy")
+    if (userCheckError) {
+      return { success: false, error: `Lỗi khi kiểm tra user: ${userCheckError.message}` };
+    }
 
     const { data, error } = await this.supabase
       .from('thanh_vien_du_an')
@@ -228,10 +233,14 @@ export class AgentToolExecutor {
       return { success: false, error: error.message };
     }
 
+    const statusText = invitedUser 
+      ? `Đã thêm ${params.email} vào dự án với vai trò ${params.vai_tro || 'member'}`
+      : `Đã gửi lời mời đến ${params.email} với vai trò ${params.vai_tro || 'member'} (chờ người dùng chấp nhận)`;
+
     return {
       success: true,
       data: {
-        message: `Đã mời ${params.email} vào dự án với vai trò ${params.vai_tro || 'member'}`,
+        message: statusText,
         member: data,
       },
     };
