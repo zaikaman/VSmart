@@ -24,7 +24,7 @@ export interface Skill {
 
 interface SkillsListProps {
   skills: Skill[];
-  onUpdateSkill?: (id: string, data: { trinh_do?: string; nam_kinh_nghiem?: number }) => void;
+  onUpdateSkill?: (id: string, data: { trinh_do?: string; nam_kinh_nghiem?: number }) => Promise<void>;
   onDeleteSkill?: (id: string) => void;
   isUpdating?: boolean;
   isDeleting?: boolean;
@@ -59,11 +59,16 @@ export function SkillsList({
     setEditData({ trinh_do: 'intermediate', nam_kinh_nghiem: 0 });
   };
 
-  const handleSaveEdit = (id: string) => {
+  const handleSaveEdit = async (id: string) => {
     if (onUpdateSkill) {
-      onUpdateSkill(id, editData);
+      try {
+        await onUpdateSkill(id, editData);
+        setEditingId(null);
+      } catch (error) {
+        // Error đã được xử lý trong mutation
+        console.error('Lỗi khi cập nhật kỹ năng:', error);
+      }
     }
-    setEditingId(null);
   };
 
   const handleDelete = (id: string) => {

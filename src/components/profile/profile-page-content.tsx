@@ -109,6 +109,29 @@ export function ProfilePageContent() {
     },
   });
 
+  // Mutation cập nhật kỹ năng
+  const updateSkillMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { trinh_do?: string; nam_kinh_nghiem?: number } }) => {
+      const response = await fetch(`/api/users/me/skills/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Không thể cập nhật kỹ năng');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-skills'] });
+      toast.success('Đã cập nhật kỹ năng');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   // Mutation xóa kỹ năng
   const deleteSkillMutation = useMutation({
     mutationFn: async (skillId: string) => {
@@ -170,6 +193,10 @@ export function ProfilePageContent() {
 
   const handleAddSkill = async (data: { ten_ky_nang: string; trinh_do: string; nam_kinh_nghiem: number }) => {
     addSkillMutation.mutate(data);
+  };
+
+  const handleUpdateSkill = async (id: string, data: { trinh_do?: string; nam_kinh_nghiem?: number }) => {
+    return updateSkillMutation.mutateAsync({ id, data });
   };
 
   const handleDeleteSkill = async (skillId: string) => {
@@ -365,7 +392,9 @@ export function ProfilePageContent() {
               ) : skills.length > 0 ? (
                 <SkillsList
                   skills={skills}
+                  onUpdateSkill={handleUpdateSkill}
                   onDeleteSkill={handleDeleteSkill}
+                  isUpdating={updateSkillMutation.isPending}
                   isDeleting={deleteSkillMutation.isPending}
                 />
               ) : (
