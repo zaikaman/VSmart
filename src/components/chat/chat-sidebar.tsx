@@ -132,13 +132,14 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
     try {
       // Gửi request với toàn bộ conversation history
-      const messagesToSend = [...messages, userMessage].map((m) => ({
-        role: m.role,
-        content: m.content,
-        tool_calls: (m as any).tool_calls,
-        tool_call_id: (m as any).tool_call_id,
-        name: (m as any).name,
-      }));
+      // QUAN TRỌNG: Loại bỏ tool_calls và tool messages từ history cũ
+      const messagesToSend = [...messages, userMessage]
+        .filter(m => !(m as any).tool_call_id) // Loại tool messages
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+          // Không include tool_calls và tool-related fields
+        }));
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -235,37 +236,24 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
         const toolResults = await toolResponse.json();
         setExecutingTools(false);
 
-        // Thêm tool results vào messages và gọi lại AI để tổng hợp kết quả
-        const toolResultMessages = toolResults.results.map((result: any) => ({
-          role: 'tool',
-          content: JSON.stringify({
-            success: result.success,
-            data: result.data,
-            error: result.error,
-          }),
-          tool_call_id: result.tool_call_id,
-          name: result.tool_name,
-        }));
-
-        // Gọi lại AI với tool results
-        // Quan trọng: messagesToSend không nên chứa tool_calls hay tool messages
-        // Chỉ gửi user/assistant messages thuần túy
-        const cleanMessages = messagesToSend
-          .filter(m => !m.tool_call_id) // Loại bỏ tool messages
-          .map(m => ({
-            role: m.role,
-            content: m.content,
-            // Không gửi tool_calls cũ
-          }));
-
+        // Gọi lại AI với tool results để tổng hợp
+        // Build messages array đúng format: [...history, assistant_with_tools, ...tool_results]
         const summaryMessages = [
-          ...cleanMessages,
+          ...messagesToSend, // History đã clean (không có tool_calls)
           {
             role: 'assistant',
             content: fullContent || '',
-            tool_calls: toolCalls,
+            tool_calls: toolCalls, // Assistant message với tool_calls
           },
-          ...toolResultMessages,
+          ...toolResults.results.map((result: any) => ({
+            role: 'tool',
+            content: JSON.stringify({
+              success: result.success,
+              data: result.data,
+              error: result.error,
+            }),
+            tool_call_id: result.tool_call_id,
+          })),
         ];
 
         const summaryResponse = await fetch('/api/ai/chat', {
