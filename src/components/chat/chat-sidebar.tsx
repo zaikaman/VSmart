@@ -254,7 +254,14 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
             }),
             tool_call_id: result.tool_call_id,
           })),
+          // Thêm user message yêu cầu tổng hợp rõ ràng
+          {
+            role: 'user',
+            content: 'Hãy tổng hợp kết quả các hành động trên thành 1-2 câu ngắn gọn, rõ ràng. Sử dụng ✅ nếu thành công, ❌ nếu có lỗi.',
+          },
         ];
+
+        console.log('[Chat] Calling AI for summary with messages:', summaryMessages.length);
 
         const summaryResponse = await fetch('/api/ai/chat', {
           method: 'POST',
@@ -263,11 +270,13 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
           },
           body: JSON.stringify({ 
             messages: summaryMessages,
-            enableAgent: agentMode,
+            enableAgent: false, // TẮT agent mode cho summary để tránh loop
           }),
         });
 
         if (!summaryResponse.ok) {
+          const errorText = await summaryResponse.text();
+          console.error('[Chat] Summary response error:', errorText);
           throw new Error('Lỗi khi tổng hợp kết quả');
         }
 
@@ -278,6 +287,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
         }
 
         let summaryContent = '';
+        let hasContent = false;
         while (true) {
           const { done, value } = await summaryReader.read();
           if (done) break;
@@ -291,16 +301,20 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
               if (data === '[DONE]') break;
               try {
                 const parsed = JSON.parse(data);
+                console.log('[Chat] Summary chunk:', parsed);
                 if (parsed.type === 'content' && parsed.content) {
                   summaryContent += parsed.content;
                   setStreamingContent(summaryContent);
+                  hasContent = true;
                 }
               } catch {}
             }
           }
         }
 
-        // Thêm summary message
+        console.log('[Chat] Summary complete. Has content:', hasContent, 'Length:', summaryContent.length);
+
+        // Thêm summary message hoặc fallback
         if (summaryContent) {
           const summaryMessage: Message = {
             id: generateMessageId(),
@@ -309,6 +323,25 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, summaryMessage]);
+        } else {
+          // Nếu AI không trả lời, tự tạo summary từ tool results
+          const resultsText = toolResults.results
+            .map((r: any) => {
+              if (r.success) {
+                return `✅ ${r.data?.message || 'Thành công'}`;
+              } else {
+                return `❌ Lỗi: ${r.error}`;
+              }
+            })
+            .join('\n');
+
+          const fallbackMessage: Message = {
+            id: generateMessageId(),
+            role: 'assistant',
+            content: `Đã thực hiện xong các hành động:\n\n${resultsText}`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, fallbackMessage]);
         }
       } else if (fullContent) {
         // Không có tool calls, thêm assistant message bình thường

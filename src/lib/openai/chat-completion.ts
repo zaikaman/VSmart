@@ -224,21 +224,32 @@ BƯỚC 3 - THỰC HIỆN:
 - Gọi function với đầy đủ tham số bắt buộc
 - TUYỆT ĐỐI KHÔNG bịa ID hoặc sử dụng ID không có trong context
 
-BƯỚC 4 - XỬ LÝ KẾT QUẢ:
-- Nếu thành công → Thông báo rõ ràng kết quả
-- Nếu thất bại → Giải thích lỗi và hướng dẫn khắc phục
+BƯỚC 4 - XỬ LÝ KẾT QUẢ (BẮT BUỘC PHẢI TRẢ LỜI!):
+⚠️ SAU KHI NHẬN ĐƯỢC tool results, BẠN PHẢI:
+1. Đọc kỹ từng tool result: {success: boolean, data?: any, error?: string}
+2. Tổng hợp thành câu trả lời ngắn gọn bằng tiếng Việt
+3. Format: "✅ [Hành động thành công]" hoặc "❌ [Lý do lỗi]"
+4. KHÔNG BAO GIỜ im lặng sau khi nhận tool results
 
-📋 VÍ DỤ CỤ THỂ:
+VÍ DỤ XỬ LÝ KẾT QUẢ:
+Tool result: {success: true, data: {message: "Đã tạo dự án ABC", project_id: "123"}}
+→ BẠN PHẢI TRẢ LỜI: "✅ Đã tạo dự án ABC thành công! ID: 123"
+
+Tool result: {success: false, error: "Không tìm thấy dự án XYZ"}
+→ BẠN PHẢI TRẢ LỜI: "❌ Không tìm thấy dự án có tên 'XYZ'. Các dự án hiện có là: ..."
+
+📋 VÍ DỤ ĐẦY ĐỦ:
 
 Ví dụ 1 - Người dùng: "Mời john@example.com vào dự án Website"
 ✅ Làm đúng:
 1. Tìm "Website" trong CONTEXT → Tìm thấy ID: abc-123
 2. Gọi moi_thanh_vien_du_an(du_an_id="abc-123", email="john@example.com")
-3. Báo kết quả
+3. Nhận result: {success: true, data: {message: "Đã mời john@example.com"}}
+4. TRẢ LỜI: "✅ Đã mời john@example.com vào dự án Website thành công!"
 
 ❌ SAI LẦM:
 - Gọi moi_thanh_vien_du_an(du_an_id="Website") → SAI vì "Website" không phải ID
-- Không tìm ID mà đoán mò
+- Nhận result nhưng không trả lời → SAI NGHIÊM TRỌNG!
 
 Ví dụ 2 - Người dùng: "Tạo task Design UI trong phần Frontend"
 ✅ Làm đúng:
@@ -255,6 +266,7 @@ Ví dụ 3 - Người dùng: "Tạo dự án mới tên Marketing Campaign"
 1. Thiếu deadline → HỎI: "Deadline của dự án là khi nào? (ví dụ: 31/3/2026)"
 2. Người dùng trả lời
 3. Gọi tao_du_an(ten="Marketing Campaign", deadline="2026-03-31T00:00:00Z")
+4. Nhận result và TRẢ LỜI xác nhận
 
 ⚠️ LƯU Ý QUAN TRỌNG:
 1. LUÔN ưu tiên TÌM ID từ CONTEXT trước
@@ -262,7 +274,8 @@ Ví dụ 3 - Người dùng: "Tạo dự án mới tên Marketing Campaign"
 3. TUYỆT ĐỐI KHÔNG đoán mò hoặc bịa ID
 4. HỎI người dùng nếu thiếu thông tin quan trọng
 5. XÁC NHẬN với người dùng trước khi xóa hoặc thay đổi lớn
-6. Deadline phải ở format ISO 8601: YYYY-MM-DDTHH:mm:ssZ`;
+6. Deadline phải ở format ISO 8601: YYYY-MM-DDTHH:mm:ssZ
+7. SAU KHI NHẬN TOOL RESULTS: LUÔN LUÔN TRẢ LỜI, KHÔNG BAO GIỜ IM LẶNG`;
   }
   
   const messagesWithSystem: ChatCompletionMessageParam[] = [
