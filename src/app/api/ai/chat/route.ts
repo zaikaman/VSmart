@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createChatCompletionStream, ChatContext, ChatMessage } from '@/lib/openai/chat-completion';
+import { AgentToolExecutor } from '@/lib/openai/agent-executor';
 import { z } from 'zod';
 
 /**
@@ -8,9 +9,13 @@ import { z } from 'zod';
  */
 const chatRequestSchema = z.object({
   messages: z.array(z.object({
-    role: z.enum(['user', 'assistant']),
-    content: z.string().min(1),
+    role: z.enum(['user', 'assistant', 'tool']),
+    content: z.string(),
+    tool_calls: z.any().optional(),
+    tool_call_id: z.string().optional(),
+    name: z.string().optional(),
   })).min(1),
+  enableAgent: z.boolean().optional().default(false), // Bật AI Agent mode
 });
 
 /**
@@ -293,21 +298,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { messages } = parseResult.data;
+    const { messages, enableAgent } = parseResult.data;
 
     // Fetch context cho RAG
     const context = await fetchChatContext(supabase, user.email!);
 
     // Chuyển đổi messages thành format ChatMessage
-    const chatMessages: ChatMessage[] = messages.map(m => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
+    const chatMessages: ChatMessage[] = messages.map(m => {
+      const chatMsg: ChatMessage = {
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      };
+      
+      if (m.tool_calls) {
+        chatMsg.tool_calls = m.tool_calls;
+      }
+      
+      if (m.tool_call_id) {
+        chatMsg.tool_call_id = m.tool_call_id;
+      }
+      
+      if (m.name) {
+        chatMsg.name = m.name;
+      }
+      
+      return chatMsg;
+    });
 
-    // Tạo streaming response
+    // Tạo streaming response với AI Agent support
     const stream = await createChatCompletionStream({
       messages: chatMessages,
       context,
+      enableTools: enableAgent, // Bật function calling nếu enableAgent = true
     });
 
     // Trả về streaming response với headers phù hợp

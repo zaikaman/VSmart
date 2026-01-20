@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, MessageSquare, Trash2, RefreshCw } from 'lucide-react';
+import { X, MessageSquare, Trash2, RefreshCw, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatMessage, Message, TypingIndicator } from './chat-message';
 import { ChatInput, SuggestedQuestions } from './chat-input';
@@ -9,6 +9,7 @@ import { ChatInput, SuggestedQuestions } from './chat-input';
 // Key cho localStorage
 const CHAT_HISTORY_KEY = 'vsmart-chat-history';
 const MAX_HISTORY_MESSAGES = 50;
+const AGENT_MODE_KEY = 'vsmart-agent-mode';
 
 interface ChatSidebarProps {
   isOpen: boolean;
@@ -72,16 +73,29 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [agentMode, setAgentMode] = useState(false); // AI Agent mode
+  const [executingTools, setExecutingTools] = useState(false); // Đang thực thi tools
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Load history on mount
+  // Load history và agent mode on mount
   useEffect(() => {
     const history = loadChatHistory();
     if (history.length > 0) {
       setMessages(history);
     }
+    
+    // Load agent mode preference
+    const savedAgentMode = localStorage.getItem(AGENT_MODE_KEY);
+    if (savedAgentMode === 'true') {
+      setAgentMode(true);
+    }
   }, []);
+
+  // Save agent mode preference
+  useEffect(() => {
+    localStorage.setItem(AGENT_MODE_KEY, agentMode.toString());
+  }, [agentMode]);
 
   // Save history when messages change
   useEffect(() => {
@@ -98,7 +112,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   }, [messages, streamingContent]);
 
   /**
-   * Gửi tin nhắn và nhận streaming response
+   * Gửi tin nhắn và nhận streaming response với AI Agent support
    */
   const handleSendMessage = useCallback(async (content: string) => {
     // Thêm user message
@@ -121,6 +135,9 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
       const messagesToSend = [...messages, userMessage].map((m) => ({
         role: m.role,
         content: m.content,
+        tool_calls: (m as any).tool_calls,
+        tool_call_id: (m as any).tool_call_id,
+        name: (m as any).name,
       }));
 
       const response = await fetch('/api/ai/chat', {
@@ -128,7 +145,10 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ messages: messagesToSend }),
+        body: JSON.stringify({ 
+          messages: messagesToSend,
+          enableAgent: agentMode, // Bật AI Agent mode
+        }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -145,6 +165,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
       const decoder = new TextDecoder();
       let fullContent = '';
+      let toolCalls: any[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -161,22 +182,138 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
             }
             try {
               const parsed = JSON.parse(data);
-              if (parsed.content) {
+              
+              // Xử lý text content
+              if (parsed.type === 'content' && parsed.content) {
                 fullContent += parsed.content;
                 setStreamingContent(fullContent);
               }
-              if (parsed.error) {
+              
+              // Xử lý tool calls
+              if (parsed.type === 'tool_calls' && parsed.tool_calls) {
+                toolCalls = parsed.tool_calls;
+              }
+              
+              if (parsed.type === 'error' && parsed.error) {
                 throw new Error(parsed.error);
               }
-            } catch {
+            } catch (e) {
               // Ignore parse errors for incomplete JSON
             }
           }
         }
       }
 
-      // Thêm assistant message với nội dung đầy đủ
-      if (fullContent) {
+      // Nếu có tool calls, thực thi chúng
+      if (toolCalls.length > 0 && agentMode) {
+        // Thêm assistant message với tool calls
+        const assistantMessageWithTools: Message = {
+          id: generateMessageId(),
+          role: 'assistant',
+          content: fullContent || 'Đang thực hiện các hành động...',
+          timestamp: new Date(),
+          tool_calls: toolCalls,
+        } as any;
+        
+        setMessages((prev) => [...prev, assistantMessageWithTools]);
+        setStreamingContent('');
+        setExecutingTools(true);
+
+        // Gọi API để execute tools
+        const toolResponse = await fetch('/api/ai/execute-tools', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ tool_calls: toolCalls }),
+        });
+
+        if (!toolResponse.ok) {
+          throw new Error('Lỗi khi thực thi tools');
+        }
+
+        const toolResults = await toolResponse.json();
+        setExecutingTools(false);
+
+        // Thêm tool results vào messages và gọi lại AI để tổng hợp kết quả
+        const toolResultMessages = toolResults.results.map((result: any) => ({
+          role: 'tool',
+          content: JSON.stringify({
+            success: result.success,
+            data: result.data,
+            error: result.error,
+          }),
+          tool_call_id: result.tool_call_id,
+          name: result.tool_name,
+        }));
+
+        // Gọi lại AI với tool results
+        const summaryMessages = [
+          ...messagesToSend,
+          {
+            role: 'assistant',
+            content: fullContent || '',
+            tool_calls: toolCalls,
+          },
+          ...toolResultMessages,
+        ];
+
+        const summaryResponse = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            messages: summaryMessages,
+            enableAgent: agentMode,
+          }),
+        });
+
+        if (!summaryResponse.ok) {
+          throw new Error('Lỗi khi tổng hợp kết quả');
+        }
+
+        // Đọc summary response
+        const summaryReader = summaryResponse.body?.getReader();
+        if (!summaryReader) {
+          throw new Error('Không thể đọc summary response');
+        }
+
+        let summaryContent = '';
+        while (true) {
+          const { done, value } = await summaryReader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') break;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'content' && parsed.content) {
+                  summaryContent += parsed.content;
+                  setStreamingContent(summaryContent);
+                }
+              } catch {}
+            }
+          }
+        }
+
+        // Thêm summary message
+        if (summaryContent) {
+          const summaryMessage: Message = {
+            id: generateMessageId(),
+            role: 'assistant',
+            content: summaryContent,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, summaryMessage]);
+        }
+      } else if (fullContent) {
+        // Không có tool calls, thêm assistant message bình thường
         const assistantMessage: Message = {
           id: generateMessageId(),
           role: 'assistant',
@@ -202,9 +339,10 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
     } finally {
       setIsLoading(false);
       setStreamingContent('');
+      setExecutingTools(false);
       abortControllerRef.current = null;
     }
-  }, [messages]);
+  }, [messages, agentMode]);
 
   /**
    * Xóa lịch sử chat
@@ -248,8 +386,27 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-[#b9ff66]" />
             <h2 className="text-lg font-semibold text-white">VSmart AI</h2>
+            {agentMode && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-[#b9ff66]/10 rounded-full">
+                <Zap className="w-3 h-3 text-[#b9ff66]" />
+                <span className="text-xs text-[#b9ff66] font-medium">Agent</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Agent Mode Toggle */}
+            <button
+              onClick={() => setAgentMode(!agentMode)}
+              className={cn(
+                'p-2 rounded-lg transition-colors',
+                agentMode 
+                  ? 'text-[#b9ff66] bg-[#b9ff66]/10 hover:bg-[#b9ff66]/20' 
+                  : 'text-white/50 hover:text-white hover:bg-[#2a2b35]'
+              )}
+              title={agentMode ? 'Tắt AI Agent (chỉ trả lời)' : 'Bật AI Agent (có thể thực hiện hành động)'}
+            >
+              <Zap className="w-4 h-4" />
+            </button>
             {messages.length > 0 && (
               <button
                 onClick={handleClearHistory}
@@ -280,9 +437,17 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
               <h3 className="text-lg font-semibold text-white mb-2">
                 Xin chào! Tôi là VSmart AI 👋
               </h3>
-              <p className="text-sm text-white/60 mb-6 max-w-[280px]">
+              <p className="text-sm text-white/60 mb-2 max-w-[280px]">
                 Tôi có thể giúp bạn quản lý tasks, phân tích rủi ro, gợi ý phân công và nhiều hơn nữa.
               </p>
+              {agentMode && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#b9ff66]/10 rounded-lg mb-4">
+                  <Zap className="w-4 h-4 text-[#b9ff66]" />
+                  <p className="text-xs text-[#b9ff66]">
+                    Chế độ Agent đang BẬT - Tôi có thể tạo dự án, tasks, mời thành viên,...
+                  </p>
+                </div>
+              )}
               <SuggestedQuestions
                 onSelect={handleSendMessage}
                 disabled={isLoading}
@@ -309,7 +474,17 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
               )}
 
               {/* Typing indicator */}
-              {isLoading && !streamingContent && <TypingIndicator />}
+              {isLoading && !streamingContent && !executingTools && <TypingIndicator />}
+              
+              {/* Tool execution indicator */}
+              {executingTools && (
+                <div className="flex items-center gap-2 p-3 bg-[#2a2b35] rounded-lg">
+                  <div className="animate-spin">
+                    <Zap className="w-4 h-4 text-[#b9ff66]" />
+                  </div>
+                  <span className="text-sm text-white/70">Đang thực hiện các hành động...</span>
+                </div>
+              )}
 
               <div ref={messagesEndRef} />
             </div>
