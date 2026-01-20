@@ -4,6 +4,7 @@
  */
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { sendProjectInvitationEmail } from '@/lib/email/project-invitation';
 import type {
   TaoDuAnParams,
   MoiThanhVienDuAnParams,
@@ -231,6 +232,52 @@ export class AgentToolExecutor {
         };
       }
       return { success: false, error: error.message };
+    }
+
+    // Lấy thông tin dự án và người mời để tạo notification & gửi email
+    const { data: projectInfo } = await this.supabase
+      .from('du_an')
+      .select('ten')
+      .eq('id', params.du_an_id)
+      .single();
+
+    const { data: inviterInfo } = await this.supabase
+      .from('nguoi_dung')
+      .select('ten, email')
+      .eq('id', userData?.id)
+      .single();
+
+    // Tạo thông báo trong app nếu user đã tồn tại
+    if (invitedUser?.id) {
+      await this.supabase
+        .from('thong_bao')
+        .insert({
+          nguoi_dung_id: invitedUser.id,
+          loai: 'project_invitation',
+          noi_dung: `${inviterInfo?.ten || 'Ai đó'} đã mời bạn tham gia dự án "${projectInfo?.ten || 'một dự án'}"`,
+          du_an_lien_quan_id: params.du_an_id,
+          thanh_vien_du_an_id: data.id,
+        });
+    }
+
+    // Gửi email thông báo (async, không chờ kết quả)
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const acceptUrl = `${baseUrl}/dashboard?tab=invitations`;
+      
+      await sendProjectInvitationEmail({
+        to: params.email,
+        projectName: projectInfo?.ten || 'Dự án',
+        inviterName: inviterInfo?.ten || 'Người dùng',
+        inviterEmail: inviterInfo?.email || '',
+        role: params.vai_tro || 'member',
+        acceptUrl,
+      });
+      
+      console.log(`[AI Agent] Invitation email sent to ${params.email}`);
+    } catch (emailError) {
+      console.error('[AI Agent] Error sending invitation email:', emailError);
+      // Không throw error vì lời mời đã được tạo thành công
     }
 
     return {
