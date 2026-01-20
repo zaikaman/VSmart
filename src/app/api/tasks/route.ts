@@ -250,6 +250,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Broadcast task creation qua socket để cập nhật realtime
+    try {
+      const { broadcastTaskCreate } = await import('@/lib/socket/server');
+      broadcastTaskCreate(data, user.email);
+    } catch (socketError) {
+      console.error('Error broadcasting task creation:', socketError);
+    }
+
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {

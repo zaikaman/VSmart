@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin as supabase, supabaseAdmin } from '@/lib/supabase/client';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { calculatePhanDuAnProgress } from '@/lib/utils/calculate-progress';
+import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notifications';
 
 const updateTaskSchema = z.object({
   ten: z.string().min(1).max(200).optional(),
@@ -56,6 +58,13 @@ export async function PATCH(
     const body = await request.json();
     const validated = updateTaskSchema.parse(body);
 
+    // Lấy thông tin task cũ để so sánh assignee
+    const { data: oldTask } = await supabase
+      .from('task')
+      .select('assignee_id, phan_du_an (du_an_id, du_an (ten))')
+      .eq('id', id)
+      .single();
+
     // Update task
     const { data: updatedTask, error } = await supabase
       .from('task')
@@ -67,6 +76,53 @@ export async function PATCH(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Gửi email nếu assignee thay đổi
+    if (validated.assignee_id && validated.assignee_id !== oldTask?.assignee_id) {
+      try {
+        // Lấy thông tin user hiện tại
+        const supabaseAuth = await createSupabaseServerClient();
+        const { data: { user } } = await supabaseAuth.auth.getUser();
+
+        const { data: assigneeData } = await supabase
+          .from('nguoi_dung')
+          .select('email, ten')
+          .eq('id', validated.assignee_id)
+          .single();
+
+        if (assigneeData && (!user || assigneeData.email !== user.email)) {
+          const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
+          if (shouldSend) {
+            // Get project name
+            const projectName = oldTask?.phan_du_an?.du_an?.ten || 'Chưa xác định';
+
+            sendTaskAssignedEmail(
+              assigneeData.email,
+              assigneeData.ten,
+              {
+                taskId: updatedTask.id,
+                taskName: updatedTask.ten,
+                projectName,
+                deadline: updatedTask.deadline,
+                priority: updatedTask.priority,
+              }
+            ).catch(err => console.error('Error sending task assigned email:', err));
+          }
+        }
+      } catch (emailError) {
+        console.error('Error sending task assignment notification:', emailError);
+      }
+    }
+
+    // Broadcast task update qua socket
+    try {
+      const { broadcastTaskUpdate } = await import('@/lib/socket/server');
+      const supabaseAuth = await createSupabaseServerClient();
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      broadcastTaskUpdate(id, validated, user?.email || 'unknown');
+    } catch (socketError) {
+      console.error('Error broadcasting task update:', socketError);
     }
 
     // Auto-update phan_tram_hoan_thanh cho PhanDuAn nếu task thuộc về một phần dự án
@@ -165,6 +221,16 @@ export async function DELETE(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Broadcast task deletion qua socket
+    try {
+      const { broadcastTaskDelete } = await import('@/lib/socket/server');
+      const supabaseAuth = await createSupabaseServerClient();
+      const { data: { user } } = await supabaseAuth.auth.getUser();
+      broadcastTaskDelete(id, user?.email || 'unknown');
+    } catch (socketError) {
+      console.error('Error broadcasting task deletion:', socketError);
     }
 
     return NextResponse.json({ message: 'Task deleted', data });

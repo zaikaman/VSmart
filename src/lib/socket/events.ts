@@ -39,12 +39,23 @@ export interface TaskDeleteEvent {
   timestamp: number;
 }
 
+export interface NotificationEvent {
+  id: string;
+  nguoi_dung_id: string;
+  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload' | 'project_invitation';
+  noi_dung: string;
+  task_lien_quan_id?: string | null;
+  thoi_gian: string;
+  da_doc: boolean;
+}
+
 export type SocketEvents = {
   'task:status-change': TaskStatusChangeEvent;
   'task:create': TaskCreateEvent;
   'task:update': TaskUpdateEvent;
   'task:delete': TaskDeleteEvent;
   'task:refresh': void;
+  'notification': NotificationEvent;
 };
 
 export const SOCKET_EVENTS = {
@@ -53,4 +64,5 @@ export const SOCKET_EVENTS = {
   TASK_UPDATE: 'task:update',
   TASK_DELETE: 'task:delete',
   TASK_REFRESH: 'task:refresh',
+  NOTIFICATION: 'notification',
 } as const;

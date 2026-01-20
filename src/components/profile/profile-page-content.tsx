@@ -32,6 +32,7 @@ export function ProfilePageContent() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     ten: '',
+    ten_cong_ty: '',
     ten_phong_ban: '',
   });
 
@@ -63,7 +64,7 @@ export function ProfilePageContent() {
 
   // Mutation cập nhật profile
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: { ten?: string; ten_phong_ban?: string }) => {
+    mutationFn: async (data: { ten?: string; ten_cong_ty?: string; ten_phong_ban?: string }) => {
       const response = await fetch('/api/users/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -156,6 +157,7 @@ export function ProfilePageContent() {
     if (user) {
       setFormData({
         ten: user.ten,
+        ten_cong_ty: user.ten_cong_ty || '',
         ten_phong_ban: user.ten_phong_ban || '',
       });
       setIsEditing(true);
@@ -283,9 +285,18 @@ export function ProfilePageContent() {
 
                 <div>
                   <Label htmlFor="ten_cong_ty">Công ty</Label>
-                  <p className="mt-1.5 text-sm text-muted-foreground">
-                    {user.to_chuc?.ten || user.ten_cong_ty || 'Chưa cập nhật'}
-                  </p>
+                  {isEditing ? (
+                    <Input
+                      id="ten_cong_ty"
+                      value={formData.ten_cong_ty}
+                      onChange={(e) => setFormData({ ...formData, ten_cong_ty: e.target.value })}
+                      placeholder="Nhập tên công ty"
+                    />
+                  ) : (
+                    <p className="mt-1.5 text-sm">
+                      {user.to_chuc?.ten || user.ten_cong_ty || 'Chưa cập nhật'}
+                    </p>
+                  )}
                 </div>
 
                 <div>

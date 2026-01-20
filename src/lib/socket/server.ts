@@ -31,6 +31,12 @@ export function getSocketIO(httpServer?: HTTPServer): SocketIOServer {
         socket.leave(roomId);
         console.log(`Client ${socket.id} left room ${roomId}`);
       });
+
+      // Join user-specific room for notifications
+      socket.on('join-user-room', (userId: string) => {
+        socket.join(`user:${userId}`);
+        console.log(`Client ${socket.id} joined user room ${userId}`);
+      });
     });
   }
 
@@ -103,4 +109,11 @@ export function broadcastTaskDelete(taskId: string, deletedBy: string) {
   };
 
   io.emit(SOCKET_EVENTS.TASK_DELETE, event);
+}
+
+export function broadcastNotification(notification: SocketEvents['notification']) {
+  if (!io) return;
+  
+  // Emit to specific user room
+  io.to(`user:${notification.nguoi_dung_id}`).emit(SOCKET_EVENTS.NOTIFICATION, notification);
 }

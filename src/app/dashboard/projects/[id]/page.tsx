@@ -2,16 +2,28 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Clock, CheckCircle, AlertCircle, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, CheckCircle, AlertCircle, Loader2, Users, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { useProject } from '@/lib/hooks/use-projects';
-import { useProjectParts, ProjectPart } from '@/lib/hooks/use-project-parts';
+import { useProjectParts, useDeleteProjectPart, ProjectPart } from '@/lib/hooks/use-project-parts';
 import { CreatePartModal } from '@/components/projects/create-part-modal';
+import { EditPartModal } from '@/components/projects/edit-part-modal';
 import { ProjectMembersManager } from '@/components/projects/project-members-manager';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 export default function ProjectDetailPage() {
     const params = useParams();
@@ -21,8 +33,28 @@ export default function ProjectDetailPage() {
     const { data: project, isLoading: projectLoading } = useProject(projectId);
     const { data: parts, isLoading: partsLoading } = useProjectParts(projectId);
     const [createPartOpen, setCreatePartOpen] = useState(false);
+    const [editPartOpen, setEditPartOpen] = useState(false);
+    const [selectedPart, setSelectedPart] = useState<ProjectPart | null>(null);
+    const [deletePartId, setDeletePartId] = useState<string | null>(null);
+    
+    const deletePartMutation = useDeleteProjectPart(projectId);
 
     const isLoading = projectLoading || partsLoading;
+
+    const handleEditPart = (part: ProjectPart) => {
+        setSelectedPart(part);
+        setEditPartOpen(true);
+    };
+
+    const handleDeletePart = async (partId: string) => {
+        try {
+            await deletePartMutation.mutateAsync(partId);
+            toast.success('Đã xóa phần dự án thành công');
+            setDeletePartId(null);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Không thể xóa phần dự án');
+        }
+    };
 
     const statusColors = {
         todo: 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200',
@@ -155,22 +187,26 @@ export default function ProjectDetailPage() {
                             <Card key={part.id} className="hover:shadow-md transition-shadow group">
                                 <CardHeader>
                                     <div className="flex items-start justify-between">
-                                        <CardTitle className="text-lg group-hover:text-[#8abe4b] transition-colors">{part.ten}</CardTitle>
-                                        <Badge variant="outline" className={`${statusColors[part.trang_thai as keyof typeof statusColors]} border`}>
-                                            {statusLabels[part.trang_thai as keyof typeof statusLabels]}
-                                        </Badge>
+                                        <div className="flex-1">
+                                            <CardTitle className="text-lg group-hover:text-[#8abe4b] transition-colors">{part.ten}</CardTitle>
+                                            {part.phong_ban && (
+                                                <p className="text-sm text-gray-500 font-medium mt-1">
+                                                    Phòng: {part.phong_ban.ten}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className={`${statusColors[part.trang_thai as keyof typeof statusColors]} border`}>
+                                                {statusLabels[part.trang_thai as keyof typeof statusLabels]}
+                                            </Badge>
+                                        </div>
                                     </div>
-                                    {part.phong_ban && (
-                                        <p className="text-sm text-gray-500 font-medium">
-                                            Phòng: {part.phong_ban.ten}
-                                        </p>
-                                    )}
                                 </CardHeader>
                                 <CardContent>
                                     {part.mo_ta && (
                                         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{part.mo_ta}</p>
                                     )}
-                                    <div className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center justify-between text-sm mb-2">
                                         <span className="text-gray-500">
                                             Tiến độ: <span className="font-medium">{part.phan_tram_hoan_thanh?.toFixed(0) || 0}%</span>
                                         </span>
@@ -178,11 +214,31 @@ export default function ProjectDetailPage() {
                                             Deadline: <span className="font-medium">{new Date(part.deadline).toLocaleDateString('vi-VN')}</span>
                                         </span>
                                     </div>
-                                    <div className="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+                                    <div className="mb-3 w-full bg-gray-100 rounded-full h-1.5">
                                         <div
                                             className="bg-[#b9ff66] h-1.5 rounded-full transition-all"
                                             style={{ width: `${part.phan_tram_hoan_thanh || 0}%` }}
                                         />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="flex-1"
+                                            onClick={() => handleEditPart(part)}
+                                        >
+                                            <Pencil className="mr-1 h-3 w-3" />
+                                            Sửa
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() => setDeletePartId(part.id)}
+                                        >
+                                            <Trash2 className="mr-1 h-3 w-3" />
+                                            Xóa
+                                        </Button>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -212,6 +268,45 @@ export default function ProjectDetailPage() {
                 onOpenChange={setCreatePartOpen}
                 projectId={projectId}
             />
+
+            {/* Edit Part Modal */}
+            {selectedPart && (
+                <EditPartModal
+                    open={editPartOpen}
+                    onOpenChange={setEditPartOpen}
+                    projectId={projectId}
+                    part={selectedPart}
+                />
+            )}
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!deletePartId} onOpenChange={() => setDeletePartId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Bạn có chắc chắn muốn xóa phần dự án này? Hành động này không thể hoàn tác.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => deletePartId && handleDeletePart(deletePartId)}
+                            className="bg-red-600 hover:bg-red-700"
+                            disabled={deletePartMutation.isPending}
+                        >
+                            {deletePartMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Đang xóa...
+                                </>
+                            ) : (
+                                'Xóa'
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

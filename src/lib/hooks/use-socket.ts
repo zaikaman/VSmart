@@ -86,6 +86,11 @@ export function useSocket() {
     socket.emit('leave-room', roomId);
   };
 
+  const joinUserRoom = (userId: string) => {
+    if (!socket) return;
+    socket.emit('join-user-room', userId);
+  };
+
   return {
     socket,
     isConnected,
@@ -93,6 +98,11 @@ export function useSocket() {
     on,
     off,
     emit,
+    joinRoom,
+    leaveRoom,
+    joinUserRoom,
+  };
+}
     joinRoom,
     leaveRoom,
   };

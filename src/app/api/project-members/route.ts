@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
 
     // Tạo thông báo trong app nếu user đã tồn tại
     if (invitedUser?.id) {
-      await supabase
+      const { data: notificationData } = await supabase
         .from('thong_bao')
         .insert({
           nguoi_dung_id: invitedUser.id,
@@ -226,7 +226,27 @@ export async function POST(request: NextRequest) {
           noi_dung: `${inviterInfo?.ten || 'Ai đó'} đã mời bạn tham gia dự án "${projectInfo?.ten || 'một dự án'}"`,
           du_an_lien_quan_id: du_an_id,
           thanh_vien_du_an_id: member.id,
-        });
+        })
+        .select()
+        .single();
+
+      // Broadcast notification realtime qua socket
+      if (notificationData) {
+        try {
+          const { broadcastNotification } = await import('@/lib/socket/server');
+          broadcastNotification({
+            id: notificationData.id,
+            nguoi_dung_id: notificationData.nguoi_dung_id,
+            loai: notificationData.loai,
+            noi_dung: notificationData.noi_dung,
+            task_lien_quan_id: notificationData.task_lien_quan_id,
+            thoi_gian: notificationData.thoi_gian,
+            da_doc: notificationData.da_doc,
+          });
+        } catch (socketError) {
+          console.error('Error broadcasting notification:', socketError);
+        }
+      }
     }
 
     // Gửi email thông báo

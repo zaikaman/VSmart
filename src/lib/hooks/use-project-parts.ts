@@ -58,3 +58,57 @@ export function useCreateProjectPart(projectId: string) {
         },
     });
 }
+
+// Cập nhật phần dự án
+export interface UpdateProjectPartInput {
+    ten?: string;
+    mo_ta?: string;
+    deadline?: string;
+    trang_thai?: 'todo' | 'in-progress' | 'done';
+    phan_tram_hoan_thanh?: number;
+}
+
+export function useUpdateProjectPart(projectId: string, partId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (input: UpdateProjectPartInput) => {
+            const response = await fetch(`/api/project-parts/${partId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(input),
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Không thể cập nhật phần dự án');
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['project-parts', projectId] });
+            queryClient.invalidateQueries({ queryKey: ['projects', projectId] });
+        },
+    });
+}
+
+// Xóa phần dự án
+export function useDeleteProjectPart(projectId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (partId: string) => {
+            const response = await fetch(`/api/project-parts/${partId}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Không thể xóa phần dự án');
+            }
+            return response.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['project-parts', projectId] });
+            queryClient.invalidateQueries({ queryKey: ['projects', projectId] });
+        },
+    });
+}

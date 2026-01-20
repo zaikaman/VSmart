@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSocket } from './use-socket';
+import { SOCKET_EVENTS } from '../socket/events';
 
 export interface Notification {
   id: string;
   nguoi_dung_id: string;
-  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload';
+  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload' | 'project_invitation';
   noi_dung: string;
   task_lien_quan_id?: string | null;
   da_doc: boolean;
@@ -70,6 +72,7 @@ async function markAllAsRead(): Promise<void> {
 export function useNotifications(options?: { unreadOnly?: boolean }) {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const { on, off, isConnected } = useSocket();
   
   // Query notifications
   const {
@@ -86,6 +89,23 @@ export function useNotifications(options?: { unreadOnly?: boolean }) {
     refetchInterval: 60 * 1000, // Refetch mỗi phút
     refetchOnWindowFocus: true, // Refetch khi user quay lại tab
   });
+
+  // Listen realtime notification events
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleNewNotification = (notification: any) => {
+      console.log('Received new notification:', notification);
+      // Invalidate queries to refetch notifications
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    };
+
+    on(SOCKET_EVENTS.NOTIFICATION as any, handleNewNotification);
+
+    return () => {
+      off(SOCKET_EVENTS.NOTIFICATION as any, handleNewNotification);
+    };
+  }, [isConnected, on, off, queryClient]);
   
   // Mutation: mark as read
   const markAsReadMutation = useMutation({
