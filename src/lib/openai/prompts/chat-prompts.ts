@@ -102,7 +102,7 @@ export function createRagContextPrompt(context: {
 
   const projectsInfo = recentProjects.length > 0
     ? recentProjects.map(p => 
-        `  - "${p.ten}" - ${p.phan_tram_hoan_thanh}% hoàn thành, ${p.so_tasks} tasks, deadline: ${new Date(p.deadline).toLocaleDateString('vi-VN')}`
+        `  - **ID: ${p.id}** | Tên: "${p.ten}" | ${p.phan_tram_hoan_thanh}% hoàn thành | ${p.so_tasks} tasks | ${p.so_parts} phần dự án | Deadline: ${new Date(p.deadline).toLocaleDateString('vi-VN')}`
       ).join('\n')
     : '  (Không có dự án nào)';
 
@@ -110,8 +110,8 @@ export function createRagContextPrompt(context: {
     ? teamMembers.map(m => {
         const skillsStr = m.skills.length > 0 
           ? m.skills.map(s => `${s.ten_ky_nang}(${s.trinh_do})`).join(', ')
-          : 'chưa cập nhật skills';
-        return `  - ${m.ten} (${m.email}) - ${m.so_task_dang_lam} tasks đang làm, ${m.ty_le_hoan_thanh}% on-time, skills: ${skillsStr}`;
+          : 'chưa có skills';
+        return `  - **ID: ${m.id}** | ${m.ten} (${m.email}) | ${m.so_task_dang_lam} tasks đang làm | ${m.ty_le_hoan_thanh}% on-time | Skills: ${skillsStr}`;
       }).join('\n')
     : '  (Không có thành viên nào)';
 
@@ -127,20 +127,28 @@ export function createRagContextPrompt(context: {
   return `## CONTEXT TỪ HỆ THỐNG (Dữ liệu thực tại thời điểm hiện tại)
 
 👤 NGƯỜI DÙNG HIỆN TẠI:
+  - ID: ${user.id}
   - Tên: ${user.ten}
   - Email: ${user.email}
   - Vai trò: ${user.vai_tro || 'Thành viên'}
 
-📋 CÁC TASKS LIÊN QUAN:
-${tasksInfo}
-
-📁 CÁC DỰ ÁN GẦN ĐÂY:
+📁 CÁC DỰ ÁN CỦA BẠN (QUAN TRỌNG - Ghi nhớ các ID):
 ${projectsInfo}
 
-👥 THÀNH VIÊN TRONG TEAM:
+📋 CÁC TASKS ĐANG ACTIVE:
+${tasksInfo}
+
+👥 DANH SÁCH THÀNH VIÊN (QUAN TRỌNG - Ghi nhớ các ID và email):
 ${membersInfo}
 
-${statsInfo}`;
+${statsInfo}
+
+⚠️ LƯU Ý QUAN TRỌNG KHI LÀM AI AGENT:
+- Luôn sử dụng **ID** khi gọi functions (du_an_id, assignee_id, phan_du_an_id, task_id)
+- Nếu người dùng nói tên dự án/task, hãy TÌM ID tương ứng từ danh sách ở trên
+- Nếu không tìm thấy trong danh sách, GỌI FUNCTION lay_danh_sach_* để lấy thông tin đầy đủ
+- TUYỆT ĐỐI KHÔNG tự bịa ID hoặc đoán mò
+- Nếu thiếu thông tin, HỎI người dùng hoặc GỌI FUNCTION để lấy thêm context`;
 }
 
 /**
