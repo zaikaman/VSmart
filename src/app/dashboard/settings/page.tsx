@@ -179,7 +179,7 @@ export default function SettingsPage() {
                             </div>
                             <Switch
                                 checked={settings.notifications.emailTaskAssigned}
-                                onCheckedChange={(checked) => handleNotificationChange('emailTaskAssigned', checked)}
+                                onCheckedChange={(checked: boolean) => handleNotificationChange('emailTaskAssigned', checked)}
                             />
                         </div>
 
@@ -192,7 +192,7 @@ export default function SettingsPage() {
                             </div>
                             <Switch
                                 checked={settings.notifications.emailDeadlineReminder}
-                                onCheckedChange={(checked) => handleNotificationChange('emailDeadlineReminder', checked)}
+                                onCheckedChange={(checked: boolean) => handleNotificationChange('emailDeadlineReminder', checked)}
                             />
                         </div>
 
@@ -205,7 +205,7 @@ export default function SettingsPage() {
                             </div>
                             <Switch
                                 checked={settings.notifications.pushEnabled}
-                                onCheckedChange={(checked) => handleNotificationChange('pushEnabled', checked)}
+                                onCheckedChange={(checked: boolean) => handleNotificationChange('pushEnabled', checked)}
                             />
                         </div>
 
@@ -218,7 +218,7 @@ export default function SettingsPage() {
                             </div>
                             <Switch
                                 checked={settings.notifications.emailComments}
-                                onCheckedChange={(checked) => handleNotificationChange('emailComments', checked)}
+                                onCheckedChange={(checked: boolean) => handleNotificationChange('emailComments', checked)}
                             />
                         </div>
                     </CardContent>
