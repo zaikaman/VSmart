@@ -529,21 +529,11 @@ export class AgentToolExecutor {
 
       return { success: true, data };
     } else {
-      // Lấy tất cả người dùng trong tổ chức
-      const { data: userData } = await this.supabase
-        .from('nguoi_dung')
-        .select('to_chuc_id')
-        .eq('email', this.userEmail)
-        .single();
-
-      if (!userData?.to_chuc_id) {
-        return { success: false, error: 'Không tìm thấy tổ chức' };
-      }
-
+      // Lấy tất cả người dùng trong hệ thống (không giới hạn tổ chức)
       const { data, error } = await this.supabase
         .from('nguoi_dung')
-        .select('id, ten, email, avatar_url, vai_tro')
-        .eq('to_chuc_id', userData.to_chuc_id);
+        .select('id, ten, email, avatar_url, vai_tro, to_chuc_id')
+        .order('ten', { ascending: true });
 
       if (error) {
         return { success: false, error: error.message };

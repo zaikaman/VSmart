@@ -38,22 +38,22 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'moi_thanh_vien_du_an',
-      description: 'Mời một thành viên vào dự án. Sử dụng khi người dùng muốn thêm người vào dự án.',
+      description: 'Mời một thành viên vào dự án bằng EMAIL. Tool này TỰ ĐỘNG xử lý mọi trường hợp: user đã tồn tại hoặc chưa tồn tại. CHỈ CẦN: du_an_id và email. KHÔNG CẦN kiểm tra user tồn tại trước, KHÔNG CẦN userid.',
       parameters: {
         type: 'object',
         properties: {
           du_an_id: {
             type: 'string',
-            description: 'ID của dự án',
+            description: 'ID của dự án (UUID)',
           },
           email: {
             type: 'string',
-            description: 'Email của người được mời',
+            description: 'Email của người được mời. Tool sẽ tự xử lý nếu user chưa tồn tại.',
           },
           vai_tro: {
             type: 'string',
             enum: ['owner', 'admin', 'member', 'viewer'],
-            description: 'Vai trò của thành viên trong dự án (owner, admin, member, viewer)',
+            description: 'Vai trò của thành viên trong dự án. Mặc định: member',
           },
         },
         required: ['du_an_id', 'email'],
@@ -187,13 +187,13 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'lay_danh_sach_thanh_vien',
-      description: 'Lấy danh sách tất cả thành viên có thể mời vào dự án hoặc gán task. Sử dụng khi cần biết ai có sẵn.',
+      description: 'Xem danh sách thành viên ĐÃ THAM GIA dự án (nếu có du_an_id) hoặc TẤT CẢ users trong hệ thống (nếu không có du_an_id). Hỗ trợ collaboration cross-organization. KHÔNG DÙNG để kiểm tra trước khi mời! Chỉ dùng khi user hỏi "ai đang trong dự án", "có bao nhiêu người", hoặc "liệt kê tất cả users".',
       parameters: {
         type: 'object',
         properties: {
           du_an_id: {
             type: 'string',
-            description: 'ID của dự án (tùy chọn, nếu có sẽ lọc theo dự án)',
+            description: 'ID của dự án (tùy chọn). Nếu có: lấy thành viên của dự án đó. Nếu không: lấy tất cả users trong hệ thống (không giới hạn tổ chức).',
           },
         },
         required: [],
