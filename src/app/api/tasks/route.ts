@@ -42,7 +42,11 @@ export async function GET(request: NextRequest) {
       .eq('email', user.email)
       .eq('trang_thai', 'active');
 
-    const projectIds = userProjects?.map(p => p.du_an_id) || [];
+    let projectIds = userProjects?.map(p => p.du_an_id) || [];
+
+    if (duAnId) {
+      projectIds = projectIds.filter((projectId) => projectId === duAnId);
+    }
 
     if (projectIds.length === 0) {
       return NextResponse.json({
@@ -58,6 +62,26 @@ export async function GET(request: NextRequest) {
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
+
+    const { data: activeProjects } = await supabase
+      .from('du_an')
+      .select('id')
+      .in('id', projectIds)
+      .is('deleted_at', null);
+
+    const activeProjectIds = activeProjects?.map((project) => project.id) || [];
+
+    if (activeProjectIds.length === 0) {
+      return NextResponse.json({
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        },
+      });
+    }
 
     // Query tasks từ các dự án mà user tham gia
     let query = supabase
@@ -84,7 +108,8 @@ export async function GET(request: NextRequest) {
     const { data: projectParts } = await supabase
       .from('phan_du_an')
       .select('id')
-      .in('du_an_id', projectIds);
+      .in('du_an_id', activeProjectIds)
+      .is('deleted_at', null);
 
     const partIds = projectParts?.map(p => p.id) || [];
 
@@ -164,6 +189,7 @@ export async function POST(request: NextRequest) {
       .from('phan_du_an')
       .select('du_an_id, du_an:du_an_id (ten)')
       .eq('id', validated.phan_du_an_id)
+      .is('deleted_at', null)
       .single();
 
     if (!partData) {

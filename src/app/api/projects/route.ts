@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Lấy organization_id của user
-    const { data: userData, error: userError } = await supabase
+    const { error: userError } = await supabase
       .from('nguoi_dung')
       .select('id, to_chuc_id')
       .eq('email', user.email)
@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       `, { count: 'exact' })
       .eq('thanh_vien_du_an.email', user.email)
       .eq('thanh_vien_du_an.trang_thai', 'active')
+      .is('deleted_at', null)
       .range(from, to)
       .order('ngay_tao', { ascending: false });
 
@@ -70,7 +71,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Loại bỏ thông tin thanh_vien_du_an trong response
-    const cleanData = data?.map(({ thanh_vien_du_an, ...project }: any) => project);
+    const cleanData =
+      data?.map((project) => {
+        const rest = { ...project };
+        delete rest.thanh_vien_du_an;
+        return rest;
+      }) || [];
 
     return NextResponse.json({
       data: cleanData,

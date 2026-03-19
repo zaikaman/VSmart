@@ -55,6 +55,7 @@ interface TasksParams {
   trangThai?: string;
   assigneeId?: string;
   deadline?: string;
+  duAnId?: string;
 }
 
 // Fetch all tasks
@@ -67,6 +68,7 @@ export function useTasks(params?: TasksParams) {
       if (params?.trangThai) searchParams.set('trangThai', params.trangThai);
       if (params?.assigneeId) searchParams.set('assigneeId', params.assigneeId);
       if (params?.deadline) searchParams.set('deadline', params.deadline);
+      if (params?.duAnId) searchParams.set('duAnId', params.duAnId);
 
       const response = await fetch(`/api/tasks?${searchParams}`);
       if (!response.ok) throw new Error('Failed to fetch tasks');
