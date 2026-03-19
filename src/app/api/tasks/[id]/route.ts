@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin as supabase, supabaseAdmin } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/client';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
-import { calculatePhanDuAnProgress } from '@/lib/utils/calculate-progress';
+import {
+  calculateDuAnProgress,
+  calculatePhanDuAnProgress,
+} from '@/lib/utils/calculate-progress';
 import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notifications';
 
 const updateTaskSchema = z.object({
@@ -15,6 +18,63 @@ const updateTaskSchema = z.object({
   progress: z.number().min(0).max(100).optional(),
 });
 
+async function authorizeTaskAccess(taskId: string) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const { data: taskData, error: taskError } = await supabaseAdmin
+    .from('task')
+    .select('id, phan_du_an_id, phan_du_an (du_an_id)')
+    .eq('id', taskId)
+    .is('deleted_at', null)
+    .single();
+
+  if (taskError || !taskData) {
+    return {
+      error: NextResponse.json(
+        { error: 'Không tìm thấy task' },
+        { status: 404 }
+      ),
+    };
+  }
+
+  const projectId = (taskData.phan_du_an as { du_an_id: string } | null)?.du_an_id;
+  if (!projectId) {
+    return {
+      error: NextResponse.json(
+        { error: 'Task không thuộc dự án hợp lệ' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  const { data: membership } = await supabase
+    .from('thanh_vien_du_an')
+    .select('id')
+    .eq('du_an_id', projectId)
+    .eq('email', user.email)
+    .eq('trang_thai', 'active')
+    .single();
+
+  if (!membership) {
+    return {
+      error: NextResponse.json(
+        { error: 'Bạn không có quyền truy cập task này' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { user, taskData };
+}
+
 // GET /api/tasks/[id]
 export async function GET(
   request: NextRequest,
@@ -22,7 +82,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const { data, error } = await supabase
+    const auth = await authorizeTaskAccess(id);
+    if (auth.error) return auth.error;
+
+    const { data, error } = await supabaseAdmin
       .from('task')
       .select(
         `
@@ -40,7 +103,7 @@ export async function GET(
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -55,18 +118,19 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const auth = await authorizeTaskAccess(id);
+    if (auth.error) return auth.error;
+
     const body = await request.json();
     const validated = updateTaskSchema.parse(body);
 
-    // Lấy thông tin task cũ để so sánh assignee
-    const { data: oldTask } = await supabase
+    const { data: oldTask } = await supabaseAdmin
       .from('task')
-      .select('assignee_id, phan_du_an (du_an_id, du_an (ten))')
+      .select('assignee_id, phan_du_an_id, phan_du_an (du_an_id, du_an (ten))')
       .eq('id', id)
       .single();
 
-    // Update task
-    const { data: updatedTask, error } = await supabase
+    const { data: updatedTask, error } = await supabaseAdmin
       .from('task')
       .update(validated)
       .eq('id', id)
@@ -74,41 +138,31 @@ export async function PATCH(
       .select('*, phan_du_an_id')
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error || !updatedTask) {
+      return NextResponse.json({ error: 'Không thể cập nhật task' }, { status: 400 });
     }
 
-    // Gửi email nếu assignee thay đổi
     if (validated.assignee_id && validated.assignee_id !== oldTask?.assignee_id) {
       try {
-        // Lấy thông tin user hiện tại
-        const supabaseAuth = await createSupabaseServerClient();
-        const { data: { user } } = await supabaseAuth.auth.getUser();
-
-        const { data: assigneeData } = await supabase
+        const { data: assigneeData } = await supabaseAdmin
           .from('nguoi_dung')
           .select('email, ten')
           .eq('id', validated.assignee_id)
           .single();
 
-        if (assigneeData && (!user || assigneeData.email !== user.email)) {
+        if (assigneeData && assigneeData.email !== auth.user?.email) {
           const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
           if (shouldSend) {
-            // Get project name
-            const phanDuAn = oldTask?.phan_du_an as any;
+            const phanDuAn = oldTask?.phan_du_an as { du_an?: { ten?: string } } | null;
             const projectName = phanDuAn?.du_an?.ten || 'Chưa xác định';
 
-            sendTaskAssignedEmail(
-              assigneeData.email,
-              assigneeData.ten,
-              {
-                taskId: updatedTask.id,
-                taskName: updatedTask.ten,
-                projectName,
-                deadline: updatedTask.deadline,
-                priority: updatedTask.priority,
-              }
-            ).catch(err => console.error('Error sending task assigned email:', err));
+            sendTaskAssignedEmail(assigneeData.email, assigneeData.ten, {
+              taskId: updatedTask.id,
+              taskName: updatedTask.ten,
+              projectName,
+              deadline: updatedTask.deadline,
+              priority: updatedTask.priority,
+            }).catch((err) => console.error('Error sending task assigned email:', err));
           }
         }
       } catch (emailError) {
@@ -116,10 +170,6 @@ export async function PATCH(
       }
     }
 
-    // Socket broadcast đã bị vô hiệu hóa - sử dụng polling thay thế
-    // Task update sẽ được hiển thị qua polling mỗi 10 giây
-
-    // Auto-update phan_tram_hoan_thanh cho PhanDuAn nếu task thuộc về một phần dự án
     if (updatedTask.phan_du_an_id && (validated.trang_thai || validated.progress !== undefined)) {
       await updatePhanDuAnProgress(updatedTask.phan_du_an_id);
     }
@@ -136,10 +186,8 @@ export async function PATCH(
   }
 }
 
-// Helper: Update PhanDuAn progress based on its tasks
 async function updatePhanDuAnProgress(phanDuAnId: string) {
   try {
-    // Get all tasks in this phan_du_an
     const { data: tasks, error: tasksError } = await supabaseAdmin
       .from('task')
       .select('id, trang_thai, progress')
@@ -148,7 +196,6 @@ async function updatePhanDuAnProgress(phanDuAnId: string) {
 
     if (tasksError || !tasks) return;
 
-    // Calculate new progress
     const newProgress = calculatePhanDuAnProgress(
       tasks.map((t) => ({
         id: t.id,
@@ -157,43 +204,43 @@ async function updatePhanDuAnProgress(phanDuAnId: string) {
       }))
     );
 
-    // Update PhanDuAn
     const { data: updatedPhanDuAn, error: updateError } = await supabaseAdmin
       .from('phan_du_an')
       .update({ phan_tram_hoan_thanh: newProgress })
       .eq('id', phanDuAnId)
+      .is('deleted_at', null)
       .select('du_an_id')
       .single();
 
     if (updateError || !updatedPhanDuAn) return;
 
-    // Auto-update DuAn progress
     await updateDuAnProgress(updatedPhanDuAn.du_an_id);
   } catch (error) {
     console.error('Error updating PhanDuAn progress:', error);
   }
 }
 
-// Helper: Update DuAn progress based on its parts
 async function updateDuAnProgress(duAnId: string) {
   try {
-    // Get all parts in this du_an
     const { data: parts, error: partsError } = await supabaseAdmin
       .from('phan_du_an')
       .select('id, phan_tram_hoan_thanh')
-      .eq('du_an_id', duAnId);
+      .eq('du_an_id', duAnId)
+      .is('deleted_at', null);
 
     if (partsError || !parts || parts.length === 0) return;
 
-    // Calculate average progress
-    const totalProgress = parts.reduce((sum, part) => sum + (part.phan_tram_hoan_thanh || 0), 0);
-    const newProgress = Math.round((totalProgress / parts.length) * 100) / 100;
+    const newProgress = calculateDuAnProgress(
+      parts.map((part) => ({
+        phanTramHoanThanh: part.phan_tram_hoan_thanh || 0,
+      }))
+    );
 
-    // Update DuAn
     await supabaseAdmin
       .from('du_an')
       .update({ phan_tram_hoan_thanh: newProgress })
-      .eq('id', duAnId);
+      .eq('id', duAnId)
+      .is('deleted_at', null);
   } catch (error) {
     console.error('Error updating DuAn progress:', error);
   }
@@ -206,10 +253,14 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const { data, error } = await supabase
+    const auth = await authorizeTaskAccess(id);
+    if (auth.error) return auth.error;
+
+    const { data, error } = await supabaseAdmin
       .from('task')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
+      .is('deleted_at', null)
       .select()
       .single();
 
@@ -217,11 +268,12 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Socket broadcast đã bị vô hiệu hóa - sử dụng polling thay thế
-    // Task deletion sẽ được hiển thị qua polling mỗi 10 giây
+    if (auth.taskData?.phan_du_an_id) {
+      await updatePhanDuAnProgress(auth.taskData.phan_du_an_id);
+    }
 
     return NextResponse.json({ message: 'Task deleted', data });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

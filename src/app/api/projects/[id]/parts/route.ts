@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin as supabase } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/client';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 
 const partSchema = z.object({
@@ -9,6 +10,53 @@ const partSchema = z.object({
   phong_ban_id: z.string().uuid(),
 });
 
+async function authorizeProjectAccess(projectId: string) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const { data: membership } = await supabase
+    .from('thanh_vien_du_an')
+    .select('id')
+    .eq('du_an_id', projectId)
+    .eq('email', user.email)
+    .eq('trang_thai', 'active')
+    .single();
+
+  if (!membership) {
+    return {
+      error: NextResponse.json(
+        { error: 'Bạn không có quyền tạo phần dự án trong dự án này' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  const { data: projectData, error: projectError } = await supabaseAdmin
+    .from('du_an')
+    .select('id')
+    .eq('id', projectId)
+    .is('deleted_at', null)
+    .single();
+
+  if (projectError || !projectData) {
+    return {
+      error: NextResponse.json(
+        { error: 'Dự án không tồn tại hoặc đã bị xóa' },
+        { status: 404 }
+      ),
+    };
+  }
+
+  return { projectId };
+}
+
 // POST /api/projects/[id]/parts - Create project part
 export async function POST(
   request: NextRequest,
@@ -16,10 +64,13 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const auth = await authorizeProjectAccess(id);
+    if (auth.error) return auth.error;
+
     const body = await request.json();
     const validated = partSchema.parse(body);
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('phan_du_an')
       .insert([
         {
