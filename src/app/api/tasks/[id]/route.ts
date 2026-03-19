@@ -45,7 +45,8 @@ async function authorizeTaskAccess(taskId: string) {
     };
   }
 
-  const projectId = (taskData.phan_du_an as { du_an_id: string } | null)?.du_an_id;
+  const phanDuAn = taskData.phan_du_an as unknown as { du_an_id: string } | { du_an_id: string }[] | null;
+  const projectId = Array.isArray(phanDuAn) ? phanDuAn[0]?.du_an_id : phanDuAn?.du_an_id;
   if (!projectId) {
     return {
       error: NextResponse.json(
@@ -153,7 +154,8 @@ export async function PATCH(
         if (assigneeData && assigneeData.email !== auth.user?.email) {
           const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
           if (shouldSend) {
-            const phanDuAn = oldTask?.phan_du_an as { du_an?: { ten?: string } } | null;
+            const rawPhanDuAn = oldTask?.phan_du_an as unknown as { du_an?: { ten?: string } } | { du_an?: { ten?: string } }[] | null;
+            const phanDuAn = Array.isArray(rawPhanDuAn) ? rawPhanDuAn[0] : rawPhanDuAn;
             const projectName = phanDuAn?.du_an?.ten || 'Chưa xác định';
 
             sendTaskAssignedEmail(assigneeData.email, assigneeData.ten, {
