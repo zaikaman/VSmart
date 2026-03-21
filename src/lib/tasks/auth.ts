@@ -25,6 +25,22 @@ export interface AuthenticatedUserContext {
   };
 }
 
+export interface MembershipContext {
+  id: string;
+  vai_tro: string;
+  trang_thai: string;
+}
+
+export interface ProjectAccessContext extends AuthenticatedUserContext {
+  projectData: {
+    id: string;
+    ten: string;
+    nguoi_tao_id: string;
+  };
+  projectId: string;
+  membership: MembershipContext;
+}
+
 function extractSingleRelation<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) {
     return value[0] || null;
@@ -80,6 +96,29 @@ export async function ensureProjectMembership(projectId: string, email: string) 
   return membership;
 }
 
+export async function getProjectAccessContext(projectId: string): Promise<ProjectAccessContext> {
+  const userContext = await getAuthenticatedUserContext();
+  const { data: projectData, error: projectError } = await supabaseAdmin
+    .from('du_an')
+    .select('id, ten, nguoi_tao_id')
+    .eq('id', projectId)
+    .is('deleted_at', null)
+    .single();
+
+  if (projectError || !projectData) {
+    throw new RouteError('Không tìm thấy dự án', 404);
+  }
+
+  const membership = await ensureProjectMembership(projectId, userContext.authUser.email);
+
+  return {
+    ...userContext,
+    projectData,
+    projectId,
+    membership,
+  };
+}
+
 export async function getPartAccessContext(phanDuAnId: string) {
   const userContext = await getAuthenticatedUserContext();
   const { data: partData, error: partError } = await supabaseAdmin
@@ -93,12 +132,13 @@ export async function getPartAccessContext(phanDuAnId: string) {
     throw new RouteError('Không tìm thấy phần dự án', 404);
   }
 
-  await ensureProjectMembership(partData.du_an_id, userContext.authUser.email);
+  const membership = await ensureProjectMembership(partData.du_an_id, userContext.authUser.email);
 
   return {
     ...userContext,
     partData,
     projectId: partData.du_an_id,
+    membership,
   };
 }
 
@@ -115,6 +155,7 @@ export async function getTaskAccessContext(taskId: string) {
       template_id,
       recurring_rule_id,
       progress_mode,
+      review_status,
       phan_du_an (
         du_an_id
       )
@@ -135,7 +176,7 @@ export async function getTaskAccessContext(taskId: string) {
     throw new RouteError('Task không thuộc dự án hợp lệ', 400);
   }
 
-  await ensureProjectMembership(projectId, userContext.authUser.email);
+  const membership = await ensureProjectMembership(projectId, userContext.authUser.email);
 
   return {
     ...userContext,
@@ -144,6 +185,7 @@ export async function getTaskAccessContext(taskId: string) {
       projectId,
     },
     projectId,
+    membership,
   };
 }
 

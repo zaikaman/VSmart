@@ -1,5 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+export interface TaskPermissions {
+  canUpdate: boolean;
+  canDelete: boolean;
+  canSubmitReview: boolean;
+  canApprove: boolean;
+  canReject: boolean;
+}
+
 export interface Task {
   id: string;
   ten: string;
@@ -17,15 +25,27 @@ export interface Task {
   progress_mode?: 'manual' | 'checklist';
   template_id?: string | null;
   recurring_rule_id?: string | null;
+  review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested';
+  submitted_for_review_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_comment?: string | null;
   ngay_tao: string;
   cap_nhat_cuoi: string;
   deleted_at: string | null;
+  permissions?: TaskPermissions;
   nguoi_dung?: {
     id: string;
     ten: string;
     email: string;
     avatar_url: string | null;
   };
+  reviewer?: {
+    id: string;
+    ten: string;
+    email: string;
+    avatar_url: string | null;
+  } | null;
   phan_du_an?: {
     id: string;
     ten: string;
@@ -69,7 +89,7 @@ export interface UpdateTaskInput {
   ten?: string;
   mo_ta?: string;
   deadline?: string;
-  assignee_id?: string;
+  assignee_id?: string | null;
   trang_thai?: 'todo' | 'in-progress' | 'done';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   progress?: number;
@@ -86,6 +106,7 @@ interface TasksParams {
   phanDuAnId?: string;
   riskLevel?: 'low' | 'medium' | 'high';
   riskScoreMin?: number;
+  reviewStatus?: 'draft' | 'pending_review' | 'approved' | 'changes_requested';
   isStale?: boolean;
 }
 
@@ -100,6 +121,7 @@ export function useTasks(params?: TasksParams) {
     phanDuAnId: params?.phanDuAnId ?? null,
     riskLevel: params?.riskLevel ?? null,
     riskScoreMin: params?.riskScoreMin ?? null,
+    reviewStatus: params?.reviewStatus ?? null,
     isStale: params?.isStale ?? false,
   };
 
@@ -120,10 +142,11 @@ export function useTasks(params?: TasksParams) {
       if (normalizedParams.riskScoreMin !== null) {
         searchParams.set('riskScoreMin', normalizedParams.riskScoreMin.toString());
       }
+      if (normalizedParams.reviewStatus) searchParams.set('reviewStatus', normalizedParams.reviewStatus);
       if (normalizedParams.isStale) searchParams.set('isStale', 'true');
 
       const response = await fetch(`/api/tasks?${searchParams.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch tasks');
+      if (!response.ok) throw new Error('Không thể tải danh sách task');
       return response.json() as Promise<PaginatedTasksResponse>;
     },
     placeholderData: keepPreviousData,
@@ -140,7 +163,7 @@ export function useTask(id: string) {
     queryKey: ['tasks', id],
     queryFn: async () => {
       const response = await fetch(`/api/tasks/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch task');
+      if (!response.ok) throw new Error('Không thể tải task');
       return response.json() as Promise<Task>;
     },
     enabled: !!id,
@@ -170,7 +193,7 @@ export function useCreateTask() {
             .join(', ');
           throw new Error(messages);
         }
-        throw new Error(errorData.error || 'Failed to create task');
+        throw new Error(errorData.error || 'Không thể tạo task');
       }
       return response.json();
     },
@@ -191,8 +214,11 @@ export function useUpdateTask() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData),
       });
-      if (!response.ok) throw new Error('Failed to update task');
-      return response.json();
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Không thể cập nhật task');
+      }
+      return response.json() as Promise<Task>;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -209,7 +235,10 @@ export function useDeleteTask() {
       const response = await fetch(`/api/tasks/${id}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Failed to delete task');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Không thể xóa task');
+      }
       return response.json();
     },
     onSuccess: () => {

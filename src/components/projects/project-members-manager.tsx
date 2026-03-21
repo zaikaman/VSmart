@@ -6,49 +6,31 @@ import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ProjectMember } from '@/app/api/project-members/route';
 import { usePlanningWorkload } from '@/lib/hooks/use-planning';
 import { getCapacityBadgeConfig } from '@/lib/utils/workload-utils';
 
 interface ProjectMembersManagerProps {
   projectId: string;
+  canManage?: boolean;
 }
 
-export function ProjectMembersManager({ projectId }: ProjectMembersManagerProps) {
+export function ProjectMembersManager({ projectId, canManage = true }: ProjectMembersManagerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'member' | 'admin' | 'viewer'>('member');
   const queryClient = useQueryClient();
-  const { data: workloadResponse } = usePlanningWorkload({
-    projectId,
-    enabled: !!projectId,
-  });
+  const { data: workloadResponse } = usePlanningWorkload({ projectId, enabled: !!projectId });
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: async () => {
       const response = await fetch(`/api/project-members?projectId=${projectId}`);
-      if (!response.ok) {
-        throw new Error('Không thể tải danh sách thành viên');
-      }
-
+      if (!response.ok) throw new Error('Không thể tải danh sách thành viên');
       return response.json() as Promise<ProjectMember[]>;
     },
   });
@@ -58,18 +40,13 @@ export function ProjectMembersManager({ projectId }: ProjectMembersManagerProps)
       const response = await fetch('/api/project-members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          du_an_id: projectId,
-          email: data.email,
-          vai_tro: data.role,
-        }),
+        body: JSON.stringify({ du_an_id: projectId, email: data.email, vai_tro: data.role }),
       });
 
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Không thể mời thành viên');
       }
-
       return response.json();
     },
     onSuccess: () => {
@@ -79,129 +56,54 @@ export function ProjectMembersManager({ projectId }: ProjectMembersManagerProps)
       setEmail('');
       setRole('member');
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const removeMutation = useMutation({
     mutationFn: async (memberId: string) => {
-      const response = await fetch(`/api/project-members?memberId=${memberId}`, {
-        method: 'DELETE',
-      });
-
+      const response = await fetch(`/api/project-members?memberId=${memberId}`, { method: 'DELETE' });
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Không thể xóa thành viên');
       }
-
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
       toast.success('Đã xóa thành viên');
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
-  const handleInvite = () => {
-    if (!email.trim()) {
-      toast.error('Vui lòng nhập email');
-      return;
-    }
+  const workloadMap = new Map((workloadResponse?.members || []).map((member) => [member.userId, member]));
 
-    inviteMutation.mutate({ email, role });
-  };
-
-  const getRoleBadgeColor = (currentRole: string) => {
-    switch (currentRole) {
-      case 'owner':
-        return 'bg-purple-100 text-purple-800';
-      case 'admin':
-        return 'bg-blue-100 text-blue-800';
-      case 'member':
-        return 'bg-green-100 text-green-800';
-      case 'viewer':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'declined':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getRoleLabel = (currentRole: string) => {
-    switch (currentRole) {
-      case 'owner':
-        return 'Chủ sở hữu';
-      case 'admin':
-        return 'Quản trị viên';
-      case 'member':
-        return 'Thành viên';
-      case 'viewer':
-        return 'Người xem';
-      default:
-        return currentRole;
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Đang hoạt động';
-      case 'pending':
-        return 'Chờ xác nhận';
-      case 'declined':
-        return 'Đã từ chối';
-      default:
-        return status;
-    }
-  };
-
-  const workloadMap = new Map(
-    (workloadResponse?.members || []).map((member) => [member.userId, member])
-  );
+  const roleLabel = (value: string) =>
+    ({ owner: 'Chủ sở hữu', admin: 'Quản trị viên', member: 'Thành viên', viewer: 'Người xem' }[value] || value);
+  const statusLabel = (value: string) =>
+    ({ active: 'Đang hoạt động', pending: 'Chờ xác nhận', declined: 'Đã từ chối' }[value] || value);
+  const roleClass = (value: string) =>
+    ({ owner: 'bg-purple-100 text-purple-800', admin: 'bg-blue-100 text-blue-800', member: 'bg-green-100 text-green-800', viewer: 'bg-gray-100 text-gray-800' }[value] || 'bg-gray-100 text-gray-800');
+  const statusClass = (value: string) =>
+    ({ active: 'bg-green-100 text-green-800', pending: 'bg-yellow-100 text-yellow-800', declined: 'bg-red-100 text-red-800' }[value] || 'bg-gray-100 text-gray-800');
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Thành viên dự án</h3>
+        <h3 className="text-lg font-semibold text-slate-900">Thành viên dự án</h3>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button>Mời thành viên</Button>
+            <Button disabled={!canManage}>Mời thành viên</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Mời thành viên mới</DialogTitle>
-              <DialogDescription>
-                Nhập email của người bạn muốn mời vào dự án.
-              </DialogDescription>
+              <DialogDescription>Nhập email và chọn vai trò phù hợp cho người được mời.</DialogDescription>
             </DialogHeader>
 
             <div className="mt-4 space-y-4">
               <div>
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@company.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="mt-1"
-                />
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="example@company.com" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1" />
               </div>
 
               <div>
@@ -218,15 +120,18 @@ export function ProjectMembersManager({ projectId }: ProjectMembersManagerProps)
                 </Select>
               </div>
 
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={inviteMutation.isPending}>Hủy</Button>
                 <Button
-                  variant="outline"
-                  onClick={() => setIsAddDialogOpen(false)}
+                  onClick={() => {
+                    if (!email.trim()) {
+                      toast.error('Vui lòng nhập email');
+                      return;
+                    }
+                    inviteMutation.mutate({ email, role });
+                  }}
                   disabled={inviteMutation.isPending}
                 >
-                  Hủy
-                </Button>
-                <Button onClick={handleInvite} disabled={inviteMutation.isPending}>
                   {inviteMutation.isPending ? 'Đang gửi...' : 'Gửi lời mời'}
                 </Button>
               </div>
@@ -235,59 +140,46 @@ export function ProjectMembersManager({ projectId }: ProjectMembersManagerProps)
         </Dialog>
       </div>
 
+      {!canManage ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          Bạn đang ở chế độ xem. Các thao tác mời hoặc gỡ thành viên đã được ẩn theo quyền hiện tại.
+        </div>
+      ) : null}
+
       {isLoading ? (
         <div className="py-8 text-center text-gray-500">Đang tải...</div>
       ) : members.length === 0 ? (
-        <div className="py-8 text-center text-gray-500">
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-slate-500">
           Chưa có thành viên nào. Hãy mời người khác tham gia dự án.
         </div>
       ) : (
         <div className="space-y-2">
           {members.map((member) => {
-            const workload =
-              member.nguoi_dung?.id ? workloadMap.get(member.nguoi_dung.id) : undefined;
+            const workload = member.nguoi_dung?.id ? workloadMap.get(member.nguoi_dung.id) : undefined;
             const capacity = workload ? getCapacityBadgeConfig(workload.loadStatus) : null;
 
             return (
-              <div
-                key={member.id}
-                className="flex items-center justify-between rounded-lg border p-3 hover:bg-gray-50"
-              >
+              <div key={member.id} className="flex items-center justify-between rounded-2xl border border-[#e7ebdf] p-3 hover:bg-slate-50">
                 <div className="flex items-center space-x-3">
                   <Avatar>
                     <AvatarImage src={member.nguoi_dung?.avatar_url || undefined} />
-                    <AvatarFallback>
-                      {member.nguoi_dung?.ten?.[0] || member.email[0].toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarFallback>{member.nguoi_dung?.ten?.[0] || member.email[0].toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="font-medium">{member.nguoi_dung?.ten || member.email}</div>
-                    <div className="text-sm text-gray-500">{member.email}</div>
+                    <div className="font-medium text-slate-900">{member.nguoi_dung?.ten || member.email}</div>
+                    <div className="text-sm text-slate-500">{member.email}</div>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Badge className={getRoleBadgeColor(member.vai_tro)}>
-                    {getRoleLabel(member.vai_tro)}
-                  </Badge>
-                  <Badge className={getStatusBadgeColor(member.trang_thai)}>
-                    {getStatusLabel(member.trang_thai)}
-                  </Badge>
-                  {workload && capacity && (
-                    <Badge className={capacity.className}>
-                      {capacity.label} · {workload.activeTasks}
-                    </Badge>
-                  )}
-                  {member.vai_tro !== 'owner' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeMutation.mutate(member.id)}
-                      disabled={removeMutation.isPending}
-                    >
-                      Xóa
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Badge className={roleClass(member.vai_tro)}>{roleLabel(member.vai_tro)}</Badge>
+                  <Badge className={statusClass(member.trang_thai)}>{statusLabel(member.trang_thai)}</Badge>
+                  {workload && capacity ? <Badge className={capacity.className}>{capacity.label} · {workload.activeTasks}</Badge> : null}
+                  {member.vai_tro !== 'owner' && canManage ? (
+                    <Button variant="ghost" size="sm" onClick={() => removeMutation.mutate(member.id)} disabled={removeMutation.isPending}>
+                      Gỡ
                     </Button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );

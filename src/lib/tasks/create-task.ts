@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/client';
+import { logTaskActivity } from '@/lib/activity/log';
 import { ChecklistItemInput, normalizeChecklistItems } from './checklist';
 import { syncTaskProgressFromChecklist, updatePhanDuAnProgress } from './progress';
 
@@ -14,6 +15,8 @@ export interface CreateTaskWithRelationsInput {
   template_id?: string | null;
   recurring_rule_id?: string | null;
   checklist_items?: ChecklistItemInput[] | unknown;
+  actor_id?: string;
+  project_id?: string;
 }
 
 export async function createTaskWithRelations(input: CreateTaskWithRelationsInput) {
@@ -32,7 +35,7 @@ export async function createTaskWithRelations(input: CreateTaskWithRelationsInpu
         assignee_id: input.assignee_id ?? null,
         priority: input.priority || 'medium',
         trang_thai: input.trang_thai || 'todo',
-        progress: progressMode === 'checklist' ? 0 : 0,
+        progress: 0,
         risk_score: 0,
         risk_level: 'low',
         is_stale: false,
@@ -66,6 +69,28 @@ export async function createTaskWithRelations(input: CreateTaskWithRelationsInpu
     await syncTaskProgressFromChecklist(task.id);
   } else {
     await updatePhanDuAnProgress(task.phan_du_an_id);
+  }
+
+  if (input.actor_id) {
+    await logTaskActivity({
+      taskId: task.id,
+      actorId: input.actor_id,
+      action: 'task_created',
+      historyAction: 'created',
+      nextValue: {
+        taskName: task.ten,
+        assigneeId: task.assignee_id,
+        deadline: task.deadline,
+        priority: task.priority,
+      },
+      metadata: {
+        projectId: input.project_id || null,
+        partId: task.phan_du_an_id,
+        taskName: task.ten,
+        checklistCount: checklistItems.length,
+        templateId: task.template_id,
+      },
+    });
   }
 
   return task;

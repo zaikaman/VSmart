@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/client';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { logActivity } from '@/lib/activity/log';
+import { hasPermission } from '@/lib/auth/permissions';
+import { getProjectAccessContext, toErrorResponse } from '@/lib/tasks/auth';
+import { supabaseAdmin } from '@/lib/supabase/client';
 
 const partSchema = z.object({
   ten: z.string().min(1).max(200),
@@ -10,62 +12,25 @@ const partSchema = z.object({
   phong_ban_id: z.string().uuid(),
 });
 
-async function authorizeProjectAccess(projectId: string) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-
-  const { data: membership } = await supabase
-    .from('thanh_vien_du_an')
-    .select('id')
-    .eq('du_an_id', projectId)
-    .eq('email', user.email)
-    .eq('trang_thai', 'active')
-    .single();
-
-  if (!membership) {
-    return {
-      error: NextResponse.json(
-        { error: 'Bạn không có quyền tạo phần dự án trong dự án này' },
-        { status: 403 }
-      ),
-    };
-  }
-
-  const { data: projectData, error: projectError } = await supabaseAdmin
-    .from('du_an')
-    .select('id')
-    .eq('id', projectId)
-    .is('deleted_at', null)
-    .single();
-
-  if (projectError || !projectData) {
-    return {
-      error: NextResponse.json(
-        { error: 'Dự án không tồn tại hoặc đã bị xóa' },
-        { status: 404 }
-      ),
-    };
-  }
-
-  return { projectId };
-}
-
-// POST /api/projects/[id]/parts - Create project part
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const auth = await authorizeProjectAccess(id);
-    if (auth.error) return auth.error;
+    const auth = await getProjectAccessContext(id);
+
+    const canCreate = hasPermission(
+      {
+        appRole: auth.dbUser.vai_tro as 'admin' | 'manager' | 'member',
+        projectRole: auth.membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+      },
+      'manageProjects'
+    );
+
+    if (!canCreate) {
+      return NextResponse.json({ error: 'Bạn không có quyền tạo phần dự án trong dự án này' }, { status: 403 });
+    }
 
     const body = await request.json();
     const validated = partSchema.parse(body);
@@ -86,18 +51,27 @@ export async function POST(
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error || !data) {
+      return NextResponse.json({ error: error?.message || 'Không thể tạo phần dự án' }, { status: 400 });
     }
+
+    await logActivity({
+      entityType: 'project_part',
+      entityId: data.id,
+      action: 'project_part_created',
+      actorId: auth.dbUser.id,
+      metadata: {
+        projectId: id,
+        partId: data.id,
+        partName: data.ten,
+      },
+    });
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return toErrorResponse(error);
   }
 }

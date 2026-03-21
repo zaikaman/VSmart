@@ -1,18 +1,23 @@
 'use client';
 
-import { ComponentProps, useState } from 'react';
-import { AlertCircle, Filter } from 'lucide-react';
-import { Task as KanbanTask } from '@/components/kanban/kanban-column';
+import { ComponentProps, useMemo, useState } from 'react';
+import { AlertCircle, Filter, Keyboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { KanbanBoard } from '@/components/kanban/kanban-board';
 import { CreateTaskModal } from '@/components/kanban/create-task-modal';
 import { TaskDetailModal } from '@/components/kanban/task-detail-modal';
+import { Task as KanbanTask } from '@/components/kanban/kanban-column';
+import { SavedViewBar } from '@/components/governance/saved-view-bar';
+import { ShortcutDialog } from '@/components/governance/shortcut-dialog';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Pagination } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProjectParts, ProjectPart } from '@/lib/hooks/use-project-parts';
+import { useHotkeys } from '@/lib/hooks/use-hotkeys';
+import { useProjectParts, type ProjectPart } from '@/lib/hooks/use-project-parts';
 import { useProjects } from '@/lib/hooks/use-projects';
+import { useSavedViews } from '@/lib/hooks/use-saved-views';
 import { useUserSettings } from '@/lib/hooks/use-settings';
 import { useTasks } from '@/lib/hooks/use-tasks';
 
@@ -22,7 +27,6 @@ type TaskDetailData = ComponentProps<typeof TaskDetailModal>['task'];
 export default function KanbanPage() {
   const { data: settingsResponse } = useUserSettings();
   const itemsPerPage = settingsResponse?.data?.dashboard?.itemsPerPage || 10;
-
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedPartId, setSelectedPartId] = useState('');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
@@ -30,6 +34,12 @@ export default function KanbanPage() {
   const [selectedTask, setSelectedTask] = useState<TaskDetailData>(null);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [initialStatus, setInitialStatus] = useState('todo');
+  const [shortcutOpen, setShortcutOpen] = useState(false);
+  const savedViews = useSavedViews<{
+    projectId: string;
+    partId: string;
+    riskFilter: RiskFilter;
+  }>('vsmart:saved-views:kanban');
 
   const { data: projects, isLoading: projectsLoading } = useProjects({ page: 1, limit: 100 });
   const projectList = projects?.data || [];
@@ -56,21 +66,41 @@ export default function KanbanPage() {
     isStale: riskFilter === 'stale',
   });
 
-  const handleProjectChange = (value: string) => {
-    setSelectedProjectId(value);
-    setSelectedPartId('');
-    setCurrentPage(1);
-  };
+  const currentView = useMemo(
+    () => ({
+      projectId: selectedProjectId,
+      partId: selectedPartId,
+      riskFilter,
+    }),
+    [riskFilter, selectedPartId, selectedProjectId]
+  );
 
-  const handlePartChange = (value: string) => {
-    setSelectedPartId(value);
-    setCurrentPage(1);
-  };
-
-  const handleRiskFilterChange = (value: string) => {
-    setRiskFilter(value as RiskFilter);
-    setCurrentPage(1);
-  };
+  useHotkeys([
+    {
+      key: 'c',
+      action: (event) => {
+        if (!effectivePartId) return;
+        event.preventDefault();
+        setInitialStatus('todo');
+        setCreateTaskOpen(true);
+      },
+    },
+    {
+      key: '?',
+      action: (event) => {
+        event.preventDefault();
+        setShortcutOpen(true);
+      },
+    },
+    {
+      key: '1',
+      action: () => setRiskFilter('all'),
+    },
+    {
+      key: '2',
+      action: () => setRiskFilter('high'),
+    },
+  ]);
 
   const handleAddTask = (columnId: string) => {
     if (!effectivePartId) {
@@ -92,22 +122,6 @@ export default function KanbanPage() {
       priority: task.priority,
       progress: task.progress,
       riskScore: task.risk_score,
-      nguoi_dung: task.nguoi_dung
-        ? {
-            hoTen: task.nguoi_dung.ten,
-            email: task.nguoi_dung.email,
-          }
-        : null,
-      phan_du_an: task.phan_du_an
-        ? {
-            ten: task.phan_du_an.ten,
-            du_an: {
-              ten: task.phan_du_an.du_an?.ten || '',
-            },
-          }
-        : null,
-      taoLuc: undefined,
-      capNhatCuoi: undefined,
     });
   };
 
@@ -136,8 +150,8 @@ export default function KanbanPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-          <h3 className="font-semibold">Lỗi tải tasks</h3>
-          <p className="mt-1 text-sm">Vui lòng thử lại sau</p>
+          <h3 className="font-semibold">Lỗi tải task</h3>
+          <p className="mt-1 text-sm">Vui lòng thử lại sau.</p>
         </div>
       </div>
     );
@@ -145,16 +159,46 @@ export default function KanbanPage() {
 
   return (
     <div className="container mx-auto p-6">
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="mb-2 text-2xl font-bold">Bảng Kanban</h1>
+          <p className="text-gray-600">Quản lý task theo trạng thái, rủi ro và phần dự án đang chạy.</p>
+        </div>
+        <Button variant="outline" onClick={() => setShortcutOpen(true)}>
+          <Keyboard className="mr-2 h-4 w-4" />
+          Phím tắt
+        </Button>
+      </div>
+
       <div className="mb-6">
-        <h1 className="mb-2 text-2xl font-bold">Bảng Kanban</h1>
-        <p className="text-gray-600">Quản lý tasks theo từng trạng thái</p>
+        <SavedViewBar
+          title="Saved views"
+          description="Lưu nhanh bộ lọc Kanban hiện tại để quay lại đúng ngữ cảnh đang theo dõi."
+          views={savedViews.views}
+          onApply={(view) => {
+            setSelectedProjectId(view.projectId);
+            setSelectedPartId(view.partId);
+            setRiskFilter(view.riskFilter);
+            setCurrentPage(1);
+          }}
+          onSave={(name) => savedViews.saveView(name, currentView)}
+          onDelete={savedViews.removeView}
+          disabled={!savedViews.isReady}
+        />
       </div>
 
       <div className="mb-6 flex flex-wrap gap-4">
         <div className="min-w-[250px]">
           <Label className="mb-1 block text-sm text-gray-600">Dự án</Label>
-          <Select value={effectiveProjectId} onValueChange={handleProjectChange}>
-            <SelectTrigger>
+          <Select
+            value={effectiveProjectId}
+            onValueChange={(value) => {
+              setSelectedProjectId(value);
+              setSelectedPartId('');
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger aria-label="Chọn dự án">
               <SelectValue placeholder="Chọn dự án" />
             </SelectTrigger>
             <SelectContent>
@@ -171,10 +215,13 @@ export default function KanbanPage() {
           <Label className="mb-1 block text-sm text-gray-600">Phần dự án</Label>
           <Select
             value={effectivePartId}
-            onValueChange={handlePartChange}
+            onValueChange={(value) => {
+              setSelectedPartId(value);
+              setCurrentPage(1);
+            }}
             disabled={!effectiveProjectId || partsLoading}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Chọn phần dự án">
               <SelectValue
                 placeholder={
                   !effectiveProjectId
@@ -197,10 +244,13 @@ export default function KanbanPage() {
           </Select>
         </div>
 
-        <div className="min-w-[200px]">
+        <div className="min-w-[220px]">
           <Label className="mb-1 block text-sm text-gray-600">Lọc theo rủi ro</Label>
-          <Select value={riskFilter} onValueChange={handleRiskFilterChange}>
-            <SelectTrigger>
+          <Select value={riskFilter} onValueChange={(value) => {
+            setRiskFilter(value as RiskFilter);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger aria-label="Lọc theo rủi ro">
               <SelectValue placeholder="Tất cả" />
             </SelectTrigger>
             <SelectContent>
@@ -219,21 +269,21 @@ export default function KanbanPage() {
         </div>
       </div>
 
-      {!effectivePartId && effectiveProjectId && partList.length === 0 && (
+      {!effectivePartId && effectiveProjectId && partList.length === 0 ? (
         <div className="mb-6 flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
           <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
           <div>
             <h3 className="font-semibold">Chưa có phần dự án</h3>
             <p className="mt-1 text-sm">
-              Dự án này chưa có phần dự án nào. Vui lòng tạo phần dự án trước để có thể thêm tasks.
+              Dự án này chưa có phần dự án nào. Vui lòng tạo phần dự án trước để có thể thêm task.
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onAddTask={handleAddTask} />
 
-      {pagination && pagination.totalPages > 1 && (
+      {pagination && pagination.totalPages > 1 ? (
         <div className="mt-6">
           <Pagination
             currentPage={currentPage}
@@ -243,7 +293,7 @@ export default function KanbanPage() {
             onPageChange={setCurrentPage}
           />
         </div>
-      )}
+      ) : null}
 
       <CreateTaskModal
         open={createTaskOpen}
@@ -254,10 +304,18 @@ export default function KanbanPage() {
         projectId={effectiveProjectId}
       />
 
-      <TaskDetailModal
-        task={selectedTask}
-        open={!!selectedTask}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
+      <TaskDetailModal task={selectedTask} open={!!selectedTask} onOpenChange={(isOpen) => !isOpen && setSelectedTask(null)} />
+
+      <ShortcutDialog
+        open={shortcutOpen}
+        onOpenChange={setShortcutOpen}
+        title="Phím tắt Kanban"
+        items={[
+          { keyLabel: 'C', description: 'Mở nhanh modal tạo task mới' },
+          { keyLabel: '1', description: 'Đặt bộ lọc rủi ro về tất cả' },
+          { keyLabel: '2', description: 'Lọc nhanh nhóm task rủi ro cao' },
+          { keyLabel: '?', description: 'Mở bảng phím tắt' },
+        ]}
       />
     </div>
   );

@@ -1,5 +1,11 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+export interface ProjectPermissions {
+  canManageProject: boolean;
+  canManageMembers: boolean;
+  canViewAnalytics: boolean;
+}
+
 export interface Project {
   id: string;
   ten: string;
@@ -10,6 +16,8 @@ export interface Project {
   phan_tram_hoan_thanh: number;
   ngay_tao: string;
   cap_nhat_cuoi: string;
+  current_membership_role?: 'owner' | 'admin' | 'member' | 'viewer' | null;
+  permissions?: ProjectPermissions;
   phan_du_an?: ProjectPart[];
 }
 
@@ -78,7 +86,7 @@ export function useProjects(params?: ProjectsParams) {
       }
 
       const response = await fetch(`/api/projects?${searchParams.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch projects');
+      if (!response.ok) throw new Error('Không thể tải danh sách dự án');
       return response.json() as Promise<PaginatedProjectsResponse>;
     },
     placeholderData: keepPreviousData,
@@ -92,7 +100,7 @@ export function useProject(id: string) {
     queryKey: ['projects', id],
     queryFn: async () => {
       const response = await fetch(`/api/projects/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch project');
+      if (!response.ok) throw new Error('Không thể tải dự án');
       return response.json() as Promise<Project>;
     },
     enabled: !!id,
@@ -111,7 +119,10 @@ export function useCreateProject() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
-      if (!response.ok) throw new Error('Failed to create project');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Không thể tạo dự án');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -130,7 +141,10 @@ export function useUpdateProject(id: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
-      if (!response.ok) throw new Error('Failed to update project');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Không thể cập nhật dự án');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -148,7 +162,10 @@ export function useDeleteProject() {
       const response = await fetch(`/api/projects/${id}`, {
         method: 'DELETE',
       });
-      if (!response.ok) throw new Error('Failed to delete project');
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Không thể xóa dự án');
+      }
       return response.json();
     },
     onSuccess: () => {

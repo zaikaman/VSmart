@@ -1,64 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { logActivity } from '@/lib/activity/log';
+import { hasPermission } from '@/lib/auth/permissions';
+import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
 
-// Schema validation
 const projectSchema = z.object({
   ten: z.string().min(1).max(200),
   mo_ta: z.string().optional(),
   deadline: z.string().datetime(),
 });
 
-// GET /api/projects - Lấy danh sách dự án của user (thuộc organization hoặc là thành viên)
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const { supabase, authUser } = await getAuthenticatedUserContext();
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
     const trangThai = searchParams.get('trangThai');
-
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Lấy organization_id của user
-    const { error: userError } = await supabase
-      .from('nguoi_dung')
-      .select('id, to_chuc_id')
-      .eq('email', user.email)
-      .single();
-
-    if (userError) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thông tin người dùng' },
-        { status: 404 }
-      );
-    }
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    // Query dự án mà user là thành viên active
     let query = supabase
       .from('du_an')
-      .select(`
-        *,
-        thanh_vien_du_an!inner(email, trang_thai)
-      `, { count: 'exact' })
-      .eq('thanh_vien_du_an.email', user.email)
+      .select(
+        `
+          *,
+          thanh_vien_du_an!inner(email, trang_thai, vai_tro)
+        `,
+        { count: 'exact' }
+      )
+      .eq('thanh_vien_du_an.email', authUser.email)
       .eq('thanh_vien_du_an.trang_thai', 'active')
       .is('deleted_at', null)
       .range(from, to)
       .order('ngay_tao', { ascending: false });
 
-    // Filter by status if provided
     if (trangThai) {
       query = query.eq('trang_thai', trangThai);
     }
@@ -70,12 +47,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Loại bỏ thông tin thanh_vien_du_an trong response
     const cleanData =
       data?.map((project) => {
+        const membership = Array.isArray(project.thanh_vien_du_an)
+          ? project.thanh_vien_du_an[0]
+          : project.thanh_vien_du_an;
         const rest = { ...project };
         delete rest.thanh_vien_du_an;
-        return rest;
+        return {
+          ...rest,
+          current_membership_role: membership?.vai_tro || null,
+        };
       }) || [];
 
     return NextResponse.json({
@@ -89,50 +71,33 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in GET /api/projects:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/projects - Tạo dự án mới
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const { supabase, authUser, dbUser } = await getAuthenticatedUserContext();
+
+    if (!hasPermission({ appRole: dbUser.vai_tro as 'admin' | 'manager' | 'member' }, 'manageProjects')) {
+      return NextResponse.json({ error: 'Bạn không có quyền tạo dự án' }, { status: 403 });
     }
 
     const body = await request.json();
     const validated = projectSchema.parse(body);
 
-    // Lấy thông tin user để có to_chuc_id
     const { data: userData, error: userError } = await supabase
       .from('nguoi_dung')
       .select('id, to_chuc_id')
-      .eq('email', user.email)
+      .eq('email', authUser.email)
       .single();
 
-    if (userError) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thông tin người dùng' },
-        { status: 404 }
-      );
+    if (userError || !userData) {
+      return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng' }, { status: 404 });
     }
 
     if (!userData.to_chuc_id) {
-      return NextResponse.json(
-        { error: 'Bạn cần thuộc về một tổ chức để tạo dự án' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Bạn cần thuộc về một tổ chức để tạo dự án' }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -151,10 +116,31 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
+    if (error || !data) {
       console.error('Error creating project:', error);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ error: error?.message || 'Không thể tạo dự án' }, { status: 400 });
     }
+
+    await supabase.from('thanh_vien_du_an').insert({
+      du_an_id: data.id,
+      nguoi_dung_id: userData.id,
+      email: authUser.email,
+      vai_tro: 'owner',
+      trang_thai: 'active',
+      ngay_tham_gia: new Date().toISOString(),
+      nguoi_moi_id: userData.id,
+    });
+
+    await logActivity({
+      entityType: 'project',
+      entityId: data.id,
+      action: 'project_created',
+      actorId: userData.id,
+      metadata: {
+        projectId: data.id,
+        projectName: data.ten,
+      },
+    });
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
@@ -162,9 +148,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     console.error('Error in POST /api/projects:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

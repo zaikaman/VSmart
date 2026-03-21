@@ -3,22 +3,21 @@
 import { useMemo, useState } from 'react';
 import { addDays, endOfWeek, format, startOfWeek } from 'date-fns';
 import { Bricolage_Grotesque, JetBrains_Mono } from 'next/font/google';
+import { CalendarDays, Flame, Keyboard, Layers3, Radar, Route, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { CalendarDays, Flame, Layers3, Radar, Route, Users } from 'lucide-react';
+import { RebalancePanel } from '@/components/ai/rebalance-panel';
+import { SavedViewBar } from '@/components/governance/saved-view-bar';
+import { ShortcutDialog } from '@/components/governance/shortcut-dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarView } from '@/components/planning/calendar-view';
 import { TimelineView } from '@/components/planning/timeline-view';
 import { WorkloadHeatmap } from '@/components/planning/workload-heatmap';
-import { RebalancePanel } from '@/components/ai/rebalance-panel';
+import { useHotkeys } from '@/lib/hooks/use-hotkeys';
 import { useProjects } from '@/lib/hooks/use-projects';
-import {
-  usePlanningCalendar,
-  usePlanningWorkload,
-  useRescheduleTask,
-  type PlanningTaskItem,
-} from '@/lib/hooks/use-planning';
+import { useSavedViews } from '@/lib/hooks/use-saved-views';
+import { usePlanningCalendar, usePlanningWorkload, useRescheduleTask, type PlanningTaskItem } from '@/lib/hooks/use-planning';
 
 const bricolage = Bricolage_Grotesque({ subsets: ['latin'], weight: ['400', '600', '800'] });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '700'] });
@@ -38,15 +37,19 @@ export default function PlanningPage() {
   const [range, setRange] = useState(getInitialWeek);
   const [selectedProjectId, setSelectedProjectId] = useState('all');
   const [selectedAssigneeId, setSelectedAssigneeId] = useState('all');
+  const [shortcutOpen, setShortcutOpen] = useState(false);
+  const savedViews = useSavedViews<{
+    projectId: string;
+    assigneeId: string;
+    activeTab: PlanningTab;
+  }>('vsmart:saved-views:planning');
+
   const { data: projectsResponse, isLoading: projectsLoading } = useProjects({ page: 1, limit: 100 });
   const rescheduleTask = useRescheduleTask();
-
   const projects = projectsResponse?.data || [];
   const projectFilter = selectedProjectId === 'all' ? undefined : selectedProjectId;
 
-  const workloadQuery = usePlanningWorkload({
-    projectId: projectFilter,
-  });
+  const workloadQuery = usePlanningWorkload({ projectId: projectFilter });
   const members = workloadQuery.data?.members || [];
   const effectiveAssigneeId =
     selectedAssigneeId !== 'all' && members.some((member) => member.userId === selectedAssigneeId)
@@ -59,50 +62,35 @@ export default function PlanningPage() {
     dateFrom: range.start.toISOString(),
     dateTo: range.end.toISOString(),
   });
+
+  useHotkeys([
+    { key: '1', action: () => setActiveTab('calendar') },
+    { key: '2', action: () => setActiveTab('timeline') },
+    { key: '3', action: () => setActiveTab('workload') },
+    { key: '[', action: () => setRange((current) => ({ start: addDays(current.start, -7), end: addDays(current.end, -7) })) },
+    { key: ']', action: () => setRange((current) => ({ start: addDays(current.start, 7), end: addDays(current.end, 7) })) },
+    {
+      key: '?',
+      action: (event) => {
+        event.preventDefault();
+        setShortcutOpen(true);
+      },
+    },
+  ]);
+
   const overviewCards = useMemo(
     () => [
-      {
-        label: 'Task đang mở',
-        value: workloadQuery.data?.summary.totalActiveTasks || 0,
-        accent: 'text-[#b9ff66]',
-        icon: Layers3,
-      },
-      {
-        label: 'Điểm nóng quá tải',
-        value: workloadQuery.data?.summary.overloadedMembers || 0,
-        accent: 'text-[#ffab87]',
-        icon: Flame,
-      },
-      {
-        label: 'Rủi ro cao trong tuần',
-        value: calendarQuery.data?.summary.highRiskTasks || 0,
-        accent: 'text-[#ffcf6c]',
-        icon: Radar,
-      },
-      {
-        label: 'Thành viên đang theo dõi',
-        value: workloadQuery.data?.summary.totalMembers || 0,
-        accent: 'text-[#8dc9ff]',
-        icon: Users,
-      },
+      { label: 'Task đang mở', value: workloadQuery.data?.summary.totalActiveTasks || 0, accent: 'text-[#b9ff66]', icon: Layers3 },
+      { label: 'Điểm nóng quá tải', value: workloadQuery.data?.summary.overloadedMembers || 0, accent: 'text-[#ffab87]', icon: Flame },
+      { label: 'Rủi ro cao trong tuần', value: calendarQuery.data?.summary.highRiskTasks || 0, accent: 'text-[#ffcf6c]', icon: Radar },
+      { label: 'Thành viên đang theo dõi', value: workloadQuery.data?.summary.totalMembers || 0, accent: 'text-[#8dc9ff]', icon: Users },
     ],
     [calendarQuery.data?.summary.highRiskTasks, workloadQuery.data?.summary]
   );
 
-  const handleShiftWeek = (direction: -1 | 1) => {
-    setRange((current) => ({
-      start: addDays(current.start, direction * 7),
-      end: addDays(current.end, direction * 7),
-    }));
-  };
-
   const handleReschedule = async (task: PlanningTaskItem, nextDate: Date) => {
     try {
-      const result = await rescheduleTask.mutateAsync({
-        taskId: task.id,
-        deadline: nextDate.toISOString(),
-      });
-
+      const result = await rescheduleTask.mutateAsync({ taskId: task.id, deadline: nextDate.toISOString() });
       if (result.warnings?.length) {
         toast.warning(result.warnings[0]);
       } else {
@@ -130,8 +118,7 @@ export default function PlanningPage() {
                 Cân lịch, dàn tải và nhìn trước điểm nghẽn trước khi task bắt đầu trễ.
               </h1>
               <p className="mt-4 max-w-2xl text-base text-white/68">
-                Màn hình này gom ba lớp nhìn quan trọng nhất cho đội triển khai: lịch deadline,
-                timeline theo nhịp tuần và heatmap năng lực của từng người.
+                Màn hình này gom ba lớp nhìn quan trọng nhất cho đội triển khai: lịch deadline, timeline theo nhịp tuần và heatmap năng lực của từng người.
               </p>
             </div>
 
@@ -142,20 +129,38 @@ export default function PlanningPage() {
                     <span className="text-xs uppercase tracking-[0.2em]">{card.label}</span>
                     <card.icon className="h-4 w-4" />
                   </div>
-                  <div className={`mt-3 text-3xl font-semibold ${card.accent} ${jetbrains.className}`}>
-                    {card.value}
-                  </div>
+                  <div className={`mt-3 text-3xl font-semibold ${card.accent} ${jetbrains.className}`}>{card.value}</div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
+        <div className="mt-6">
+          <SavedViewBar
+            title="Saved views"
+            description="Lưu tổ hợp tab và bộ lọc Planning để mở lại đúng nhịp theo dõi chỉ trong một chạm."
+            views={savedViews.views}
+            onApply={(view) => {
+              setSelectedProjectId(view.projectId);
+              setSelectedAssigneeId(view.assigneeId);
+              setActiveTab(view.activeTab);
+            }}
+            onSave={(name) => savedViews.saveView(name, {
+              projectId: selectedProjectId,
+              assigneeId: selectedAssigneeId,
+              activeTab,
+            })}
+            onDelete={savedViews.removeView}
+            disabled={!savedViews.isReady}
+          />
+        </div>
+
         <section className="mt-6 rounded-[30px] border border-[#d7dfcf] bg-white px-5 py-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-3">
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="min-w-[220px]">
+                <SelectTrigger className="min-w-[220px]" aria-label="Chọn dự án cho planning">
                   <SelectValue placeholder="Chọn dự án" />
                 </SelectTrigger>
                 <SelectContent>
@@ -169,7 +174,7 @@ export default function PlanningPage() {
               </Select>
 
               <Select value={effectiveAssigneeId} onValueChange={setSelectedAssigneeId}>
-                <SelectTrigger className="min-w-[240px]">
+                <SelectTrigger className="min-w-[240px]" aria-label="Chọn thành viên cho planning">
                   <SelectValue placeholder="Tất cả thành viên" />
                 </SelectTrigger>
                 <SelectContent>
@@ -200,21 +205,20 @@ export default function PlanningPage() {
                   {tab.label}
                 </Button>
               ))}
+              <Button variant="outline" onClick={() => setShortcutOpen(true)}>
+                <Keyboard className="mr-2 h-4 w-4" />
+                Phím tắt
+              </Button>
             </div>
           </div>
 
           <div className="mt-4 text-sm text-[#62705d]">
-            Khung thời gian: <strong>{format(range.start, 'dd/MM/yyyy')}</strong> đến{' '}
-            <strong>{format(range.end, 'dd/MM/yyyy')}</strong>
+            Khung thời gian: <strong>{format(range.start, 'dd/MM/yyyy')}</strong> đến <strong>{format(range.end, 'dd/MM/yyyy')}</strong>
           </div>
         </section>
 
         <div className="mt-6">
-          <RebalancePanel
-            projectId={projectFilter}
-            title={projectFilter ? 'AI cân lại tải cho dự án này' : 'AI cân lại tải cho toàn bộ đội'}
-            compact
-          />
+          <RebalancePanel projectId={projectFilter} title={projectFilter ? 'AI cân lại tải cho dự án này' : 'AI cân lại tải cho toàn bộ đội'} compact />
         </div>
 
         <div className="mt-6">
@@ -226,7 +230,7 @@ export default function PlanningPage() {
           ) : activeTab === 'calendar' ? (
             <CalendarView
               data={calendarQuery.data}
-              onShiftRange={handleShiftWeek}
+              onShiftRange={(direction) => setRange((current) => ({ start: addDays(current.start, direction * 7), end: addDays(current.end, direction * 7) }))}
               onToday={() => setRange(getInitialWeek())}
               onReschedule={handleReschedule}
               reschedulingTaskId={rescheduleTask.variables?.taskId || null}
@@ -234,7 +238,7 @@ export default function PlanningPage() {
           ) : activeTab === 'timeline' ? (
             <TimelineView
               data={calendarQuery.data}
-              onShiftRange={handleShiftWeek}
+              onShiftRange={(direction) => setRange((current) => ({ start: addDays(current.start, direction * 7), end: addDays(current.end, direction * 7) }))}
               onReschedule={handleReschedule}
               reschedulingTaskId={rescheduleTask.variables?.taskId || null}
             />
@@ -242,6 +246,17 @@ export default function PlanningPage() {
             <WorkloadHeatmap data={workloadQuery.data} />
           )}
         </div>
+
+        <ShortcutDialog
+          open={shortcutOpen}
+          onOpenChange={setShortcutOpen}
+          title="Phím tắt Planning"
+          items={[
+            { keyLabel: '1 / 2 / 3', description: 'Chuyển nhanh giữa Calendar, Timeline và Workload' },
+            { keyLabel: '[ / ]', description: 'Lùi hoặc tiến thêm một tuần trên lịch planning' },
+            { keyLabel: '?', description: 'Mở bảng phím tắt' },
+          ]}
+        />
       </div>
     </div>
   );

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sendProjectInvitationEmail } from '@/lib/email/project-invitation';
+import { logActivity } from '@/lib/activity/log';
+import { hasPermission } from '@/lib/auth/permissions';
+import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export interface ProjectMember {
   id: string;
@@ -20,160 +23,114 @@ export interface ProjectMember {
   };
 }
 
-// GET /api/project-members?projectId=xxx - Lấy danh sách thành viên của dự án
+async function getProjectMembershipContext(projectId: string, email: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: membership } = await supabase
+    .from('thanh_vien_du_an')
+    .select('id, vai_tro, trang_thai')
+    .eq('du_an_id', projectId)
+    .eq('email', email)
+    .eq('trang_thai', 'active')
+    .single();
+
+  return membership;
+}
+
+function getProjectName(value: unknown) {
+  const relation = Array.isArray(value) ? value[0] : value;
+  return relation && typeof relation === 'object' && 'ten' in relation
+    ? ((relation as { ten?: string }).ten || null)
+    : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { searchParams } = new URL(request.url);
-    const projectId = searchParams.get('projectId');
+    const { authUser } = await getAuthenticatedUserContext();
+    const projectId = request.nextUrl.searchParams.get('projectId');
 
     if (!projectId) {
-      return NextResponse.json(
-        { error: 'projectId là bắt buộc' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'projectId là bắt buộc' }, { status: 400 });
     }
 
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const membership = await getProjectMembershipContext(projectId, authUser.email);
+    if (!membership) {
+      return NextResponse.json({ error: 'Bạn không có quyền xem thành viên dự án này' }, { status: 403 });
     }
 
-    // Lấy danh sách thành viên
+    const supabase = await createSupabaseServerClient();
     const { data: members, error } = await supabase
       .from('thanh_vien_du_an')
-      .select(`
-        *,
-        nguoi_dung:nguoi_dung_id (
-          id,
-          ten,
-          email,
-          avatar_url
-        )
-      `)
+      .select(
+        `
+          *,
+          nguoi_dung:nguoi_dung_id (
+            id,
+            ten,
+            email,
+            avatar_url
+          )
+        `
+      )
       .eq('du_an_id', projectId)
       .order('ngay_moi', { ascending: false });
 
     if (error) {
-      console.error('Error fetching project members:', error);
-      return NextResponse.json(
-        { error: 'Không thể lấy danh sách thành viên' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Không thể lấy danh sách thành viên' }, { status: 500 });
     }
 
     return NextResponse.json(members || []);
   } catch (error) {
     console.error('Error fetching project members:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/project-members - Mời thành viên vào dự án
 export async function POST(request: NextRequest) {
   try {
+    const { authUser, dbUser } = await getAuthenticatedUserContext();
     const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
     const { du_an_id, email, vai_tro = 'member' } = body;
 
     if (!du_an_id || !email) {
-      return NextResponse.json(
-        { error: 'du_an_id và email là bắt buộc' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'du_an_id và email là bắt buộc' }, { status: 400 });
     }
 
-    // Validate email format
+    const membership = await getProjectMembershipContext(du_an_id, authUser.email);
+    if (!membership) {
+      return NextResponse.json({ error: 'Bạn không có quyền mời thành viên vào dự án này' }, { status: 403 });
+    }
+
+    const canManage = hasPermission(
+      {
+        appRole: dbUser.vai_tro as 'admin' | 'manager' | 'member',
+        projectRole: membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+      },
+      'manageMembers'
+    );
+
+    if (!canManage) {
+      return NextResponse.json({ error: 'Bạn không có quyền mời thành viên vào dự án này' }, { status: 403 });
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Email không hợp lệ' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email không hợp lệ' }, { status: 400 });
     }
 
-    // Lấy ID người mời
-    const { data: inviterData, error: inviterError } = await supabase
-      .from('nguoi_dung')
-      .select('id')
-      .eq('email', user.email)
-      .single();
-
-    if (inviterError) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thông tin người mời' },
-        { status: 404 }
-      );
-    }
-
-    // Kiểm tra quyền mời (phải là owner hoặc admin)
-    const { data: memberCheck, error: memberCheckError } = await supabase
-      .from('thanh_vien_du_an')
-      .select('vai_tro')
-      .eq('du_an_id', du_an_id)
-      .eq('email', user.email)
-      .eq('trang_thai', 'active')
-      .single();
-
-    // Hoặc là người tạo dự án
-    const { data: projectCheck } = await supabase
-      .from('du_an')
-      .select('nguoi_tao_id')
-      .eq('id', du_an_id)
-      .single();
-
-    const isOwnerOrAdmin = memberCheck && ['owner', 'admin'].includes(memberCheck.vai_tro);
-    const isCreator = projectCheck && projectCheck.nguoi_tao_id === inviterData.id;
-
-    if (!isOwnerOrAdmin && !isCreator) {
-      return NextResponse.json(
-        { error: 'Bạn không có quyền mời thành viên vào dự án này' },
-        { status: 403 }
-      );
-    }
-
-    // Kiểm tra xem email đã được mời chưa
     const { data: existingMember } = await supabase
       .from('thanh_vien_du_an')
-      .select('*')
+      .select('id')
       .eq('du_an_id', du_an_id)
       .eq('email', email)
       .single();
 
     if (existingMember) {
-      return NextResponse.json(
-        { error: 'Email này đã được mời vào dự án' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email này đã được mời vào dự án' }, { status: 400 });
     }
 
-    // Tìm user với email này
-    const { data: invitedUser } = await supabase
-      .from('nguoi_dung')
-      .select('id')
-      .eq('email', email)
-      .single();
+    const { data: invitedUser } = await supabase.from('nguoi_dung').select('id').eq('email', email).single();
 
-    // Tạo lời mời
     const { data: member, error: createError } = await supabase
       .from('thanh_vien_du_an')
       .insert({
@@ -182,290 +139,222 @@ export async function POST(request: NextRequest) {
         email,
         vai_tro,
         trang_thai: 'pending',
-        nguoi_moi_id: inviterData.id,
+        nguoi_moi_id: dbUser.id,
       })
-      .select(`
-        *,
-        nguoi_dung:nguoi_dung_id (
-          id,
-          ten,
-          email,
-          avatar_url
-        )
-      `)
+      .select(
+        `
+          *,
+          nguoi_dung:nguoi_dung_id (
+            id,
+            ten,
+            email,
+            avatar_url
+          )
+        `
+      )
       .single();
 
-    if (createError) {
-      console.error('Error creating member invitation:', createError);
-      return NextResponse.json(
-        { error: 'Không thể tạo lời mời' },
-        { status: 500 }
-      );
+    if (createError || !member) {
+      return NextResponse.json({ error: 'Không thể tạo lời mời' }, { status: 500 });
     }
 
-    // Lấy thông tin dự án và người mời
-    const { data: projectInfo } = await supabase
-      .from('du_an')
-      .select('ten')
-      .eq('id', du_an_id)
-      .single();
+    const { data: projectInfo } = await supabase.from('du_an').select('ten').eq('id', du_an_id).single();
 
-    const { data: inviterInfo } = await supabase
-      .from('nguoi_dung')
-      .select('ten, email')
-      .eq('id', inviterData.id)
-      .single();
-
-    // Tạo thông báo trong app nếu user đã tồn tại
     if (invitedUser?.id) {
-      await supabase
-        .from('thong_bao')
-        .insert({
-          nguoi_dung_id: invitedUser.id,
-          loai: 'project_invitation',
-          noi_dung: `${inviterInfo?.ten || 'Ai đó'} đã mời bạn tham gia dự án "${projectInfo?.ten || 'một dự án'}"`,
-          du_an_lien_quan_id: du_an_id,
-          thanh_vien_du_an_id: member.id,
-        });
-
-      // Socket broadcast đã bị vô hiệu hóa - sử dụng polling thay thế
-      // Notification sẽ được hiển thị qua polling mỗi 10 giây
+      await supabase.from('thong_bao').insert({
+        nguoi_dung_id: invitedUser.id,
+        loai: 'project_invitation',
+        noi_dung: `${dbUser.ten} đã mời bạn tham gia dự án "${projectInfo?.ten || 'một dự án'}"`,
+        du_an_lien_quan_id: du_an_id,
+        thanh_vien_du_an_id: member.id,
+      });
     }
 
-    // Gửi email thông báo
+    await logActivity({
+      entityType: 'project',
+      entityId: du_an_id,
+      action: 'member_invited',
+      actorId: dbUser.id,
+      metadata: {
+        projectId: du_an_id,
+        projectName: projectInfo?.ten || null,
+        invitedEmail: email,
+        invitedRole: vai_tro,
+      },
+    });
+
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      const acceptUrl = `${baseUrl}/dashboard?tab=invitations`;
-      
       await sendProjectInvitationEmail({
         to: email,
         projectName: projectInfo?.ten || 'Dự án',
-        inviterName: inviterInfo?.ten || 'Người dùng',
-        inviterEmail: inviterInfo?.email || '',
+        inviterName: dbUser.ten,
+        inviterEmail: authUser.email,
         role: vai_tro,
-        acceptUrl,
+        acceptUrl: `${baseUrl}/dashboard?tab=invitations`,
       });
-      
-      console.log(`Invitation email sent to ${email}`);
     } catch (emailError) {
       console.error('Error sending invitation email:', emailError);
-      // Không throw error vì lời mời đã được tạo thành công
     }
 
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
     console.error('Error inviting project member:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// PATCH /api/project-members - Cập nhật trạng thái hoặc vai trò thành viên
 export async function PATCH(request: NextRequest) {
   try {
+    const { authUser, dbUser } = await getAuthenticatedUserContext();
     const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
     const { member_id, trang_thai, vai_tro } = body;
 
     if (!member_id) {
-      return NextResponse.json(
-        { error: 'member_id là bắt buộc' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'member_id là bắt buộc' }, { status: 400 });
     }
 
-    // Lấy thông tin membership
-    const { data: memberData, error: memberError } = await supabase
+    const { data: memberData } = await supabase
       .from('thanh_vien_du_an')
-      .select('*, du_an:du_an_id(nguoi_tao_id)')
+      .select('id, email, du_an_id, vai_tro, du_an:du_an_id(ten)')
       .eq('id', member_id)
       .single();
 
-    if (memberError || !memberData) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thành viên' },
-        { status: 404 }
-      );
+    if (!memberData) {
+      return NextResponse.json({ error: 'Không tìm thấy thành viên' }, { status: 404 });
     }
 
-    // Nếu cập nhật trạng thái (accept/decline), chỉ chính user đó mới được làm
-    if (trang_thai && memberData.email !== user.email) {
-      return NextResponse.json(
-        { error: 'Bạn chỉ có thể cập nhật trạng thái của chính mình' },
-        { status: 403 }
-      );
+    if (trang_thai && memberData.email !== authUser.email) {
+      return NextResponse.json({ error: 'Bạn chỉ có thể cập nhật trạng thái của chính mình' }, { status: 403 });
     }
 
-    // Nếu cập nhật vai trò, cần quyền owner/admin
     if (vai_tro) {
-      const { data: userData } = await supabase
-        .from('nguoi_dung')
-        .select('id')
-        .eq('email', user.email)
-        .single();
+      const membership = await getProjectMembershipContext(memberData.du_an_id, authUser.email);
+      if (!membership) {
+        return NextResponse.json({ error: 'Bạn không có quyền thay đổi vai trò thành viên' }, { status: 403 });
+      }
 
-      const { data: requesterMember } = await supabase
-        .from('thanh_vien_du_an')
-        .select('vai_tro')
-        .eq('du_an_id', memberData.du_an_id)
-        .eq('email', user.email)
-        .eq('trang_thai', 'active')
-        .single();
+      const canManage = hasPermission(
+        {
+          appRole: dbUser.vai_tro as 'admin' | 'manager' | 'member',
+          projectRole: membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+        },
+        'manageMembers'
+      );
 
-      const isOwnerOrAdmin = requesterMember && ['owner', 'admin'].includes(requesterMember.vai_tro);
-      const isCreator = memberData.du_an?.nguoi_tao_id === userData?.id;
-
-      if (!isOwnerOrAdmin && !isCreator) {
-        return NextResponse.json(
-          { error: 'Bạn không có quyền thay đổi vai trò thành viên' },
-          { status: 403 }
-        );
+      if (!canManage) {
+        return NextResponse.json({ error: 'Bạn không có quyền thay đổi vai trò thành viên' }, { status: 403 });
       }
     }
 
-    // Cập nhật
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (trang_thai) updateData.trang_thai = trang_thai;
     if (vai_tro) updateData.vai_tro = vai_tro;
+    if (trang_thai === 'active') updateData.ngay_tham_gia = new Date().toISOString();
 
     const { data: updatedMember, error: updateError } = await supabase
       .from('thanh_vien_du_an')
       .update(updateData)
       .eq('id', member_id)
-      .select(`
-        *,
-        nguoi_dung:nguoi_dung_id (
-          id,
-          ten,
-          email,
-          avatar_url
-        )
-      `)
+      .select(
+        `
+          *,
+          nguoi_dung:nguoi_dung_id (
+            id,
+            ten,
+            email,
+            avatar_url
+          )
+        `
+      )
       .single();
 
-    if (updateError) {
-      console.error('Error updating member:', updateError);
-      return NextResponse.json(
-        { error: 'Không thể cập nhật thành viên' },
-        { status: 500 }
-      );
+    if (updateError || !updatedMember) {
+      return NextResponse.json({ error: 'Không thể cập nhật thành viên' }, { status: 500 });
     }
+
+    await logActivity({
+      entityType: 'project',
+      entityId: memberData.du_an_id,
+      action: 'member_updated',
+      actorId: dbUser.id,
+      metadata: {
+        projectId: memberData.du_an_id,
+        projectName: getProjectName(memberData.du_an),
+        memberEmail: memberData.email,
+        changes: { trang_thai, vai_tro },
+      },
+    });
 
     return NextResponse.json(updatedMember);
   } catch (error) {
     console.error('Error updating project member:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// DELETE /api/project-members?memberId=xxx - Xóa thành viên khỏi dự án
 export async function DELETE(request: NextRequest) {
   try {
+    const { authUser, dbUser } = await getAuthenticatedUserContext();
     const supabase = await createSupabaseServerClient();
-    const { searchParams } = new URL(request.url);
-    const memberId = searchParams.get('memberId');
+    const memberId = request.nextUrl.searchParams.get('memberId');
 
     if (!memberId) {
-      return NextResponse.json(
-        { error: 'memberId là bắt buộc' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'memberId là bắt buộc' }, { status: 400 });
     }
 
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Lấy thông tin membership
-    const { data: memberData, error: memberError } = await supabase
+    const { data: memberData } = await supabase
       .from('thanh_vien_du_an')
-      .select('*, du_an:du_an_id(nguoi_tao_id)')
+      .select('id, email, vai_tro, du_an_id, du_an:du_an_id(ten)')
       .eq('id', memberId)
       .single();
 
-    if (memberError || !memberData) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thành viên' },
-        { status: 404 }
-      );
+    if (!memberData) {
+      return NextResponse.json({ error: 'Không tìm thấy thành viên' }, { status: 404 });
     }
 
-    // Kiểm tra quyền xóa
-    const { data: userData } = await supabase
-      .from('nguoi_dung')
-      .select('id')
-      .eq('email', user.email)
-      .single();
+    const membership = await getProjectMembershipContext(memberData.du_an_id, authUser.email);
+    const canManage = membership
+      ? hasPermission(
+          {
+            appRole: dbUser.vai_tro as 'admin' | 'manager' | 'member',
+            projectRole: membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+          },
+          'manageMembers'
+        )
+      : false;
 
-    const { data: requesterMember } = await supabase
-      .from('thanh_vien_du_an')
-      .select('vai_tro')
-      .eq('du_an_id', memberData.du_an_id)
-      .eq('email', user.email)
-      .eq('trang_thai', 'active')
-      .single();
+    const isSelf = memberData.email === authUser.email;
 
-    const isOwnerOrAdmin = requesterMember && ['owner', 'admin'].includes(requesterMember.vai_tro);
-    const isCreator = memberData.du_an?.nguoi_tao_id === userData?.id;
-    const isSelf = memberData.email === user.email;
-
-    if (!isOwnerOrAdmin && !isCreator && !isSelf) {
-      return NextResponse.json(
-        { error: 'Bạn không có quyền xóa thành viên này' },
-        { status: 403 }
-      );
+    if (!canManage && !isSelf) {
+      return NextResponse.json({ error: 'Bạn không có quyền xóa thành viên này' }, { status: 403 });
     }
 
-    // Không cho phép xóa owner nếu không phải chính họ
     if (memberData.vai_tro === 'owner' && !isSelf) {
-      return NextResponse.json(
-        { error: 'Không thể xóa owner của dự án' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Không thể xóa owner của dự án' }, { status: 400 });
     }
 
-    // Xóa thành viên
-    const { error: deleteError } = await supabase
-      .from('thanh_vien_du_an')
-      .delete()
-      .eq('id', memberId);
-
+    const { error: deleteError } = await supabase.from('thanh_vien_du_an').delete().eq('id', memberId);
     if (deleteError) {
-      console.error('Error deleting member:', deleteError);
-      return NextResponse.json(
-        { error: 'Không thể xóa thành viên' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Không thể xóa thành viên' }, { status: 500 });
     }
+
+    await logActivity({
+      entityType: 'project',
+      entityId: memberData.du_an_id,
+      action: 'member_removed',
+      actorId: dbUser.id,
+      metadata: {
+        projectId: memberData.du_an_id,
+        projectName: getProjectName(memberData.du_an),
+        memberEmail: memberData.email,
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting project member:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

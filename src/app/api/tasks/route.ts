@@ -5,6 +5,7 @@ import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notif
 import { createTaskWithRelations } from '@/lib/tasks/create-task';
 import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
 import { normalizeChecklistItems } from '@/lib/tasks/checklist';
+import { hasPermission } from '@/lib/auth/permissions';
 
 const taskSchema = z.object({
   ten: z.string().min(1).max(200),
@@ -20,6 +21,13 @@ const taskSchema = z.object({
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+
+function getProjectNameFromRelation(value: unknown) {
+  const relation = Array.isArray(value) ? value[0] : value;
+  return relation && typeof relation === 'object' && 'ten' in relation
+    ? ((relation as { ten?: string }).ten || null)
+    : null;
+}
 
 function parsePositiveInt(value: string | null, fallback: number) {
   const parsed = Number.parseInt(value || '', 10);
@@ -111,6 +119,7 @@ export async function GET(request: NextRequest) {
     const phanDuAnId = searchParams.get('phanDuAnId');
     const riskLevel = searchParams.get('riskLevel');
     const riskScoreMin = searchParams.get('riskScoreMin');
+    const reviewStatus = searchParams.get('reviewStatus');
     const isStale = searchParams.get('isStale') === 'true';
 
     const accessiblePartIds = await getAccessiblePartIds({
@@ -124,6 +133,36 @@ export async function GET(request: NextRequest) {
       return buildEmptyResponse(page, limit);
     }
 
+    const { data: currentDbUser } = await supabase
+      .from('nguoi_dung')
+      .select('id, vai_tro')
+      .eq('email', user.email)
+      .single();
+
+    const memberRoleMap = new Map<string, string>();
+    if (duAnId) {
+      const { data: membership } = await supabase
+        .from('thanh_vien_du_an')
+        .select('du_an_id, vai_tro')
+        .eq('email', user.email)
+        .eq('trang_thai', 'active')
+        .eq('du_an_id', duAnId);
+
+      for (const item of membership || []) {
+        memberRoleMap.set(item.du_an_id, item.vai_tro);
+      }
+    } else {
+      const { data: memberships } = await supabase
+        .from('thanh_vien_du_an')
+        .select('du_an_id, vai_tro')
+        .eq('email', user.email)
+        .eq('trang_thai', 'active');
+
+      for (const item of memberships || []) {
+        memberRoleMap.set(item.du_an_id, item.vai_tro);
+      }
+    }
+
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
@@ -133,6 +172,7 @@ export async function GET(request: NextRequest) {
         `
         *,
         nguoi_dung:assignee_id (id, ten, email, avatar_url),
+        reviewer:reviewed_by (id, ten, email, avatar_url),
         phan_du_an (
           id,
           ten,
@@ -172,6 +212,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (reviewStatus) {
+      query = query.eq('review_status', reviewStatus);
+    }
+
     if (isStale) {
       query = query.eq('is_stale', true);
     }
@@ -183,8 +227,74 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    const normalizedData = (data || []).map((task) => {
+      const partRelation = Array.isArray(task.phan_du_an) ? task.phan_du_an[0] : task.phan_du_an;
+      const projectRole = partRelation?.du_an_id ? memberRoleMap.get(partRelation.du_an_id) || null : null;
+
+      return {
+        ...task,
+        permissions: {
+          canUpdate: Boolean(
+            currentDbUser &&
+              hasPermission(
+                {
+                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
+                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
+                  isAssignee: task.assignee_id === currentDbUser.id,
+                },
+                'updateTask'
+              )
+          ),
+          canDelete: Boolean(
+            currentDbUser &&
+              hasPermission(
+                {
+                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
+                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
+                  isAssignee: task.assignee_id === currentDbUser.id,
+                },
+                'deleteTask'
+              )
+          ),
+          canSubmitReview: Boolean(
+            currentDbUser &&
+              hasPermission(
+                {
+                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
+                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
+                  isAssignee: task.assignee_id === currentDbUser.id,
+                },
+                'submitReview'
+              )
+          ),
+          canApprove: Boolean(
+            currentDbUser &&
+              hasPermission(
+                {
+                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
+                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
+                  isAssignee: task.assignee_id === currentDbUser.id,
+                },
+                'approveTask'
+              )
+          ),
+          canReject: Boolean(
+            currentDbUser &&
+              hasPermission(
+                {
+                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
+                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
+                  isAssignee: task.assignee_id === currentDbUser.id,
+                },
+                'rejectTask'
+              )
+          ),
+        },
+      };
+    });
+
     return NextResponse.json({
-      data: data || [],
+      data: normalizedData,
       pagination: {
         page,
         limit,
@@ -206,7 +316,7 @@ export async function POST(request: NextRequest) {
 
     const { data: partData } = await supabase
       .from('phan_du_an')
-      .select('du_an_id, du_an:du_an_id (ten)')
+      .select('du_an_id, ten, du_an:du_an_id (ten)')
       .eq('id', validated.phan_du_an_id)
       .is('deleted_at', null)
       .single();
@@ -217,17 +327,26 @@ export async function POST(request: NextRequest) {
 
     const { data: membership } = await supabase
       .from('thanh_vien_du_an')
-      .select('id')
+      .select('id, vai_tro')
       .eq('du_an_id', partData.du_an_id)
       .eq('email', authUser.email)
       .eq('trang_thai', 'active')
       .single();
 
     if (!membership) {
-      return NextResponse.json(
-        { error: 'Bạn không có quyền tạo task trong dự án này' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Bạn không có quyền tạo task trong dự án này' }, { status: 403 });
+    }
+
+    const canCreate = hasPermission(
+      {
+        appRole: dbUser.vai_tro as 'admin' | 'manager' | 'member',
+        projectRole: membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+      },
+      'createTask'
+    );
+
+    if (!canCreate) {
+      return NextResponse.json({ error: 'Bạn không có quyền tạo task trong dự án này' }, { status: 403 });
     }
 
     let checklistItems = normalizeChecklistItems(validated.checklist_items || []);
@@ -262,6 +381,8 @@ export async function POST(request: NextRequest) {
       checklist_items: checklistItems,
       template_id: validated.template_id ?? null,
       progress_mode: validated.progress_mode,
+      actor_id: dbUser.id,
+      project_id: partData.du_an_id,
     });
 
     if (validated.assignee_id) {
@@ -275,9 +396,7 @@ export async function POST(request: NextRequest) {
         if (assigneeData && assigneeData.email !== authUser.email) {
           const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
           if (shouldSend) {
-            const projectName = Array.isArray(partData.du_an)
-              ? partData.du_an[0]?.ten
-              : (partData.du_an as { ten: string } | null)?.ten || 'Chưa xác định';
+            const projectName = getProjectNameFromRelation(partData.du_an) || 'Dự án';
 
             sendTaskAssignedEmail(assigneeData.email, assigneeData.ten, {
               taskId: data.id,

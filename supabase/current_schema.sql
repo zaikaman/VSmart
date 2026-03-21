@@ -1,6 +1,17 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.activity_log (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  entity_type character varying NOT NULL CHECK (entity_type::text = ANY (ARRAY['task'::character varying, 'project'::character varying, 'project_part'::character varying, 'comment'::character varying, 'review'::character varying]::text[])),
+  entity_id uuid NOT NULL,
+  action character varying NOT NULL,
+  actor_id uuid NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT activity_log_pkey PRIMARY KEY (id),
+  CONSTRAINT activity_log_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES public.nguoi_dung(id)
+);
 CREATE TABLE public.ai_insight_event (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL,
@@ -88,7 +99,7 @@ CREATE TABLE public.nguoi_dung (
   onboarding_completed boolean DEFAULT false,
   ten_cong_ty character varying,
   ten_phong_ban character varying,
-  settings jsonb DEFAULT '{"dashboard": {"defaultPage": "/dashboard", "itemsPerPage": 10}, "notifications": {"pushEnabled": false, "emailComments": true, "emailTaskAssigned": true, "emailDeadlineReminder": true}}'::jsonb,
+  settings jsonb DEFAULT '{"dashboard": {"defaultPage": "/dashboard", "itemsPerPage": 10}, "notifications": {"pushEnabled": false, "emailComments": true, "emailTeamDigest": true, "emailTaskAssigned": true, "emailReviewRequests": true, "emailApprovalResults": true, "emailDeadlineReminder": true}}'::jsonb,
   CONSTRAINT nguoi_dung_pkey PRIMARY KEY (id),
   CONSTRAINT nguoi_dung_phong_ban_id_fkey FOREIGN KEY (phong_ban_id) REFERENCES public.phong_ban(id),
   CONSTRAINT nguoi_dung_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id)
@@ -162,11 +173,17 @@ CREATE TABLE public.task (
   progress_mode character varying DEFAULT 'manual'::character varying CHECK (progress_mode::text = ANY (ARRAY['manual'::character varying, 'checklist'::character varying]::text[])),
   template_id uuid,
   recurring_rule_id uuid,
+  review_status character varying NOT NULL DEFAULT 'draft'::character varying CHECK (review_status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'approved'::character varying, 'changes_requested'::character varying]::text[])),
+  submitted_for_review_at timestamp with time zone,
+  reviewed_by uuid,
+  reviewed_at timestamp with time zone,
+  review_comment text,
   CONSTRAINT task_pkey PRIMARY KEY (id),
   CONSTRAINT task_phan_du_an_id_fkey FOREIGN KEY (phan_du_an_id) REFERENCES public.phan_du_an(id),
   CONSTRAINT task_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES public.nguoi_dung(id),
   CONSTRAINT task_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.task_template(id),
-  CONSTRAINT task_recurring_rule_id_fkey FOREIGN KEY (recurring_rule_id) REFERENCES public.recurring_task_rule(id)
+  CONSTRAINT task_recurring_rule_id_fkey FOREIGN KEY (recurring_rule_id) REFERENCES public.recurring_task_rule(id),
+  CONSTRAINT task_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.nguoi_dung(id)
 );
 CREATE TABLE public.task_attachment (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
