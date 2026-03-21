@@ -42,7 +42,7 @@ export default function PlanningPage() {
     projectId: string;
     assigneeId: string;
     activeTab: PlanningTab;
-  }>('vsmart:saved-views:planning');
+  }>('planning');
 
   const { data: projectsResponse, isLoading: projectsLoading } = useProjects({ page: 1, limit: 100 });
   const rescheduleTask = useRescheduleTask();
@@ -138,7 +138,7 @@ export default function PlanningPage() {
 
         <div className="mt-6">
           <SavedViewBar
-            title="Saved views"
+            title="Góc nhìn đã lưu"
             description="Lưu tổ hợp tab và bộ lọc Planning để mở lại đúng nhịp theo dõi chỉ trong một chạm."
             views={savedViews.views}
             onApply={(view) => {
@@ -153,6 +153,7 @@ export default function PlanningPage() {
             })}
             onDelete={savedViews.removeView}
             disabled={!savedViews.isReady}
+            saving={savedViews.isSaving}
           />
         </div>
 

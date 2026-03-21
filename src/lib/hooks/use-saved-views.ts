@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useUpdateUserSettings, useUserSettings, type PersistedSavedView, type UserSettings } from '@/lib/hooks/use-settings';
 
 export interface SavedView<T> {
   id: string;
@@ -9,31 +10,13 @@ export interface SavedView<T> {
   createdAt: string;
 }
 
-export function useSavedViews<T>(storageKey: string) {
-  const [views, setViews] = useState<Array<SavedView<T>>>([]);
-  const [isReady, setIsReady] = useState(false);
+type SavedViewBucket = keyof UserSettings['savedViews'];
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      setViews(raw ? (JSON.parse(raw) as Array<SavedView<T>>) : []);
-    } catch {
-      setViews([]);
-    } finally {
-      setIsReady(true);
-    }
-  }, [storageKey]);
-
-  const persist = (nextViews: Array<SavedView<T>>) => {
-    setViews(nextViews);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(storageKey, JSON.stringify(nextViews));
-    }
-  };
+export function useSavedViews<T extends Record<string, unknown>>(bucket: SavedViewBucket) {
+  const { data: settingsResponse } = useUserSettings();
+  const updateSettings = useUpdateUserSettings();
+  const rawViews = (settingsResponse?.data.savedViews?.[bucket] || []) as PersistedSavedView[];
+  const views = rawViews as Array<SavedView<T>>;
 
   const actions = useMemo(
     () => ({
@@ -43,31 +26,44 @@ export function useSavedViews<T>(storageKey: string) {
           return;
         }
 
-        const nextViews = [
+        const nextViews: PersistedSavedView[] = [
           {
             id: `${Date.now()}`,
             name: trimmedName,
             value,
             createdAt: new Date().toISOString(),
           },
-          ...views.filter((item) => item.name.toLowerCase() !== trimmedName.toLowerCase()),
+          ...rawViews.filter((item) => item.name.toLowerCase() !== trimmedName.toLowerCase()),
         ].slice(0, 8);
 
-        persist(nextViews);
+        updateSettings.mutate({
+          savedViews: {
+            [bucket]: nextViews,
+          } as Partial<UserSettings['savedViews']>,
+        });
       },
       removeView(id: string) {
-        persist(views.filter((item) => item.id !== id));
+        updateSettings.mutate({
+          savedViews: {
+            [bucket]: rawViews.filter((item) => item.id !== id),
+          } as Partial<UserSettings['savedViews']>,
+        });
       },
       clearViews() {
-        persist([]);
+        updateSettings.mutate({
+          savedViews: {
+            [bucket]: [],
+          } as Partial<UserSettings['savedViews']>,
+        });
       },
     }),
-    [views]
+    [bucket, rawViews, updateSettings]
   );
 
   return {
     views,
-    isReady,
+    isReady: !!settingsResponse,
+    isSaving: updateSettings.isPending,
     ...actions,
   };
 }

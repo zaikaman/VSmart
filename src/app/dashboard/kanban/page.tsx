@@ -39,7 +39,7 @@ export default function KanbanPage() {
     projectId: string;
     partId: string;
     riskFilter: RiskFilter;
-  }>('vsmart:saved-views:kanban');
+  }>('kanban');
 
   const { data: projects, isLoading: projectsLoading } = useProjects({ page: 1, limit: 100 });
   const projectList = projects?.data || [];
@@ -172,7 +172,7 @@ export default function KanbanPage() {
 
       <div className="mb-6">
         <SavedViewBar
-          title="Saved views"
+          title="Góc nhìn đã lưu"
           description="Lưu nhanh bộ lọc Kanban hiện tại để quay lại đúng ngữ cảnh đang theo dõi."
           views={savedViews.views}
           onApply={(view) => {
@@ -184,6 +184,7 @@ export default function KanbanPage() {
           onSave={(name) => savedViews.saveView(name, currentView)}
           onDelete={savedViews.removeView}
           disabled={!savedViews.isReady}
+          saving={savedViews.isSaving}
         />
       </div>
 

@@ -99,7 +99,7 @@ CREATE TABLE public.nguoi_dung (
   onboarding_completed boolean DEFAULT false,
   ten_cong_ty character varying,
   ten_phong_ban character varying,
-  settings jsonb DEFAULT '{"dashboard": {"defaultPage": "/dashboard", "itemsPerPage": 10}, "notifications": {"pushEnabled": false, "emailComments": true, "emailTeamDigest": true, "emailTaskAssigned": true, "emailReviewRequests": true, "emailApprovalResults": true, "emailDeadlineReminder": true}}'::jsonb,
+  settings jsonb DEFAULT '{"dashboard": {"defaultPage": "/dashboard", "itemsPerPage": 10}, "appearance": {"theme": "system", "language": "vi"}, "savedViews": {"kanban": [], "planning": [], "analytics": []}, "notifications": {"pushEnabled": false, "emailComments": true, "emailTeamDigest": true, "emailTaskAssigned": true, "emailReviewRequests": true, "emailApprovalResults": true, "emailDeadlineReminder": true}}'::jsonb,
   CONSTRAINT nguoi_dung_pkey PRIMARY KEY (id),
   CONSTRAINT nguoi_dung_phong_ban_id_fkey FOREIGN KEY (phong_ban_id) REFERENCES public.phong_ban(id),
   CONSTRAINT nguoi_dung_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id)

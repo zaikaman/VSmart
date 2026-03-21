@@ -37,7 +37,7 @@ function ChartBars({ items, colorClass }: { items: Array<{ label: string; value:
 export default function AnalyticsPage() {
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all');
   const [shortcutOpen, setShortcutOpen] = useState(false);
-  const savedViews = useSavedViews<{ healthFilter: HealthFilter }>('vsmart:saved-views:analytics');
+  const savedViews = useSavedViews<{ healthFilter: HealthFilter }>('analytics');
   const { data, isLoading } = useAnalyticsOverview();
   const { data: currentUser } = useQuery({
     queryKey: ['analytics-current-user'],
@@ -116,13 +116,14 @@ export default function AnalyticsPage() {
 
       <div className="mb-6">
         <SavedViewBar
-          title="Saved views"
+          title="Góc nhìn đã lưu"
           description="Lưu nhanh góc nhìn analytics theo nhóm dự án cần giữ sát để mở lại đúng báo cáo đang dùng."
           views={savedViews.views}
           onApply={(view) => setHealthFilter(view.healthFilter)}
           onSave={(name) => savedViews.saveView(name, { healthFilter })}
           onDelete={savedViews.removeView}
           disabled={!savedViews.isReady}
+          saving={savedViews.isSaving}
         />
       </div>
 

@@ -19,6 +19,11 @@ const defaultSettings = {
     defaultPage: '/dashboard',
     itemsPerPage: 10,
   },
+  savedViews: {
+    kanban: [],
+    planning: [],
+    analytics: [],
+  },
 };
 
 export async function GET() {

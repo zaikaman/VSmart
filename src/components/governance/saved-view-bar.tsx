@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BookmarkPlus, Trash2 } from 'lucide-react';
+import { BookmarkPlus, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ export function SavedViewBar<T>({
   onSave,
   onDelete,
   disabled,
+  saving,
 }: {
   title: string;
   description: string;
@@ -22,6 +23,7 @@ export function SavedViewBar<T>({
   onSave: (name: string) => void;
   onDelete: (id: string) => void;
   disabled?: boolean;
+  saving?: boolean;
 }) {
   const [name, setName] = useState('');
 
@@ -37,25 +39,26 @@ export function SavedViewBar<T>({
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Đặt tên cho view hiện tại..."
+            placeholder="Đặt tên cho góc nhìn hiện tại..."
             className="sm:w-[240px]"
           />
           <Button
             type="button"
             variant="outline"
-            disabled={disabled}
+            disabled={disabled || saving}
             onClick={() => {
               if (!name.trim()) {
-                toast.error('Vui lòng nhập tên view');
+                toast.error('Vui lòng nhập tên góc nhìn');
                 return;
               }
+
               onSave(name.trim());
               setName('');
-              toast.success('Đã lưu view');
+              toast.success('Đã lưu góc nhìn');
             }}
           >
-            <BookmarkPlus className="mr-2 h-4 w-4" />
-            Lưu view
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />}
+            Lưu góc nhìn
           </Button>
         </div>
       </div>
@@ -63,7 +66,7 @@ export function SavedViewBar<T>({
       <div className="mt-4 flex flex-wrap gap-2">
         {views.length === 0 ? (
           <div className="rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs text-slate-500">
-            Chưa có view nào được lưu.
+            Chưa có góc nhìn nào được lưu.
           </div>
         ) : (
           views.map((view) => (
@@ -79,7 +82,7 @@ export function SavedViewBar<T>({
                 type="button"
                 className="rounded-full p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 onClick={() => onDelete(view.id)}
-                aria-label={`Xóa view ${view.name}`}
+                aria-label={`Xóa góc nhìn ${view.name}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
