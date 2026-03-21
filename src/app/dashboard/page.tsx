@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard, TrendingUp, Users, Plus, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Activity, Users, Plus, ArrowUpRight, FolderDot, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProjectCard } from '@/components/projects/project-card';
 import { CreateProjectModal } from '@/components/projects/create-project-modal';
 import ProjectInvitations from '@/components/projects/project-invitations';
@@ -12,71 +11,56 @@ import { useProjects, Project } from '@/lib/hooks/use-projects';
 import { useStats } from '@/lib/hooks/use-stats';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'next/navigation';
+import { Bricolage_Grotesque, JetBrains_Mono } from 'next/font/google';
+
+const bricolage = Bricolage_Grotesque({ subsets: ['latin'], weight: ['400', '600', '800'] });
+const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '700'] });
 
 export default function DashboardPage() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: stats, isLoading: statsLoading } = useStats();
   const searchParams = useSearchParams();
-  const showInvitations = searchParams.get('tab') === 'invitations';
 
   const isLoading = projectsLoading || statsLoading;
 
-  // Stats với dữ liệu thực
   const statsItems = [
     {
-      title: 'Tổng số dự án',
+      title: 'TOTAL PROJECTS',
       value: stats?.totalProjects?.toString() || '0',
-      icon: LayoutDashboard,
-      change: 'Tất cả thời gian',
+      icon: FolderDot,
+      change: 'All time record',
     },
     {
-      title: 'Nhiệm vụ đang chạy',
+      title: 'ACTIVE TASKS',
       value: stats?.inProgressTasks?.toString() || '0',
-      icon: TrendingUp,
-      change: 'Trên tất cả dự án',
+      icon: Activity,
+      change: 'Across all vectors',
     },
     {
-      title: 'Thành viên nhóm',
+      title: 'CREW MEMBERS',
       value: stats?.totalUsers?.toString() || '0',
       icon: Users,
-      change: 'Người dùng hoạt động',
+      change: 'Active personnel',
     },
   ];
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        {/* Header Skeleton */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <Skeleton className="h-9 w-64 mb-2" />
-            <Skeleton className="h-5 w-96" />
+      <div className="min-h-[calc(100vh-4rem)] bg-[#050505] text-white p-8">
+        <div className="container mx-auto max-w-7xl animate-pulse">
+          <div className="h-10 w-1/3 bg-[#111] mb-2 rounded" />
+          <div className="h-4 w-1/4 bg-[#111] mb-12 rounded" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-40 bg-[#0a0a0a] border border-[#222] rounded p-6" />
+            ))}
           </div>
-          <Skeleton className="h-10 w-32" />
-        </div>
-
-        {/* Stats Skeleton */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-4" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-12 mb-1" />
-                <Skeleton className="h-3 w-20" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Projects Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-48 w-full" />
-          ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-64 bg-[#0a0a0a] border border-[#222] rounded p-6" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -85,81 +69,119 @@ export default function DashboardPage() {
   const projects = projectsData?.data || [];
 
   return (
-    <div className="container mx-auto px-6 py-8 max-w-7xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-            Chào mừng trở lại!
-          </h1>
-          <p className="text-slate-500 mt-1">
-            Dưới đây là những gì đang diễn ra với các dự án của bạn.
-          </p>
-        </div>
-        <Button
-          className="bg-[#191a23] hover:bg-[#2a2b35] text-white"
-          onClick={() => setCreateProjectOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Dự án mới
-        </Button>
+    <div className={`min-h-[calc(100vh-4rem)] bg-[#050505] text-[#e2e8f0] relative overflow-hidden ${bricolage.className}`}>
+      {/* Abstract Tech Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#b9ff66]/5 blur-[150px]" />
+        <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[50%] rounded-full bg-[#2a2b35]/20 blur-[120px]" />
+        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(#b9ff66 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-3 mb-8">
-        {statsItems.map((stat, i) => (
-          <Card key={i} className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-slate-400" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
-              <p className="text-xs text-slate-500 mt-1">{stat.change}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Project Invitations - Hiển thị khi có query param hoặc luôn hiển thị */}
-      <div className="mb-8">
-        <ProjectInvitations />
-      </div>
-
-      {/* Recent Projects */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-slate-900">Dự án gần đây</h2>
-          <Link
-            href="/dashboard/projects"
-            className="text-sm text-slate-500 hover:text-slate-900 transition-colors"
+      <div className="container mx-auto px-6 py-12 max-w-7xl relative z-10 selection:bg-[#b9ff66] selection:text-black">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+          <div className="relative">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#111] border border-[#222] rounded-full text-xs font-medium text-[#b9ff66] mb-4 tracking-widest uppercase">
+              <Sparkles className="w-3 h-3" /> System Online
+            </div>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white uppercase">
+              Command <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#b9ff66] to-[#60a5fa]">Center</span>
+            </h1>
+            <p className="text-[#888] mt-3 text-lg font-light">
+              Monitor project vectors and team metrics in real-time.
+            </p>
+          </div>
+          <button
+            className="group relative inline-flex items-center justify-center px-6 py-3 font-semibold text-black bg-[#b9ff66] overflow-hidden transition-transform active:scale-95"
+            onClick={() => setCreateProjectOpen(true)}
           >
-            Xem tất cả →
-          </Link>
+            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+            <Plus className="mr-2 h-5 w-5 relative z-10 block group-hover:rotate-90 transition-transform duration-300" />
+            <span className="relative z-10 uppercase tracking-wider text-sm">Initialize Project</span>
+          </button>
         </div>
 
-        {projects.length === 0 ? (
-          <div className="text-center py-12 bg-slate-50 rounded-lg">
-            <p className="text-slate-500 mb-4">Chưa có dự án nào.</p>
-            <Button onClick={() => setCreateProjectOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Tạo dự án đầu tiên
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {projects.slice(0, 6).map((project: Project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        )}
-      </div>
+        {/* Stats Grid - Brutalist Tech Style */}
+        <div className="grid gap-6 md:grid-cols-3 mb-16">
+          {statsItems.map((stat, i) => (
+            <div
+              key={i}
+              className="group relative bg-[#0a0a0a] border border-[#222] p-6 hover:border-[#b9ff66]/50 hover:bg-[#111] transition-all duration-300 flex flex-col justify-between h-[160px]"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#b9ff66]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="flex justify-between items-start relative z-10">
+                <span className="text-[#777] text-xs font-bold tracking-[0.2em]">{stat.title}</span>
+                <stat.icon className="text-[#555] group-hover:text-[#b9ff66] w-5 h-5 transition-colors duration-300" />
+              </div>
+              <div className="relative z-10">
+                <div className={`text-4xl font-bold text-white mb-2 ${jetbrains.className} group-hover:scale-105 origin-left transition-transform duration-300`}>
+                  {stat.value}
+                </div>
+                <div className="text-xs text-[#b9ff66] flex items-center gap-1 font-medium bg-[#b9ff66]/10 w-fit px-2 py-1 rounded">
+                  <ArrowUpRight className="w-3 h-3" />
+                  {stat.change}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-      {/* Create Project Modal */}
-      <CreateProjectModal
-        open={createProjectOpen}
-        onOpenChange={setCreateProjectOpen}
-      />
+        {/* Project Invitations */}
+        <div className="mb-12">
+          <ProjectInvitations />
+        </div>
+
+        {/* Recent Projects Section */}
+        <div>
+          <div className="flex items-center justify-between border-b border-[#222] pb-4 mb-8">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-wide flex items-center gap-3">
+              <div className="w-2 h-2 bg-[#b9ff66] animate-pulse" />
+              Recent Vectors
+            </h2>
+            <Link
+              href="/dashboard/projects"
+              className="group flex items-center text-sm font-semibold text-[#888] hover:text-[#b9ff66] transition-colors uppercase tracking-widest"
+            >
+              View All
+              <ArrowUpRight className="ml-1 w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            </Link>
+          </div>
+
+          {projects.length === 0 ? (
+            <div className="relative overflow-hidden border border-dashed border-[#333] p-16 text-center bg-[#0a0a0a] flex flex-col items-center justify-center group hover:border-[#b9ff66]/50 transition-colors">
+              <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:4px_4px]" />
+              <div className="w-16 h-16 bg-[#111] rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <FolderDot className="w-8 h-8 text-[#555] group-hover:text-[#b9ff66] transition-colors" />
+              </div>
+              <p className="text-xl font-bold text-white mb-2">No active projects found</p>
+              <p className="text-[#666] mb-8 font-light">System is waiting for your first directive.</p>
+              <button
+                onClick={() => setCreateProjectOpen(true)}
+                className="px-6 py-2 border border-[#b9ff66] text-[#b9ff66] hover:bg-[#b9ff66] hover:text-black transition-colors font-bold uppercase tracking-widest text-sm"
+              >
+                Initialize
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.slice(0, 6).map((project: Project, index: number) => (
+                <div
+                  key={project.id}
+                  className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <ProjectCard project={project} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <CreateProjectModal
+          open={createProjectOpen}
+          onOpenChange={setCreateProjectOpen}
+        />
+      </div>
     </div>
   );
 }
