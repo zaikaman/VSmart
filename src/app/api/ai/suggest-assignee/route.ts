@@ -4,15 +4,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
   goiYPhanCongAI,
   type AssignmentCandidate,
   type TaskForSuggestion,
 } from '@/lib/openai/assignment-suggestion';
+import { summarizeWorkload } from '@/lib/utils/workload-utils';
 
-// Validation schema
 const suggestAssigneeSchema = z.object({
   ten: z.string().min(1, 'Tên task không được để trống'),
   mo_ta: z.string().optional(),
@@ -23,28 +23,21 @@ const suggestAssigneeSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
     const supabase = await createSupabaseServerClient();
-
-    // Xác thực user
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Chưa đăng nhập' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Chưa đăng nhập' }, { status: 401 });
     }
 
-    // Parse và validate request body
     const body = await request.json();
     const validated = suggestAssigneeSchema.parse(body);
 
-    // Lấy thông tin project từ phan_du_an
     const { data: partData, error: partError } = await supabase
       .from('phan_du_an')
       .select('du_an_id')
@@ -52,13 +45,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (partError || !partData) {
-      return NextResponse.json(
-        { error: 'Phần dự án không tồn tại' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Phần dự án không tồn tại' }, { status: 404 });
     }
 
-    // Kiểm tra quyền truy cập project
     const { data: membership } = await supabase
       .from('thanh_vien_du_an')
       .select('id')
@@ -74,10 +63,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Lấy danh sách thành viên của project với skills và workload
     const { data: members, error: membersError } = await supabase
       .from('thanh_vien_du_an')
-      .select(`
+      .select(
+        `
         nguoi_dung_id,
         nguoi_dung:nguoi_dung_id (
           id,
@@ -86,7 +75,8 @@ export async function POST(request: NextRequest) {
           avatar_url,
           ty_le_hoan_thanh
         )
-      `)
+      `
+      )
       .eq('du_an_id', partData.du_an_id)
       .eq('trang_thai', 'active')
       .not('nguoi_dung_id', 'is', null);
@@ -107,18 +97,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Xử lý dữ liệu members - Supabase trả về nguoi_dung là object hoặc null
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const membersData = members as any[];
+    const membersData = members as unknown as Array<{
+      nguoi_dung_id: string | null;
+      nguoi_dung: {
+        id: string;
+        ten: string;
+        email: string;
+        avatar_url: string | null;
+        ty_le_hoan_thanh: number | null;
+      }[] | null;
+    }>;
 
-    // Lấy user IDs
-    const userIds: string[] = [];
-    membersData.forEach((m) => {
-      const userData = m.nguoi_dung;
-      if (userData && userData.id) {
-        userIds.push(userData.id);
-      }
-    });
+    const userIds = membersData
+      .map((member) => (Array.isArray(member.nguoi_dung) ? member.nguoi_dung[0]?.id : undefined))
+      .filter((value): value is string => Boolean(value));
 
     if (userIds.length === 0) {
       return NextResponse.json({
@@ -129,54 +121,83 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Lấy skills của các users
-    const { data: skillsData } = await supabase
-      .from('ky_nang_nguoi_dung')
-      .select('nguoi_dung_id, ten_ky_nang, trinh_do, nam_kinh_nghiem')
-      .in('nguoi_dung_id', userIds);
+    const [{ data: skillsData }, { data: taskRows }] = await Promise.all([
+      supabase
+        .from('ky_nang_nguoi_dung')
+        .select('nguoi_dung_id, ten_ky_nang, trinh_do, nam_kinh_nghiem')
+        .in('nguoi_dung_id', userIds),
+      supabase
+        .from('task')
+        .select('assignee_id, priority, risk_score, deadline, trang_thai')
+        .in('assignee_id', userIds)
+        .is('deleted_at', null),
+    ]);
 
-    // Lấy số task đang làm của mỗi user
-    const { data: taskCounts } = await supabase
-      .from('task')
-      .select('assignee_id')
-      .eq('trang_thai', 'in-progress')
-      .in('assignee_id', userIds)
-      .is('deleted_at', null);
+    const taskGroups = new Map<
+      string,
+      Array<{
+        id: string;
+        priority: 'low' | 'medium' | 'high' | 'urgent';
+        risk_score: number | null;
+        deadline: string;
+        trang_thai: 'todo' | 'in-progress' | 'done';
+      }>
+    >();
 
-    // Đếm số task đang làm của mỗi user
-    const taskCountMap: Record<string, number> = {};
-    taskCounts?.forEach((t) => {
-      if (t.assignee_id) {
-        taskCountMap[t.assignee_id] = (taskCountMap[t.assignee_id] || 0) + 1;
+    taskRows?.forEach((task, index) => {
+      if (!task.assignee_id) {
+        return;
       }
-    });
 
-    // Tạo candidates data
-    const candidates: AssignmentCandidate[] = [];
-    membersData.forEach((m) => {
-      const userData = m.nguoi_dung;
-      if (!userData || !userData.id) return;
-        
-      const userSkills = skillsData
-        ?.filter((s) => s.nguoi_dung_id === userData.id)
-        .map((s) => ({
-          ten_ky_nang: s.ten_ky_nang,
-          trinh_do: s.trinh_do as 'beginner' | 'intermediate' | 'advanced' | 'expert',
-          nam_kinh_nghiem: s.nam_kinh_nghiem || 0,
-        })) || [];
-
-      candidates.push({
-        id: userData.id,
-        ten: userData.ten,
-        email: userData.email,
-        avatar_url: userData.avatar_url || undefined,
-        skills: userSkills,
-        ty_le_hoan_thanh: userData.ty_le_hoan_thanh || 0,
-        so_task_dang_lam: taskCountMap[userData.id] || 0,
+      const existing = taskGroups.get(task.assignee_id) || [];
+      existing.push({
+        id: `${task.assignee_id}-${index}`,
+        priority: (task.priority || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
+        risk_score: task.risk_score,
+        deadline: task.deadline,
+        trang_thai: (task.trang_thai || 'todo') as 'todo' | 'in-progress' | 'done',
       });
+      taskGroups.set(task.assignee_id, existing);
     });
 
-    // Tạo task info cho AI
+    const candidates: AssignmentCandidate[] = membersData.flatMap((member) => {
+      const userData = Array.isArray(member.nguoi_dung) ? member.nguoi_dung[0] : null;
+
+      if (!userData?.id) {
+        return [];
+      }
+
+      const userSkills =
+        skillsData
+          ?.filter((skill) => skill.nguoi_dung_id === userData.id)
+          .map((skill) => ({
+            ten_ky_nang: skill.ten_ky_nang,
+            trinh_do: skill.trinh_do as 'beginner' | 'intermediate' | 'advanced' | 'expert',
+            nam_kinh_nghiem: skill.nam_kinh_nghiem || 0,
+          })) || [];
+      const workload = summarizeWorkload(taskGroups.get(userData.id) || []);
+
+      return [
+        {
+          id: userData.id,
+          ten: userData.ten,
+          email: userData.email,
+          avatar_url: userData.avatar_url || undefined,
+          skills: userSkills,
+          ty_le_hoan_thanh: userData.ty_le_hoan_thanh || 0,
+          so_task_dang_lam: workload.activeTasks,
+          load_ratio: workload.loadRatio,
+          load_status: workload.loadStatus,
+          overloaded_warning:
+            workload.loadStatus === 'overloaded'
+              ? 'Đang quá tải'
+              : workload.loadStatus === 'stretched'
+                ? 'Đang sát tải'
+                : undefined,
+        },
+      ];
+    });
+
     const taskInfo: TaskForSuggestion = {
       ten: validated.ten,
       mo_ta: validated.mo_ta,
@@ -189,36 +210,53 @@ export async function POST(request: NextRequest) {
       task_description: validated.mo_ta?.substring(0, 100),
       priority: validated.priority,
       candidates_count: candidates.length,
-      candidates_preview: candidates.slice(0, 2).map(c => ({ id: c.id, ten: c.ten, skills_count: c.skills.length })),
-    });
-
-    // Gọi algorithm để gợi ý (nhanh hơn và chính xác hơn LLM)
-    console.log('[AI Suggest Assignee] Calling AI algorithm...');
-    const suggestions = goiYPhanCongAI(taskInfo, candidates);
-    const latency_ms = Date.now() - startTime;
-    
-    console.log('[AI Suggest Assignee] Algorithm result:', {
-      suggestions_count: suggestions.length,
-      latency_ms,
-      suggestions_preview: suggestions.map(s => ({
-        name: s.user?.ten,
-        score: s.diem_phu_hop,
-        skills: s.ly_do.ky_nang_phu_hop,
+      candidates_preview: candidates.slice(0, 2).map((candidate) => ({
+        id: candidate.id,
+        ten: candidate.ten,
+        skills_count: candidate.skills.length,
+        load_status: candidate.load_status,
       })),
     });
 
-    // Log metrics (có thể mở rộng để lưu vào database hoặc analytics)
+    const suggestions = goiYPhanCongAI(taskInfo, candidates)
+      .map((suggestion) => {
+        const loadStatus = suggestion.user?.load_status;
+        const penalty = loadStatus === 'overloaded' ? 15 : loadStatus === 'stretched' ? 8 : 0;
+        const loadWarning =
+          loadStatus === 'overloaded'
+            ? 'Hiện người này đang quá tải, chỉ nên giao nếu thật sự cần.'
+            : loadStatus === 'stretched'
+              ? 'Khối lượng hiện tại đã sát tải, nên cân nhắc lại deadline.'
+              : null;
+
+        return {
+          ...suggestion,
+          diem_phu_hop: Math.max(0, suggestion.diem_phu_hop - penalty),
+          ly_do: {
+            ...suggestion.ly_do,
+            chinh: loadWarning
+              ? `${suggestion.ly_do.chinh}. ${loadWarning}`
+              : suggestion.ly_do.chinh,
+            khoi_luong_hien_tai: suggestion.user?.overloaded_warning
+              ? `${suggestion.user.overloaded_warning} • ${suggestion.user.so_task_dang_lam} task`
+              : suggestion.ly_do.khoi_luong_hien_tai,
+          },
+        };
+      })
+      .sort((a, b) => b.diem_phu_hop - a.diem_phu_hop);
+
+    const latency_ms = Date.now() - startTime;
+
     console.log('[AI Suggest Assignee] Final result:', {
       task_name: validated.ten,
       candidates_count: candidates.length,
       suggestions_count: suggestions.length,
       latency_ms,
-      suggestions_details: suggestions.map(s => ({
-        nguoi_dung_id: s.nguoi_dung_id,
-        diem_phu_hop: s.diem_phu_hop,
-        has_user: !!s.user,
-        user_name: s.user?.ten,
-        ly_do_chinh: s.ly_do?.chinh,
+      suggestions_details: suggestions.map((suggestion) => ({
+        nguoi_dung_id: suggestion.nguoi_dung_id,
+        diem_phu_hop: suggestion.diem_phu_hop,
+        user_name: suggestion.user?.ten,
+        load_status: suggestion.user?.load_status,
       })),
     });
 
@@ -226,7 +264,7 @@ export async function POST(request: NextRequest) {
       suggestions,
       latency_ms,
       model: 'algorithm',
-      all_candidates: candidates, // Trả về toàn bộ candidates cho manual selection
+      all_candidates: candidates,
     });
   } catch (error) {
     console.error('Lỗi trong /api/ai/suggest-assignee:', error);
@@ -238,9 +276,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: 'Lỗi server' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }
 }

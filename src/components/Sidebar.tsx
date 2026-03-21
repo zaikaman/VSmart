@@ -1,4 +1,3 @@
-
 "use client"
 
 import dynamic from "next/dynamic"
@@ -9,6 +8,7 @@ import {
     LayoutDashboard,
     List,
     ClipboardList,
+    CalendarRange,
     User,
     Settings,
     Command,
@@ -33,11 +33,11 @@ const navItems = [
     { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
     { name: "Dự án", href: "/dashboard/projects", icon: List },
     { name: "Bảng Kanban", href: "/dashboard/kanban", icon: ClipboardList },
+    { name: "Planning", href: "/dashboard/planning", icon: CalendarRange },
     { name: "Hồ sơ", href: "/dashboard/profile", icon: User },
     { name: "Cài đặt", href: "/dashboard/settings", icon: Settings },
 ]
 
-// Các mục chỉ dành cho admin/manager
 const adminNavItems = [
     { name: "Ma trận kỹ năng", href: "/dashboard/admin/skills-matrix", icon: Award },
 ]
@@ -88,9 +88,7 @@ export function Sidebar({ className }: { className?: string }) {
                 className
             )}
         >
-            {/* Top Section */}
             <div className="flex flex-col p-4 space-y-6">
-                {/* Logo và Notification */}
                 <div className="flex items-center justify-between px-2">
                     <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
                         <Command className="h-8 w-8 mr-3 text-[#b9ff66]" />
@@ -99,7 +97,6 @@ export function Sidebar({ className }: { className?: string }) {
                     <NotificationBell />
                 </div>
 
-                {/* Nav Items */}
                 <nav className="flex flex-col space-y-1">
                     {navItems.map((item) => {
                         const isActive = pathname === item.href
@@ -119,8 +116,7 @@ export function Sidebar({ className }: { className?: string }) {
                             </Link>
                         )
                     })}
-                    
-                    {/* Admin/Manager Only Items */}
+
                     {(user?.vai_tro === 'admin' || user?.vai_tro === 'manager') && (
                         <>
                             <div className="pt-3 pb-1">
@@ -148,13 +144,11 @@ export function Sidebar({ className }: { className?: string }) {
                             })}
                         </>
                     )}
-                    
-                    {/* Chat AI Button */}
+
                     <ChatButton />
                 </nav>
             </div>
 
-            {/* Bottom Section: User Profile */}
             <div className="border-t border-[#2a2b35] p-4">
                 <div className="group flex items-center w-full justify-between hover:bg-[#2a2b35]/50 p-2 rounded-md cursor-pointer transition-colors relative">
                     <div className="flex items-center space-x-3">

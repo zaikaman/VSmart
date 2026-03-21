@@ -29,6 +29,9 @@ export interface AssignmentCandidate {
   skills: UserSkill[];
   ty_le_hoan_thanh: number;
   so_task_dang_lam: number;
+  load_ratio?: number;
+  load_status?: 'available' | 'balanced' | 'stretched' | 'overloaded';
+  overloaded_warning?: string;
 }
 
 /**

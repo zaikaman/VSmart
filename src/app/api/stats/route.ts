@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import {
+  getCalendarPlanningData,
+  getProjectForecast,
+  getWorkloadPlanningData,
+} from '@/lib/planning/planning-service';
 
 export async function GET() {
   try {
@@ -68,11 +73,98 @@ export async function GET() {
       }
     }
 
+    const now = new Date();
+    const rangeStart = new Date(now);
+    rangeStart.setDate(rangeStart.getDate() - 7);
+    const rangeEnd = new Date(now);
+    rangeEnd.setDate(rangeEnd.getDate() + 14);
+
+    const [planningCalendar, workload, riskyProjects] = await Promise.all([
+      getCalendarPlanningData({
+        email: user.email || '',
+        dateFrom: rangeStart.toISOString(),
+        dateTo: rangeEnd.toISOString(),
+      }),
+      getWorkloadPlanningData({
+        email: user.email || '',
+      }),
+      Promise.all(
+        projectIds.slice(0, 6).map(async (projectId) => {
+          try {
+            return await getProjectForecast({
+              email: user.email || '',
+              projectId,
+            });
+          } catch {
+            return null;
+          }
+        })
+      ),
+    ]);
+
+    const riskTrends = planningCalendar.items.reduce(
+      (acc, task) => {
+        if (task.trang_thai === 'done') {
+          return acc;
+        }
+
+        if (task.risk_score >= 70) {
+          acc.high += 1;
+        } else if (task.risk_score >= 40) {
+          acc.medium += 1;
+        } else {
+          acc.low += 1;
+        }
+
+        return acc;
+      },
+      { low: 0, medium: 0, high: 0 }
+    );
+
+    const overloadedMembers = workload.members
+      .filter((member) => member.loadStatus === 'overloaded' || member.loadStatus === 'stretched')
+      .slice(0, 4)
+      .map((member) => ({
+        userId: member.userId,
+        ten: member.ten,
+        loadStatus: member.loadStatus,
+        loadRatio: member.loadRatio,
+        activeTasks: member.activeTasks,
+      }));
+
+    const normalizedRiskyProjects = riskyProjects
+      .filter((project): project is NonNullable<typeof project> => Boolean(project))
+      .sort((a, b) => b.slipProbability - a.slipProbability)
+      .slice(0, 3)
+      .map((project) => ({
+        id: project.project.id,
+        ten: project.project.ten,
+        forecastStatus: project.forecastStatus,
+        slipProbability: project.slipProbability,
+      }));
+
+    const upcomingDeadlines = planningCalendar.items
+      .filter((task) => task.trang_thai !== 'done')
+      .slice(0, 5)
+      .map((task) => ({
+        id: task.id,
+        ten: task.ten,
+        deadline: task.deadline,
+        projectName: task.project?.ten || 'Chưa rõ dự án',
+        assigneeName: task.assignee?.ten || 'Chưa phân công',
+      }));
+
     return NextResponse.json({
       data: {
         totalProjects: projectCountResult.count || 0,
         inProgressTasks,
         totalUsers: userCountResult.count || 0,
+        overdueTasks: planningCalendar.summary.overdueTasks,
+        upcomingDeadlines,
+        workloadSummary: workload.summary,
+        riskTrends,
+        overloadedMembers,
+        riskyProjects: normalizedRiskyProjects,
       },
     });
   } catch (error) {

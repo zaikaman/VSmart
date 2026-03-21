@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateTask, CreateTaskInput } from '@/lib/hooks/use-tasks';
+import { usePlanningWorkload } from '@/lib/hooks/use-planning';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +23,7 @@ import { Sparkles, User, Check, ChevronDown, AlertCircle, Loader2, Wand2, Plus, 
 import { useBreakdownTask, useCreateTaskTemplate, useTaskTemplates } from '@/lib/hooks/use-task-execution';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { getCapacityBadgeConfig } from '@/lib/utils/workload-utils';
 
 interface CreateTaskModalProps {
   open: boolean;
@@ -64,6 +66,7 @@ interface AISuggestion {
     }>;
     ty_le_hoan_thanh: number;
     so_task_dang_lam: number;
+    load_status?: 'available' | 'balanced' | 'stretched' | 'overloaded';
   };
 }
 
@@ -72,6 +75,9 @@ interface Candidate {
   ten: string;
   email: string;
   avatar_url?: string;
+  so_task_dang_lam?: number;
+  load_status?: 'available' | 'balanced' | 'stretched' | 'overloaded';
+  overloaded_warning?: string;
 }
 
 interface SuggestAssigneeResponse {
@@ -103,11 +109,16 @@ export function CreateTaskModal({
   initialStatus = 'todo',
   phanDuAnId,
   phanDuAnName,
+  projectId,
 }: CreateTaskModalProps) {
   const createTaskMutation = useCreateTask();
   const breakdownMutation = useBreakdownTask();
   const createTemplateMutation = useCreateTaskTemplate();
   const { data: templatesResponse } = useTaskTemplates(open);
+  const { data: workloadResponse } = usePlanningWorkload({
+    projectId,
+    enabled: open && !!projectId,
+  });
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TaskFormData>({
     defaultValues: {
       trang_thai: initialStatus,
@@ -132,6 +143,28 @@ export function CreateTaskModal({
   const taskDescription = watch('mo_ta');
   const taskDeadline = watch('deadline');
   const templates = useMemo(() => templatesResponse?.data || [], [templatesResponse?.data]);
+  const workloadCandidates = useMemo(
+    () =>
+      (workloadResponse?.members || []).map((member) => ({
+        id: member.userId,
+        ten: member.ten,
+        email: member.email,
+        avatar_url: member.avatarUrl || undefined,
+        so_task_dang_lam: member.activeTasks,
+        load_status: member.loadStatus,
+        overloaded_warning:
+          member.loadStatus === 'overloaded'
+            ? 'Đang quá tải'
+            : member.loadStatus === 'stretched'
+              ? 'Đang sát tải'
+              : undefined,
+      })),
+    [workloadResponse?.members]
+  );
+  const manualCandidates = useMemo(
+    () => (allCandidates.length > 0 ? allCandidates : workloadCandidates),
+    [allCandidates, workloadCandidates]
+  );
 
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
@@ -397,6 +430,14 @@ export function CreateTaskModal({
     return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
+  const getCapacityBadge = (status?: Candidate['load_status']) => {
+    if (!status) {
+      return null;
+    }
+
+    return getCapacityBadgeConfig(status);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
@@ -630,6 +671,11 @@ export function CreateTaskModal({
                         <span className="font-medium text-sm truncate">
                           {suggestion.user?.ten || 'Unknown'}
                         </span>
+                        {getCapacityBadge(suggestion.user?.load_status) && (
+                          <Badge className={getCapacityBadge(suggestion.user?.load_status)?.className}>
+                            {getCapacityBadge(suggestion.user?.load_status)?.label}
+                          </Badge>
+                        )}
                         {selectedFromAI === suggestion.nguoi_dung_id && (
                           <Check className="w-4 h-4 text-green-600" />
                         )}
@@ -637,6 +683,11 @@ export function CreateTaskModal({
                       <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
                         {suggestion.ly_do?.chinh || 'Phù hợp với task'}
                       </p>
+                      {suggestion.user?.so_task_dang_lam !== undefined && (
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          Đang mở {suggestion.user.so_task_dang_lam} task
+                        </p>
+                      )}
                       {suggestion.ly_do?.ky_nang_phu_hop?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {suggestion.ly_do.ky_nang_phu_hop.slice(0, 3).map((skill) => (
@@ -687,13 +738,28 @@ export function CreateTaskModal({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="unassigned">Chưa phân công</SelectItem>
-                      {allCandidates.map((user) => (
+                      {manualCandidates.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
-                          {user.ten} ({user.email})
+                          {user.ten}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {selectedAssignee !== 'unassigned' && (() => {
+                    const selectedCandidate = manualCandidates.find((candidate) => candidate.id === selectedAssignee);
+                    const capacity = getCapacityBadge(selectedCandidate?.load_status);
+
+                    if (!selectedCandidate || !capacity) {
+                      return null;
+                    }
+
+                    return (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                        <Badge className={capacity.className}>{capacity.label}</Badge>
+                        <span>{selectedCandidate.so_task_dang_lam || 0} task đang mở</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -706,7 +772,7 @@ export function CreateTaskModal({
                 Đã chọn:{' '}
                 <strong>
                   {suggestions.find((s) => s.nguoi_dung_id === selectedAssignee)?.user?.ten ||
-                    allCandidates.find((c) => c.id === selectedAssignee)?.ten ||
+                    manualCandidates.find((c) => c.id === selectedAssignee)?.ten ||
                     'Unknown'}
                 </strong>
                 {selectedFromAI && (

@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { useProject } from '@/lib/hooks/use-projects';
 import { useProjectParts, useDeleteProjectPart, ProjectPart } from '@/lib/hooks/use-project-parts';
+import { useProjectForecast } from '@/lib/hooks/use-planning';
 import { CreatePartModal } from '@/components/projects/create-part-modal';
 import { EditPartModal } from '@/components/projects/edit-part-modal';
 import { ProjectMembersManager } from '@/components/projects/project-members-manager';
@@ -32,10 +33,12 @@ export default function ProjectDetailPage() {
 
     const { data: project, isLoading: projectLoading } = useProject(projectId);
     const { data: parts, isLoading: partsLoading } = useProjectParts(projectId);
+    const { data: forecast } = useProjectForecast(projectId);
     const [createPartOpen, setCreatePartOpen] = useState(false);
     const [editPartOpen, setEditPartOpen] = useState(false);
     const [selectedPart, setSelectedPart] = useState<ProjectPart | null>(null);
     const [deletePartId, setDeletePartId] = useState<string | null>(null);
+    const [renderNow] = useState(() => Date.now());
     
     const deletePartMutation = useDeleteProjectPart(projectId);
 
@@ -125,6 +128,39 @@ export default function ProjectDetailPage() {
                     <Plus className="mr-2 h-4 w-4" /> Thêm phần dự án
                 </Button>
             </div>
+
+            {forecast && forecast.forecastStatus !== 'on-track' && (
+                <div className={`mb-8 rounded-2xl border p-5 ${
+                    forecast.forecastStatus === 'slipping'
+                        ? 'border-rose-200 bg-rose-50'
+                        : 'border-amber-200 bg-amber-50'
+                }`}>
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                Forecast dự án
+                            </p>
+                            <h2 className="mt-2 text-xl font-semibold text-slate-900">
+                                {forecast.forecastStatus === 'slipping'
+                                    ? `Nguy cơ trễ khoảng ${forecast.projectedDelayDays} ngày`
+                                    : 'Dự án bắt đầu có tín hiệu cần theo dõi'}
+                            </h2>
+                            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                                Xác suất trượt mốc hiện ở mức {forecast.slipProbability}%. {forecast.reasons[0]}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <Badge variant="outline">Quá hạn {forecast.summary.overdueTasks}</Badge>
+                                <Badge variant="outline">Rủi ro cao {forecast.summary.highRiskTasks}</Badge>
+                                <Badge variant="outline">Quá tải {forecast.summary.overloadedMembers}</Badge>
+                            </div>
+                        </div>
+
+                        <Link href="/dashboard/planning">
+                            <Button variant="outline">Mở planning</Button>
+                        </Link>
+                    </div>
+                </div>
+            )}
 
             {/* Project Stats */}
             <div className="grid gap-4 md:grid-cols-3 mb-8">

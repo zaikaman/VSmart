@@ -126,6 +126,80 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        <div className="mb-12 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="border border-[#222] bg-[#0a0a0a] p-6">
+            <div className="mb-5 flex items-center justify-between border-b border-[#222] pb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#666]">Điểm cần chú ý</p>
+                <h2 className="mt-2 text-2xl font-bold text-white">Deadline và tải tuần này</h2>
+              </div>
+              <div className={`text-sm text-[#b9ff66] ${jetbrains.className}`}>
+                {stats?.overdueTasks || 0} quá hạn
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {(stats?.upcomingDeadlines || []).length === 0 ? (
+                <div className="border border-dashed border-[#2a2b35] px-4 py-5 text-sm text-[#667085]">
+                  Chưa có deadline nổi bật trong 2 tuần tới.
+                </div>
+              ) : (
+                (stats?.upcomingDeadlines || []).map((item) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 border border-[#1d1f28] bg-[#111] px-4 py-3">
+                    <div>
+                      <p className="font-semibold text-white">{item.ten}</p>
+                      <p className="mt-1 text-sm text-[#7d8491]">
+                        {item.projectName} · {item.assigneeName}
+                      </p>
+                    </div>
+                    <div className={`text-xs uppercase tracking-[0.16em] text-[#b9ff66] ${jetbrains.className}`}>
+                      {new Date(item.deadline).toLocaleDateString('vi-VN')}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="border border-[#222] bg-[#0a0a0a] p-6">
+            <div className="mb-5 flex items-center justify-between border-b border-[#222] pb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#666]">Forecast</p>
+                <h2 className="mt-2 text-2xl font-bold text-white">Dự án và thành viên nóng</h2>
+              </div>
+              <div className={`text-sm text-[#60a5fa] ${jetbrains.className}`}>
+                {Math.round((stats?.workloadSummary?.avgLoadRatio || 0) * 100)}% tải TB
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {(stats?.riskyProjects || []).slice(0, 2).map((project) => (
+                <div key={project.id} className="border border-[#1d1f28] bg-[#111] px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-white">{project.ten}</p>
+                    <span className="text-sm text-[#ffb28c]">{project.slipProbability}%</span>
+                  </div>
+                  <p className="mt-1 text-sm text-[#7d8491]">
+                    {project.forecastStatus === 'slipping' ? 'Nguy cơ trễ cao' : 'Cần theo dõi sát'}
+                  </p>
+                </div>
+              ))}
+
+              {(stats?.overloadedMembers || []).slice(0, 3).map((member) => (
+                <div key={member.userId} className="flex items-center justify-between border border-[#1d1f28] bg-[#111] px-4 py-3">
+                  <div>
+                    <p className="font-semibold text-white">{member.ten}</p>
+                    <p className="mt-1 text-sm text-[#7d8491]">
+                      {member.activeTasks} task đang mở
+                    </p>
+                  </div>
+                  <span className="text-sm text-[#b9ff66]">{Math.round(member.loadRatio * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Project Invitations */}
         <div className="mb-12">
           <ProjectInvitations />
