@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateTask, CreateTaskInput } from '@/lib/hooks/use-tasks';
 import { usePlanningWorkload } from '@/lib/hooks/use-planning';
+import { useDeadlineReview, useInsightFeedback } from '@/lib/hooks/use-ai-insights';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -114,6 +115,8 @@ export function CreateTaskModal({
   const createTaskMutation = useCreateTask();
   const breakdownMutation = useBreakdownTask();
   const createTemplateMutation = useCreateTaskTemplate();
+  const deadlineReviewMutation = useDeadlineReview();
+  const insightFeedbackMutation = useInsightFeedback();
   const { data: templatesResponse } = useTaskTemplates(open);
   const { data: workloadResponse } = usePlanningWorkload({
     projectId,
@@ -167,6 +170,7 @@ export function CreateTaskModal({
   );
 
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const deadlineReviewTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchSuggestions = useCallback(async () => {
     if (!taskName || taskName.length < 3 || !phanDuAnId) {
@@ -243,6 +247,7 @@ export function CreateTaskModal({
       setSelectedPriority('medium');
       setSelectedTemplateId('no-template');
       setChecklistItems([]);
+      deadlineReviewMutation.reset();
       reset({
         ten: '',
         mo_ta: '',
@@ -252,6 +257,37 @@ export function CreateTaskModal({
       });
     }
   }, [open, initialStatus, reset]);
+
+  useEffect(() => {
+    if (deadlineReviewTimerRef.current) {
+      clearTimeout(deadlineReviewTimerRef.current);
+    }
+
+    if (!open || !taskName?.trim() || taskName.trim().length < 3 || !taskDeadline) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      deadlineReviewMutation.mutate({
+        ten: taskName.trim(),
+        mo_ta: taskDescription?.trim() || undefined,
+        priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
+        deadline: new Date(taskDeadline).toISOString(),
+        projectId,
+      });
+    }, 700);
+
+    deadlineReviewTimerRef.current = timer;
+
+    return () => clearTimeout(timer);
+  }, [
+    open,
+    projectId,
+    selectedPriority,
+    taskDeadline,
+    taskDescription,
+    taskName,
+  ]);
 
   useEffect(() => {
     if (selectedTemplateId === 'no-template') {
@@ -545,6 +581,69 @@ export function CreateTaskModal({
               <Input id="deadline" type="date" {...register('deadline')} />
             </div>
           </div>
+
+          {deadlineReviewMutation.data?.result.warning_level && deadlineReviewMutation.data.result.warning_level !== 'none' ? (
+            <div
+              className={`rounded-xl border p-4 ${
+                deadlineReviewMutation.data.result.warning_level === 'high'
+                  ? 'border-rose-200 bg-rose-50'
+                  : 'border-amber-200 bg-amber-50'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle
+                    className={`mt-0.5 h-4 w-4 ${
+                      deadlineReviewMutation.data.result.warning_level === 'high'
+                        ? 'text-rose-600'
+                        : 'text-amber-600'
+                    }`}
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-[#191a23]">Deadline này có vẻ hơi gắt</p>
+                    <p className="mt-1 text-sm text-[#5f6b59]">
+                      {deadlineReviewMutation.data.result.ly_do}
+                    </p>
+                    {deadlineReviewMutation.data.result.goi_y.length > 0 ? (
+                      <div className="mt-2 space-y-1">
+                        {deadlineReviewMutation.data.result.goi_y.map((item) => (
+                          <p key={item} className="text-xs text-[#61705f]">
+                            {item}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {deadlineReviewMutation.data.result.suggested_deadline ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const value = deadlineReviewMutation.data?.result.suggested_deadline?.slice(0, 10);
+                      if (!value) return;
+                      setValue('deadline', value);
+                      insightFeedbackMutation.mutate({
+                        insight_type: 'deadline_review',
+                        event_type: 'accepted',
+                        metadata: {
+                          source: 'create_task_modal',
+                        },
+                      });
+                    }}
+                  >
+                    Dùng mốc gợi ý
+                  </Button>
+                ) : null}
+              </div>
+              {deadlineReviewMutation.data.result.suggested_deadline ? (
+                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#7b846f]">
+                  Gợi ý mới: {new Date(deadlineReviewMutation.data.result.suggested_deadline).toLocaleDateString('vi-VN')}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
             <div className="flex items-center justify-between">

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, MessageSquare, Trash2, RefreshCw, Zap, Wand2 } from 'lucide-react';
+import { X, MessageSquare, Trash2, RefreshCw, Zap, Wand2, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatMessage, Message, TypingIndicator } from './chat-message';
 import { ChatInput, SuggestedQuestions } from './chat-input';
+import { useMeetingSummary } from '@/lib/hooks/use-ai-insights';
 
 // Key cho localStorage
 const CHAT_HISTORY_KEY = 'vsmart-chat-history';
@@ -105,7 +106,10 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   const [agentMode, setAgentMode] = useState(false); // AI Agent mode
   const [executingTools, setExecutingTools] = useState(false); // Đang thực thi tools
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showMeetingTool, setShowMeetingTool] = useState(false);
+  const [meetingNotes, setMeetingNotes] = useState('');
   const abortControllerRef = useRef<AbortController | null>(null);
+  const meetingSummaryMutation = useMeetingSummary();
 
   // Load history và agent mode on mount
   useEffect(() => {
@@ -454,6 +458,18 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMeetingTool((value) => !value)}
+              className={cn(
+                'p-2 rounded-lg transition-colors',
+                showMeetingTool
+                  ? 'text-[#b9ff66] bg-[#b9ff66]/10 hover:bg-[#b9ff66]/20'
+                  : 'text-white/50 hover:text-white hover:bg-[#2a2b35]'
+              )}
+              title="Tóm tắt nhanh ghi chú cuộc họp"
+            >
+              <FileText className="w-4 h-4" />
+            </button>
             {/* Agent Mode Toggle */}
             <button
               onClick={() => setAgentMode(!agentMode)}
@@ -488,6 +504,101 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a2b35] scrollbar-track-transparent">
+          {showMeetingTool && (
+            <div className="border-b border-[#2a2b35] bg-[#14151d] p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <FileText className="h-4 w-4 text-[#b9ff66]" />
+                Tóm tắt nhanh cuộc họp
+              </div>
+              <p className="mt-1 text-xs text-white/55">
+                Dán notes hoặc transcript ngắn để rút ra quyết định, blocker và việc cần làm tiếp.
+              </p>
+              <textarea
+                value={meetingNotes}
+                onChange={(event) => setMeetingNotes(event.target.value)}
+                placeholder="Ví dụ: Hôm nay team chốt scope sprint, API auth còn kẹt vì mapping role..."
+                className="mt-3 min-h-[120px] w-full rounded-xl border border-[#2a2b35] bg-[#191a23] px-3 py-3 text-sm text-white outline-none placeholder:text-white/30"
+              />
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    meetingSummaryMutation.mutate({
+                      notes: meetingNotes,
+                    })
+                  }
+                  disabled={meetingSummaryMutation.isPending || meetingNotes.trim().length < 20}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#b9ff66] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+                >
+                  {meetingSummaryMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  Tóm tắt ngay
+                </button>
+                <button
+                  onClick={() => {
+                    setMeetingNotes('');
+                    meetingSummaryMutation.reset();
+                  }}
+                  className="rounded-lg border border-[#2a2b35] px-3 py-2 text-sm text-white/70 hover:text-white"
+                >
+                  Xoá nhanh
+                </button>
+              </div>
+
+              {meetingSummaryMutation.data?.result ? (
+                <div className="mt-4 space-y-3 rounded-2xl border border-[#2a2b35] bg-[#191a23] p-4">
+                  <p className="text-sm text-white/80">{meetingSummaryMutation.data.result.summary}</p>
+
+                  {meetingSummaryMutation.data.result.decisions.length > 0 ? (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[#b9ff66]">Quyết định</p>
+                      <div className="mt-2 space-y-2">
+                        {meetingSummaryMutation.data.result.decisions.map((item) => (
+                          <div key={item} className="rounded-xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/78">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {meetingSummaryMutation.data.result.blockers.length > 0 ? (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[#ffb28c]">Blocker</p>
+                      <div className="mt-2 space-y-2">
+                        {meetingSummaryMutation.data.result.blockers.map((item) => (
+                          <div key={item} className="rounded-xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/78">
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {meetingSummaryMutation.data.result.action_items.length > 0 ? (
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[#8dc9ff]">Việc cần làm tiếp</p>
+                      <div className="mt-2 space-y-2">
+                        {meetingSummaryMutation.data.result.action_items.map((item) => (
+                          <div key={`${item.title}-${item.owner || 'no-owner'}`} className="rounded-xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/78">
+                            <div>{item.title}</div>
+                            {item.owner || item.due_hint ? (
+                              <div className="mt-1 text-xs text-white/45">
+                                {[item.owner, item.due_hint].filter(Boolean).join(' · ')}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {messages.length === 0 && !streamingContent ? (
             // Welcome state
             <div className="flex flex-col items-center justify-center h-full p-6 text-center">

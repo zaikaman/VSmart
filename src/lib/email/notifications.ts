@@ -17,6 +17,16 @@ interface CommentInfo {
     commentContent: string;
 }
 
+interface TeamDigestInfo {
+    recipientEmail: string;
+    recipientName: string;
+    digestType: 'daily' | 'weekly';
+    headline: string;
+    summary: string;
+    bullets: string[];
+    referenceId: string;
+}
+
 // Email khi được assign task mới
 export async function sendTaskAssignedEmail(
     recipientEmail: string,
@@ -170,6 +180,46 @@ export async function sendNewCommentEmail(
     return sendMail({
         to: recipientEmail,
         subject: `[VSmart] ${comment.commenterName} đã bình luận trong "${comment.taskName}"`,
+        html,
+    });
+}
+
+export async function sendTeamDigestEmail(digest: TeamDigestInfo): Promise<boolean> {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const digestLabel = digest.digestType === 'weekly' ? 'Tóm tắt tuần' : 'Tóm tắt hôm nay';
+
+    const content = `
+        <p>Xin chào <strong>${digest.recipientName}</strong>,</p>
+        <p>Dưới đây là ${digestLabel.toLowerCase()} của đội:</p>
+
+        <div class="highlight-box" style="border-left-color: #b9ff66;">
+            <h3 style="margin-top:0">${digest.headline}</h3>
+            <p style="color:#d7dde8; margin-bottom: 14px;">${digest.summary}</p>
+            ${
+                digest.bullets.length > 0
+                    ? `
+                <ul style="padding-left: 18px; margin: 0; color: #ffffff;">
+                    ${digest.bullets.map((item) => `<li style="margin-bottom: 8px;">${item}</li>`).join('')}
+                </ul>
+            `
+                    : ''
+            }
+        </div>
+    `;
+
+    const html = getHtmlTemplate({
+        title: digestLabel,
+        content,
+        action: {
+            text: 'Mở dashboard',
+            url: `${appUrl}/dashboard?digest=${encodeURIComponent(digest.referenceId)}`,
+        },
+        previewText: `${digestLabel}: ${digest.headline}`,
+    });
+
+    return sendMail({
+        to: digest.recipientEmail,
+        subject: `[VSmart] ${digestLabel}: ${digest.headline}`,
         html,
     });
 }

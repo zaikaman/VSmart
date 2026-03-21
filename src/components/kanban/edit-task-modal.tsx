@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -16,9 +16,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdateTask, UpdateTaskInput } from '@/lib/hooks/use-tasks';
 import { useDeleteRecurringRule, useRecurringRule, useSaveRecurringRule } from '@/lib/hooks/use-task-execution';
+import { useDeadlineReview, useInsightFeedback } from '@/lib/hooks/use-ai-insights';
 import { buildCronExpression, parseCronExpression, RecurringPattern } from '@/lib/tasks/recurring';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -58,16 +59,22 @@ const DAY_OPTIONS = [
 
 export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) {
   const updateTaskMutation = useUpdateTask();
+  const deadlineReviewMutation = useDeadlineReview();
+  const insightFeedbackMutation = useInsightFeedback();
   const recurringRuleQuery = useRecurringRule(task?.id, open && !!task?.id);
   const saveRecurringRuleMutation = useSaveRecurringRule(task?.id || '');
   const deleteRecurringRuleMutation = useDeleteRecurringRule(task?.id || '');
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<TaskFormData>();
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TaskFormData>();
 
   const [selectedPriority, setSelectedPriority] = useState(task?.priority || 'medium');
   const [enableRecurring, setEnableRecurring] = useState(false);
   const [recurringPattern, setRecurringPattern] = useState<RecurringPattern>('daily');
   const [recurringTime, setRecurringTime] = useState('09:00');
   const [weeklyDay, setWeeklyDay] = useState('1');
+  const deadlineReviewTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const watchedName = watch('ten');
+  const watchedDescription = watch('mo_ta');
+  const watchedDeadline = watch('deadline');
 
   useEffect(() => {
     if (task && open) {
@@ -114,6 +121,29 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
       });
     }
   }, [open, recurringRuleQuery.data]);
+
+  useEffect(() => {
+    if (deadlineReviewTimerRef.current) {
+      clearTimeout(deadlineReviewTimerRef.current);
+    }
+
+    if (!open || !task?.id || !watchedName?.trim() || watchedName.trim().length < 3 || !watchedDeadline) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      deadlineReviewMutation.mutate({
+        ten: watchedName.trim(),
+        mo_ta: watchedDescription?.trim() || undefined,
+        priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
+        deadline: new Date(watchedDeadline).toISOString(),
+      });
+    }, 700);
+
+    deadlineReviewTimerRef.current = timer;
+
+    return () => clearTimeout(timer);
+  }, [open, selectedPriority, task?.id, watchedDeadline, watchedDescription, watchedName]);
 
   const recurringSummary = useMemo(() => {
     if (!enableRecurring) {
@@ -235,6 +265,61 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
               <Input id="deadline" type="date" {...register('deadline')} />
             </div>
           </div>
+
+          {deadlineReviewMutation.data?.result.warning_level && deadlineReviewMutation.data.result.warning_level !== 'none' ? (
+            <div
+              className={`rounded-xl border p-4 ${
+                deadlineReviewMutation.data.result.warning_level === 'high'
+                  ? 'border-rose-200 bg-rose-50'
+                  : 'border-amber-200 bg-amber-50'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle
+                    className={`mt-0.5 h-4 w-4 ${
+                      deadlineReviewMutation.data.result.warning_level === 'high'
+                        ? 'text-rose-600'
+                        : 'text-amber-600'
+                    }`}
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-[#191a23]">Mốc này hơi sát so với nhịp triển khai</p>
+                    <p className="mt-1 text-sm text-[#5f6b59]">
+                      {deadlineReviewMutation.data.result.ly_do}
+                    </p>
+                  </div>
+                </div>
+
+                {deadlineReviewMutation.data.result.suggested_deadline ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const value = deadlineReviewMutation.data?.result.suggested_deadline?.slice(0, 10);
+                      if (!value) return;
+                      setValue('deadline', value);
+                      insightFeedbackMutation.mutate({
+                        insight_type: 'deadline_review',
+                        event_type: 'accepted',
+                        metadata: {
+                          source: 'edit_task_modal',
+                          taskId: task?.id,
+                        },
+                      });
+                    }}
+                  >
+                    Dùng mốc gợi ý
+                  </Button>
+                ) : null}
+              </div>
+              {deadlineReviewMutation.data.result.suggested_deadline ? (
+                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#7b846f]">
+                  Gợi ý mới: {new Date(deadlineReviewMutation.data.result.suggested_deadline).toLocaleDateString('vi-VN')}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div>
             <Label htmlFor="progress">Tiến độ (%)</Label>

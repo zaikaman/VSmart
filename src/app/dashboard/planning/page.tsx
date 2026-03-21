@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarView } from '@/components/planning/calendar-view';
 import { TimelineView } from '@/components/planning/timeline-view';
 import { WorkloadHeatmap } from '@/components/planning/workload-heatmap';
+import { RebalancePanel } from '@/components/ai/rebalance-panel';
 import { useProjects } from '@/lib/hooks/use-projects';
 import {
   usePlanningCalendar,
@@ -207,6 +208,14 @@ export default function PlanningPage() {
             <strong>{format(range.end, 'dd/MM/yyyy')}</strong>
           </div>
         </section>
+
+        <div className="mt-6">
+          <RebalancePanel
+            projectId={projectFilter}
+            title={projectFilter ? 'AI cân lại tải cho dự án này' : 'AI cân lại tải cho toàn bộ đội'}
+            compact
+          />
+        </div>
 
         <div className="mt-6">
           {isLoading ? (

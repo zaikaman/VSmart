@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { RebalancePanel } from '@/components/ai/rebalance-panel';
 import { useProject } from '@/lib/hooks/use-projects';
 import { useProjectParts, useDeleteProjectPart, ProjectPart } from '@/lib/hooks/use-project-parts';
 import { useProjectForecast } from '@/lib/hooks/use-planning';
@@ -38,8 +39,6 @@ export default function ProjectDetailPage() {
     const [editPartOpen, setEditPartOpen] = useState(false);
     const [selectedPart, setSelectedPart] = useState<ProjectPart | null>(null);
     const [deletePartId, setDeletePartId] = useState<string | null>(null);
-    const [renderNow] = useState(() => Date.now());
-    
     const deletePartMutation = useDeleteProjectPart(projectId);
 
     const isLoading = projectLoading || partsLoading;
@@ -161,6 +160,14 @@ export default function ProjectDetailPage() {
                     </div>
                 </div>
             )}
+
+            <div className="mb-8">
+                <RebalancePanel
+                    projectId={projectId}
+                    title="AI cân lại tải cho dự án này"
+                    compact
+                />
+            </div>
 
             {/* Project Stats */}
             <div className="grid gap-4 md:grid-cols-3 mb-8">

@@ -28,6 +28,7 @@ import {
   ArrowUp,
   ArrowDown,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import { EditTaskModal } from './edit-task-modal';
 import { toast } from 'sonner';
@@ -205,6 +206,34 @@ export function TaskDetailModal({ task, open, onOpenChange }: TaskDetailModalPro
       queryClient.invalidateQueries({ queryKey: ['task-comments', task?.id] });
       setNewComment('');
       toast.success('Đã thêm bình luận');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const riskExplanationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/ai/predict-risk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Không thể giải thích rủi ro');
+      }
+
+      return response.json() as Promise<{
+        data: {
+          result: {
+            ly_do: string;
+            goi_y: string[];
+            risk_score: number;
+          } | null;
+        };
+      }>;
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -426,6 +455,49 @@ export function TaskDetailModal({ task, open, onOpenChange }: TaskDetailModalPro
                     />
                   </div>
                   <span className="text-sm font-semibold">{taskRiskScore}%</span>
+                </div>
+                <div className="mt-3 rounded-xl border border-[#ecefe6] bg-[#fbfbf8] p-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-[#191a23]">Vì sao task này rủi ro?</p>
+                      <p className="mt-1 text-xs text-[#61705f]">
+                        Xem nhanh lý do và gợi ý xử lý thay vì chỉ nhìn mỗi phần trăm rủi ro.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => riskExplanationMutation.mutate()}
+                      disabled={riskExplanationMutation.isPending}
+                    >
+                      {riskExplanationMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-2 h-4 w-4" />
+                      )}
+                      Phân tích rủi ro
+                    </Button>
+                  </div>
+
+                  {riskExplanationMutation.data?.data.result ? (
+                    <div className="mt-3 space-y-3 rounded-2xl border border-[#ecefe6] bg-white p-3">
+                      <p className="text-sm text-[#475569]">
+                        {riskExplanationMutation.data.data.result.ly_do}
+                      </p>
+                      {riskExplanationMutation.data.data.result.goi_y.length > 0 ? (
+                        <div className="space-y-2">
+                          {riskExplanationMutation.data.data.result.goi_y.map((item) => (
+                            <div
+                              key={item}
+                              className="rounded-xl border border-[#ecefe6] bg-[#fbfbf8] px-3 py-2 text-sm text-[#191a23]"
+                            >
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}

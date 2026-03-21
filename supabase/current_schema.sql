@@ -1,6 +1,17 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.ai_insight_event (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL,
+  insight_type character varying NOT NULL CHECK (insight_type::text = ANY (ARRAY['daily_summary'::character varying, 'weekly_summary'::character varying, 'rebalance'::character varying, 'deadline_review'::character varying, 'meeting_summary'::character varying, 'team_digest'::character varying]::text[])),
+  event_type character varying NOT NULL CHECK (event_type::text = ANY (ARRAY['sent'::character varying, 'viewed'::character varying, 'generated'::character varying, 'accepted'::character varying, 'dismissed'::character varying, 'helpful'::character varying, 'not_helpful'::character varying]::text[])),
+  reference_id character varying,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT ai_insight_event_pkey PRIMARY KEY (id),
+  CONSTRAINT ai_insight_event_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.nguoi_dung(id)
+);
 CREATE TABLE public.binh_luan (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   task_id uuid NOT NULL,
