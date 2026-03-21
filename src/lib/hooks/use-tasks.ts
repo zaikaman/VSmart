@@ -14,6 +14,9 @@ export interface Task {
   risk_level: 'low' | 'medium' | 'high';
   risk_updated_at: string | null;
   is_stale: boolean;
+  progress_mode?: 'manual' | 'checklist';
+  template_id?: string | null;
+  recurring_rule_id?: string | null;
   ngay_tao: string;
   cap_nhat_cuoi: string;
   deleted_at: string | null;
@@ -52,6 +55,13 @@ export interface CreateTaskInput {
   phan_du_an_id: string;
   assignee_id?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
+  checklist_items?: Array<{
+    title: string;
+    is_done?: boolean;
+    sort_order?: number;
+  }>;
+  template_id?: string | null;
+  progress_mode?: 'manual' | 'checklist';
 }
 
 export interface UpdateTaskInput {
@@ -63,6 +73,7 @@ export interface UpdateTaskInput {
   trang_thai?: 'todo' | 'in-progress' | 'done';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   progress?: number;
+  progress_mode?: 'manual' | 'checklist';
 }
 
 interface TasksParams {

@@ -303,12 +303,12 @@
 
 ### Performance & Optimization
 
-- [ ] T124 [P] Optimize database queries: verify no N+1, add indexes cho common filters (assigneeId + trangThai, deadline, riskScore)
-- [ ] T125 [P] Implement pagination cho all list views (projects, tasks, notifications)
-- [ ] T126 [P] Add React Query caching strategies với staleTime và cacheTime optimization
-- [ ] T127 [P] Code-split AI chat feature với dynamic import để giảm initial bundle
-- [ ] T128 [P] Lazy load non-critical components (profile page, admin pages)
-- [ ] T129 [P] Optimize images với next/image và WebP format
+- [x] T124 [P] Optimize database queries: verify no N+1, add indexes cho common filters (assigneeId + trangThai, deadline, riskScore)
+- [x] T125 [P] Implement pagination cho all list views (projects, tasks, notifications)
+- [x] T126 [P] Add React Query caching strategies với staleTime và cacheTime optimization
+- [x] T127 [P] Code-split AI chat feature với dynamic import để giảm initial bundle
+- [x] T128 [P] Lazy load non-critical components (profile page, admin pages)
+- [x] T129 [P] Optimize images với next/image và WebP format
 - [ ] T130 Run Lighthouse audit, target score >90 (performance, accessibility, SEO)
 
 ### Error Handling & Logging
@@ -360,6 +360,186 @@
 
 ---
 
+## Phase 9: User Story 6 - Subtasks, Templates & Rich Task Execution (Priority: P6)
+
+**Goal**: Làm task đủ “sâu” để dùng thật: checklist/subtasks, attachments, task templates, recurring tasks và AI breakdown cho task lớn.
+
+**Independent Test**: Quản lý tạo task "Build Authentication System", AI gợi ý 6 checklist items, người dùng chỉnh sửa checklist, đính kèm tài liệu yêu cầu, lưu task thành template và dùng lại template đó cho sprint sau. Hệ thống tự sinh recurring task "Daily report" mỗi ngày làm việc.
+
+### Implementation for User Story 6
+
+#### Database & Models
+
+- [ ] T163 [P] [US6] Create TaskChecklistItem model với fields: id, taskId, title, isDone, sortOrder, createdAt
+- [ ] T164 [P] [US6] Create TaskAttachment model với fields: id, taskId, fileName, fileUrl, mimeType, size, uploadedBy, createdAt
+- [ ] T165 [P] [US6] Create TaskTemplate model với fields: id, ten, moTa, defaultPriority, checklistTemplate, createdBy, isShared
+- [ ] T166 [P] [US6] Create RecurringTaskRule model với fields: id, title, description, priority, cronExpression, phanDuAnId, assigneeId, nextRunAt, isActive
+
+#### API Endpoints
+
+- [ ] T167 [P] [US6] Implement GET/POST /api/tasks/[id]/checklist endpoint tại app/api/tasks/[id]/checklist/route.ts
+- [ ] T168 [P] [US6] Implement PATCH/DELETE /api/tasks/[id]/checklist/[checklistId] endpoint để update trạng thái, reorder và xóa checklist item
+- [ ] T169 [P] [US6] Implement POST /api/tasks/[id]/attachments endpoint tại app/api/tasks/[id]/attachments/route.ts với upload validation
+- [ ] T170 [P] [US6] Implement GET/DELETE /api/tasks/[id]/attachments/[attachmentId] endpoint
+- [ ] T171 [P] [US6] Implement GET/POST /api/task-templates endpoint để lưu và lấy templates
+- [ ] T172 [P] [US6] Implement POST /api/task-templates/[id]/instantiate endpoint để tạo task mới từ template
+- [ ] T173 [US6] Implement POST /api/cron/generate-recurring-tasks endpoint để tự tạo recurring tasks theo rule
+
+#### UI Components
+
+- [ ] T174 [P] [US6] Add checklist section vào task-detail-modal.tsx với add/edit/check/reorder items
+- [ ] T175 [P] [US6] Add attachment uploader và file list vào task-detail-modal.tsx
+- [ ] T176 [US6] Update create-task-modal.tsx để chọn template khi tạo task mới
+- [ ] T177 [US6] Update edit-task-modal.tsx để cấu hình recurring rule cho task định kỳ
+
+#### AI Enhancements
+
+- [ ] T178 [P] [US6] Create AI breakdown prompt + function tại lib/openai/task-breakdown.ts để sinh subtasks/checklist từ title + description
+- [ ] T179 [US6] Add "Tạo checklist bằng AI" action trong create-task-modal.tsx và chat-sidebar.tsx
+
+#### Progress & Validation
+
+- [ ] T180 [P] [US6] Implement auto-rollup progress từ checklist completion sang task.progress với override thủ công khi cần
+- [ ] T181 [US6] Manual test User Story 6: AI breakdown → checklist → attachments → template reuse → recurring generation
+
+**Checkpoint**: Tasks không còn phẳng; người dùng có thể triển khai công việc chi tiết, tái sử dụng template và quản lý tài liệu ngay trong task.
+
+---
+
+## Phase 10: User Story 7 - Planning, Timeline & Workload Intelligence (Priority: P7)
+
+**Goal**: Bổ sung góc nhìn planning ngoài kanban: calendar/timeline, capacity theo người và dự báo trễ tiến độ ở cấp dự án.
+
+**Independent Test**: Quản lý mở timeline của dự án, thấy toàn bộ tasks theo ngày, kéo deadline một task sang ngày khác, hệ thống cảnh báo xung đột tài nguyên. Màn hình workload cho thấy developer A đang quá tải 7 tasks còn developer B chỉ có 2 tasks nên AI ưu tiên B ở lần suggest tiếp theo.
+
+### Implementation for User Story 7
+
+#### Planning Queries & Aggregations
+
+- [ ] T182 [P] [US7] Create workload aggregation helper tại lib/utils/workload-utils.ts để tính active tasks, estimated capacity, overdue load
+- [ ] T183 [P] [US7] Create planning query service tại lib/planning/planning-service.ts để gom tasks theo date range, assignee và project
+- [ ] T184 [P] [US7] Extend stats API để trả về upcoming deadlines, overdue tasks, workload summary, risk trends
+
+#### API Endpoints
+
+- [ ] T185 [P] [US7] Implement GET /api/planning/calendar endpoint với filters: projectId, assigneeId, dateFrom, dateTo
+- [ ] T186 [P] [US7] Implement GET /api/planning/workload endpoint để trả về workload theo user/department/project
+- [ ] T187 [P] [US7] Implement PATCH /api/tasks/[id]/reschedule endpoint với validation conflict, holiday/weekend warnings
+- [ ] T188 [P] [US7] Implement GET /api/projects/[id]/forecast endpoint để dự báo khả năng chậm deadline của toàn dự án
+
+#### UI Components - Planning Views
+
+- [ ] T189 [P] [US7] Create calendar-view component tại components/planning/calendar-view.tsx
+- [ ] T190 [P] [US7] Create timeline-view component tại components/planning/timeline-view.tsx (gantt-lite, không cần full dependency engine)
+- [ ] T191 [P] [US7] Create workload-heatmap component tại components/planning/workload-heatmap.tsx
+- [ ] T192 [US7] Create planning page tại app/dashboard/planning/page.tsx với tab Calendar, Timeline, Workload
+- [ ] T193 [US7] Add drag-to-reschedule interaction từ calendar/timeline và optimistic updates
+
+#### UX & Decision Support
+
+- [ ] T194 [P] [US7] Add capacity badges cho users trong create-task-modal.tsx và project-members-manager.tsx
+- [ ] T195 [P] [US7] Add overload warning rules (>5 in-progress hoặc >X estimated hours) vào assignment suggestion pipeline
+- [ ] T196 [US7] Surface project forecast banner ở project detail page khi nguy cơ slip cao
+- [ ] T197 [US7] Add dashboard widgets: deadline tuần này, người quá tải, project có nguy cơ trễ
+
+#### Performance & Validation
+
+- [ ] T198 [P] [US7] Optimize planning views với date-range pagination hoặc virtualization cho datasets lớn
+- [ ] T199 [P] [US7] Add caching strategy riêng cho planning endpoints và background prefetch cho view switch
+- [ ] T200 [US7] Manual test User Story 7: calendar/timeline/workload → reschedule → overload warnings → forecast
+
+**Checkpoint**: Hệ thống có khả năng planning thực thụ, không chỉ theo dõi trạng thái.
+
+---
+
+## Phase 11: User Story 8 - AI Summaries, Rebalancing & Proactive Suggestions (Priority: P8)
+
+**Goal**: Chuyển AI từ dạng “hỏi gì trả lời nấy” sang dạng chủ động: tóm tắt, cảnh báo, đề xuất rebalance và giải thích rủi ro.
+
+**Independent Test**: Trưởng nhóm mở dashboard vào sáng thứ Hai và thấy AI summary "3 task rủi ro cao nhất", "2 thành viên quá tải", "1 dự án có nguy cơ trễ 68%". Khi tạo task với deadline quá ngắn, hệ thống cảnh báo ngay. Người dùng bấm "AI rebalance" và nhận gợi ý chuyển 2 task từ developer A sang B/C.
+
+### Implementation for User Story 8
+
+#### AI Prompting & Services
+
+- [ ] T201 [P] [US8] Create summary prompts cho daily digest, weekly digest, blocker analysis, executive brief tại lib/openai/prompts/summary-prompts.ts
+- [ ] T202 [P] [US8] Implement aiDailySummary service tại lib/openai/daily-summary.ts
+- [ ] T203 [P] [US8] Implement aiWeeklySummary service tại lib/openai/weekly-summary.ts
+- [ ] T204 [P] [US8] Implement aiRebalanceSuggestions service tại lib/openai/rebalance-suggestions.ts
+- [ ] T205 [P] [US8] Implement deadline reasonability checker tại lib/openai/deadline-review.ts
+- [ ] T206 [P] [US8] Implement standup/meeting summary parser tại lib/openai/meeting-summary.ts
+
+#### API Endpoints & Automation
+
+- [ ] T207 [P] [US8] Implement POST /api/ai/daily-summary endpoint
+- [ ] T208 [P] [US8] Implement POST /api/ai/weekly-summary endpoint
+- [ ] T209 [P] [US8] Implement POST /api/ai/rebalance endpoint
+- [ ] T210 [P] [US8] Implement POST /api/ai/meeting-summary endpoint để paste notes hoặc transcript ngắn
+- [ ] T211 [US8] Implement POST /api/cron/send-team-digests endpoint để gửi digest theo lịch
+
+#### UI Integrations
+
+- [ ] T212 [P] [US8] Add executive-summary widget vào dashboard/page.tsx cho manager/admin
+- [ ] T213 [P] [US8] Add "Vì sao task này rủi ro?" explanation drawer ở task-detail-modal.tsx
+- [ ] T214 [US8] Add "AI rebalance workload" action vào project detail page và planning page
+- [ ] T215 [US8] Add deadline warning + suggested deadline trong create-task-modal.tsx và edit-task-modal.tsx
+- [ ] T216 [US8] Add meeting summary mini-tool trong chat-sidebar.tsx
+
+#### Tracking & Resilience
+
+- [ ] T217 [P] [US8] Track digest open rate, rebalance acceptance rate và usefulness feedback cho AI summaries
+- [ ] T218 [US8] Manual test User Story 8: summary → rebalance → deadline warning → meeting recap
+
+**Checkpoint**: AI trở thành lớp điều phối thông minh, giúp demo khác biệt rõ so với task manager thông thường.
+
+---
+
+## Phase 12: User Story 9 - Governance, Approval Flow, Activity Log & Analytics (Priority: P9)
+
+**Goal**: Làm hệ thống đủ “chất doanh nghiệp/đồ án chuyên ngành”: có duyệt task, phân quyền rõ, activity log, analytics dashboard, export dữ liệu và onboarding tốt hơn.
+
+**Independent Test**: Member hoàn thành task và submit for review, manager duyệt task trong review queue, toàn bộ thay đổi xuất hiện trong activity log. Admin mở analytics dashboard thấy completion rate, overdue trend, risk distribution và export CSV cho báo cáo.
+
+### Implementation for User Story 9
+
+#### Roles, Permissions & Workflow
+
+- [ ] T219 [P] [US9] Define permission matrix chi tiết cho admin/manager/member tại docs hoặc lib/auth/permissions.ts
+- [ ] T220 [P] [US9] Enforce RBAC cho project/task/comment/admin APIs theo permission matrix
+- [ ] T221 [P] [US9] Add UI guards để ẩn/disable actions không có quyền (create, delete, approve, manage members)
+- [ ] T222 [P] [US9] Extend Task model với reviewStatus, submittedForReviewAt, reviewedBy, reviewedAt, reviewComment
+- [ ] T223 [P] [US9] Implement POST /api/tasks/[id]/submit-review endpoint
+- [ ] T224 [P] [US9] Implement POST /api/tasks/[id]/approve endpoint và POST /api/tasks/[id]/reject endpoint
+- [ ] T225 [US9] Create review queue page tại app/dashboard/reviews/page.tsx cho managers
+- [ ] T226 [US9] Add approval/rejection actions vào task-detail-modal.tsx
+
+#### Activity Log & Audit Trail
+
+- [ ] T227 [P] [US9] Create ActivityLog model với fields: entityType, entityId, action, actorId, metadata, createdAt
+- [ ] T228 [P] [US9] Log create/update/delete/assign/status/comment/review actions cho projects, parts, tasks
+- [ ] T229 [P] [US9] Implement GET /api/activity endpoint với filters theo entity, actor, action, date
+- [ ] T230 [US9] Add activity feed UI vào task-detail-modal.tsx và project detail page
+
+#### Analytics & Reporting
+
+- [ ] T231 [P] [US9] Create analytics service để tính completion rate, overdue trend, lead time, team workload balance, risk distribution
+- [ ] T232 [P] [US9] Implement GET /api/analytics/overview endpoint
+- [ ] T233 [P] [US9] Implement GET /api/analytics/export endpoint cho CSV export
+- [ ] T234 [US9] Create analytics dashboard page tại app/dashboard/analytics/page.tsx
+- [ ] T235 [US9] Add chart components cho completion trend, overdue trend, risk breakdown, top overloaded members
+
+#### Adoption & Delivery Readiness
+
+- [ ] T236 [P] [US9] Implement saved views/filters cho kanban, planning và analytics
+- [ ] T237 [P] [US9] Expand settings page với notification types cho digests, review requests, approvals
+- [ ] T238 [P] [US9] Add first-project / first-task onboarding walkthrough và contextual empty states
+- [ ] T239 [P] [US9] Add keyboard shortcuts + accessibility polish cho kanban/planning/review flows
+- [ ] T240 [US9] Final manual integration test: approval flow → activity log → analytics export → onboarding walkthrough
+
+**Checkpoint**: Sản phẩm có quy trình, auditability và số liệu đủ tốt để thuyết phục trong buổi bảo vệ đồ án.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Critical Path (Must Complete Sequentially)
@@ -371,7 +551,11 @@
 5. **Phase 5: User Story 3** (T079-T097) → Depends on US1 tasks data
 6. **Phase 6: User Story 4** (T098-T109) → Depends on US1, US2, US3 (needs context data)
 7. **Phase 7: User Story 5** (T110-T123) → Can enhance US2 but not blocking
-8. **Phase 8: Polish** (T124-T162) → Final phase after all stories
+8. **Phase 8: Polish** (T124-T162) → Hardening, demo prep, documentation
+9. **Phase 9: User Story 6** (T163-T181) → Depends on US1 and improves execution depth for all later phases
+10. **Phase 10: User Story 7** (T182-T200) → Depends on US1, US3, US5 for planning, workload and forecast context
+11. **Phase 11: User Story 8** (T201-T218) → Depends on US2, US3, US4, US5, US7 for proactive AI suggestions
+12. **Phase 12: User Story 9** (T219-T240) → Cross-cutting governance/reporting layer after core collaboration flows are stable
 
 ### Parallel Execution Opportunities
 
@@ -403,6 +587,25 @@
 - T124-T130 (performance), T131-T135 (error handling), T136-T140 (security), T150-T156 (demo prep), T157-T162 (docs) can run in parallel
 - Testing tasks (T141-T149) should run sequentially after fixes
 
+**Within User Story 6**:
+- T163-T166 (models), T167-T173 (API), T178 (AI breakdown), T180 (progress rollup) can run in parallel
+- T174-T177 (UI integration) depend on their respective endpoints/models
+
+**Within User Story 7**:
+- T182-T188 (aggregations + API), T189-T191 (planning UI components), T194-T195 (capacity rules) can run in parallel
+- T192-T193 (planning page + reschedule interactions) depend on base components/endpoints
+- T196-T200 can proceed after forecast/workload data is stable
+
+**Within User Story 8**:
+- T201-T206 (AI services) and T207-T210 (API endpoints) can run in parallel in small batches
+- T212-T216 (dashboard/chat/create-task integrations) depend on AI endpoints
+- T217-T218 follow after summary/rebalance flows are usable end-to-end
+
+**Within User Story 9**:
+- T219-T224 (RBAC + approval workflow), T227-T229 (activity log), T231-T233 (analytics services) can run in parallel
+- T225-T226, T230, T234-T235 depend on those backend capabilities
+- T236-T240 are final adoption/polish tasks after governance flows are stable
+
 ### Example Parallel Batches Per User Story
 
 **User Story 1 Batch 1** (after foundation complete):
@@ -423,11 +626,29 @@ Parallel: T079-T080 (OpenAI), T082 (utils), T085 (badge), T088 (model), T089-T09
 Then: T086-T087 (UI integration), T096-T097 (stale detection)
 ```
 
+**User Story 6 Batch 1**:
+```
+Parallel: T163-T166 (new models), T167-T173 (checklist/template/attachment APIs), T178 (AI breakdown)
+Then: T174-T177 (task detail + create/edit task integrations), T180-T181 (progress rollup + testing)
+```
+
+**User Story 7 Batch 1**:
+```
+Parallel: T182-T188 (planning services + APIs), T189-T191 (calendar/timeline/workload components), T194-T195 (capacity rules)
+Then: T192-T193 (planning page + drag reschedule), T196-T200 (forecast widgets, optimization, testing)
+```
+
+**User Story 8 Batch 1**:
+```
+Parallel: T201-T206 (AI summary/rebalance services), T207-T210 (AI endpoints)
+Then: T212-T216 (dashboard/task/chat modal integrations), T217-T218 (tracking + testing)
+```
+
 ---
 
 ## Summary
 
-**Total Tasks**: 162 tasks
+**Total Tasks**: 240 tasks
 - **Phase 1 Setup**: 7 tasks
 - **Phase 2 Foundational**: 23 tasks (blocking)
 - **Phase 3 User Story 1 (P1)**: 37 tasks 🎯 **MVP**
@@ -436,15 +657,19 @@ Then: T086-T087 (UI integration), T096-T097 (stale detection)
 - **Phase 6 User Story 4 (P4)**: 12 tasks
 - **Phase 7 User Story 5 (P5)**: 14 tasks
 - **Phase 8 Polish**: 39 tasks
+- **Phase 9 User Story 6 (P6)**: 19 tasks
+- **Phase 10 User Story 7 (P7)**: 19 tasks
+- **Phase 11 User Story 8 (P8)**: 18 tasks
+- **Phase 12 User Story 9 (P9)**: 22 tasks
 
 **MVP Scope** (Phase 1-3 = 67 tasks):
 - Setup + Foundational + User Story 1
 - Deliverable: Fully functional project/task management với kanban board, realtime updates, CRUD operations
 - Time estimate: 4-5 weeks
 
-**Full Feature Set** (All 162 tasks):
-- MVP + AI suggestions + Risk prediction + AI chat + Skills management + Polish
-- Time estimate: 12 weeks (aligned với plan.md timeline)
+**Expanded Feature Set** (All 240 tasks):
+- MVP + AI suggestions + Risk prediction + AI chat + Skills management + Polish + Subtasks/Templates + Planning/Workload + Proactive AI + Governance/Analytics
+- Time estimate: 16-18 weeks nếu làm full scope; 12 tuần nếu cắt ở Phase 10 hoặc chọn subset cho demo
 
 **Parallel Opportunities**: ~60% của tasks có thể chạy song song (marked với [P]) trong cùng phase, đặc biệt khi có team >1 người.
 
@@ -452,7 +677,7 @@ Then: T086-T087 (UI integration), T096-T097 (stale detection)
 
 ---
 
-**Status**: Ready for Implementation ✅  
-**Next Action**: Start với Phase 1 Setup (T001-T007)  
-**Version**: 1.0.0  
-**Last Updated**: 2026-01-16
+**Status**: Scope Expanded ✅  
+**Next Action**: Complete remaining Phase 8 hardening tasks, sau đó ưu tiên Phase 9 hoặc Phase 10 tùy mục tiêu demo  
+**Version**: 1.1.0  
+**Last Updated**: 2026-03-21

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, MessageSquare, Trash2, RefreshCw, Zap } from 'lucide-react';
+import { X, MessageSquare, Trash2, RefreshCw, Zap, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChatMessage, Message, TypingIndicator } from './chat-message';
 import { ChatInput, SuggestedQuestions } from './chat-input';
@@ -14,6 +14,35 @@ const AGENT_MODE_KEY = 'vsmart-agent-mode';
 interface ChatSidebarProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+interface ToolCall {
+  id?: string;
+  type?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
+interface StreamChunk {
+  type?: 'content' | 'tool_calls' | 'error';
+  content?: string;
+  tool_calls?: ToolCall[];
+  error?: string;
+}
+
+interface ToolExecutionResult {
+  success: boolean;
+  data?: {
+    message?: string;
+  };
+  error?: string;
+  tool_call_id?: string;
+}
+
+interface ToolExecutionResponse {
+  results: ToolExecutionResult[];
 }
 
 /**
@@ -134,7 +163,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
       // Gửi request với toàn bộ conversation history
       // QUAN TRỌNG: Loại bỏ tool_calls và tool messages từ history cũ
       const messagesToSend = [...messages, userMessage]
-        .filter(m => !(m as any).tool_call_id) // Loại tool messages
+        .filter((m) => !m.tool_call_id) // Loại tool messages
         .map((m) => ({
           role: m.role,
           content: m.content,
@@ -166,7 +195,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
       const decoder = new TextDecoder();
       let fullContent = '';
-      let toolCalls: any[] = [];
+      let toolCalls: ToolCall[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -182,7 +211,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
               break;
             }
             try {
-              const parsed = JSON.parse(data);
+              const parsed = JSON.parse(data) as StreamChunk;
               
               // Xử lý text content
               if (parsed.type === 'content' && parsed.content) {
@@ -198,7 +227,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
               if (parsed.type === 'error' && parsed.error) {
                 throw new Error(parsed.error);
               }
-            } catch (e) {
+            } catch {
               // Ignore parse errors for incomplete JSON
             }
           }
@@ -214,7 +243,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
           content: fullContent || 'Đang thực hiện các hành động...',
           timestamp: new Date(),
           tool_calls: toolCalls,
-        } as any;
+        };
         
         setMessages((prev) => [...prev, assistantMessageWithTools]);
         setStreamingContent('');
@@ -233,7 +262,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
           throw new Error('Lỗi khi thực thi tools');
         }
 
-        const toolResults = await toolResponse.json();
+        const toolResults = (await toolResponse.json()) as ToolExecutionResponse;
         setExecutingTools(false);
 
         // Gọi lại AI với tool results để tổng hợp
@@ -245,7 +274,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
             content: fullContent || '',
             tool_calls: toolCalls, // Assistant message với tool_calls
           },
-          ...toolResults.results.map((result: any) => ({
+          ...toolResults.results.map((result) => ({
             role: 'tool',
             content: JSON.stringify({
               success: result.success,
@@ -300,7 +329,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
               const data = line.slice(6);
               if (data === '[DONE]') break;
               try {
-                const parsed = JSON.parse(data);
+                const parsed = JSON.parse(data) as StreamChunk;
                 console.log('[Chat] Summary chunk:', parsed);
                 if (parsed.type === 'content' && parsed.content) {
                   summaryContent += parsed.content;
@@ -326,7 +355,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
         } else {
           // Nếu AI không trả lời, tự tạo summary từ tool results
           const resultsText = toolResults.results
-            .map((r: any) => {
+            .map((r) => {
               if (r.success) {
                 return `✅ ${r.data?.message || 'Thành công'}`;
               } else {
@@ -479,6 +508,18 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                   </p>
                 </div>
               )}
+              <button
+                onClick={() =>
+                  handleSendMessage(
+                    'Tạo checklist bằng AI cho task sau. Hãy trả về checklist ngắn gọn, thực thi được: '
+                  )
+                }
+                disabled={isLoading}
+                className="mb-4 inline-flex items-center gap-2 rounded-lg border border-[#b9ff66]/30 bg-[#b9ff66]/10 px-4 py-2 text-sm text-[#b9ff66] hover:bg-[#b9ff66]/20 disabled:opacity-50"
+              >
+                <Wand2 className="w-4 h-4" />
+                Tạo checklist bằng AI
+              </button>
               <SuggestedQuestions
                 onSelect={handleSendMessage}
                 disabled={isLoading}

@@ -11,6 +11,8 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  tool_calls?: unknown[];
+  tool_call_id?: string;
 }
 
 interface ChatMessageProps {

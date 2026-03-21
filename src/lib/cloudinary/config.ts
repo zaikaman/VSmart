@@ -41,6 +41,33 @@ export async function uploadToCloudinary(
   }
 }
 
+export async function uploadFileToCloudinary(
+  file: File,
+  folder: string
+): Promise<{ url: string; publicId: string }> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const mimeType = file.type || 'application/octet-stream';
+    const base64String = `data:${mimeType};base64,${buffer.toString('base64')}`;
+
+    const result = await cloudinary.uploader.upload(base64String, {
+      folder,
+      resource_type: 'auto',
+      use_filename: true,
+      unique_filename: true,
+    });
+
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+    };
+  } catch (error) {
+    console.error('Error uploading file to Cloudinary:', error);
+    throw new Error('Không thể upload file');
+  }
+}
+
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
   try {
     await cloudinary.uploader.destroy(publicId);

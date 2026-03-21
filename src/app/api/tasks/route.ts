@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notifications';
+import { createTaskWithRelations } from '@/lib/tasks/create-task';
+import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
+import { normalizeChecklistItems } from '@/lib/tasks/checklist';
 
 const taskSchema = z.object({
   ten: z.string().min(1).max(200),
@@ -10,6 +13,9 @@ const taskSchema = z.object({
   phan_du_an_id: z.string().uuid(),
   assignee_id: z.string().uuid().optional().nullable(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  checklist_items: z.array(z.unknown()).optional(),
+  template_id: z.string().uuid().optional().nullable(),
+  progress_mode: z.enum(['manual', 'checklist']).optional(),
 });
 
 const DEFAULT_LIMIT = 20;
@@ -194,17 +200,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    const { supabase, authUser, dbUser } = await getAuthenticatedUserContext();
     const body = await request.json();
     const validated = taskSchema.parse(body);
 
@@ -223,7 +219,7 @@ export async function POST(request: NextRequest) {
       .from('thanh_vien_du_an')
       .select('id')
       .eq('du_an_id', partData.du_an_id)
-      .eq('email', user.email)
+      .eq('email', authUser.email)
       .eq('trang_thai', 'active')
       .single();
 
@@ -234,30 +230,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
-      .from('task')
-      .insert([
-        {
-          ten: validated.ten,
-          mo_ta: validated.mo_ta,
-          deadline: validated.deadline,
-          phan_du_an_id: validated.phan_du_an_id,
-          assignee_id: validated.assignee_id,
-          priority: validated.priority,
-          trang_thai: 'todo',
-          progress: 0,
-          risk_score: 0,
-          risk_level: 'low',
-          is_stale: false,
-        },
-      ])
-      .select()
-      .single();
+    let checklistItems = normalizeChecklistItems(validated.checklist_items || []);
 
-    if (error) {
-      console.error('Error creating task:', error);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (validated.template_id) {
+      const { data: template, error: templateError } = await supabase
+        .from('task_template')
+        .select('id, checklist_template, created_by, is_shared')
+        .eq('id', validated.template_id)
+        .single();
+
+      if (templateError || !template) {
+        return NextResponse.json({ error: 'Template không tồn tại' }, { status: 404 });
+      }
+
+      if (!template.is_shared && template.created_by !== dbUser.id) {
+        return NextResponse.json({ error: 'Bạn không có quyền dùng template này' }, { status: 403 });
+      }
+
+      if (checklistItems.length === 0) {
+        checklistItems = normalizeChecklistItems(template.checklist_template);
+      }
     }
+
+    const data = await createTaskWithRelations({
+      ten: validated.ten,
+      mo_ta: validated.mo_ta,
+      deadline: validated.deadline,
+      phan_du_an_id: validated.phan_du_an_id,
+      assignee_id: validated.assignee_id,
+      priority: validated.priority,
+      checklist_items: checklistItems,
+      template_id: validated.template_id ?? null,
+      progress_mode: validated.progress_mode,
+    });
 
     if (validated.assignee_id) {
       try {
@@ -267,7 +272,7 @@ export async function POST(request: NextRequest) {
           .eq('id', validated.assignee_id)
           .single();
 
-        if (assigneeData && assigneeData.email !== user.email) {
+        if (assigneeData && assigneeData.email !== authUser.email) {
           const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
           if (shouldSend) {
             const projectName = Array.isArray(partData.du_an)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -18,7 +18,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Sparkles, User, Check, ChevronDown, AlertCircle, Loader2 } from 'lucide-react';
+import { Sparkles, User, Check, ChevronDown, AlertCircle, Loader2, Wand2, Plus, Trash2, Save } from 'lucide-react';
+import { useBreakdownTask, useCreateTaskTemplate, useTaskTemplates } from '@/lib/hooks/use-task-execution';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 
 interface CreateTaskModalProps {
   open: boolean;
@@ -79,44 +82,59 @@ interface SuggestAssigneeResponse {
   error?: string;
 }
 
+interface DraftChecklistItem {
+  id: string;
+  title: string;
+  is_done?: boolean;
+  sort_order?: number;
+}
+
+function createChecklistDraftItem(title = ''): DraftChecklistItem {
+  return {
+    id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title,
+    is_done: false,
+  };
+}
+
 export function CreateTaskModal({
   open,
   onOpenChange,
   initialStatus = 'todo',
   phanDuAnId,
   phanDuAnName,
-  projectId
 }: CreateTaskModalProps) {
   const createTaskMutation = useCreateTask();
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<TaskFormData>({
+  const breakdownMutation = useBreakdownTask();
+  const createTemplateMutation = useCreateTaskTemplate();
+  const { data: templatesResponse } = useTaskTemplates(open);
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TaskFormData>({
     defaultValues: {
       trang_thai: initialStatus,
       priority: 'medium',
     },
   });
 
-  // AI Suggestions state
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [allCandidates, setAllCandidates] = useState<Candidate[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [suggestionModel, setSuggestionModel] = useState<string>('');
 
-  // Selection state
   const [selectedAssignee, setSelectedAssignee] = useState<string>('unassigned');
   const [selectedPriority, setSelectedPriority] = useState<string>('medium');
   const [showManualSelect, setShowManualSelect] = useState(false);
   const [selectedFromAI, setSelectedFromAI] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('no-template');
+  const [checklistItems, setChecklistItems] = useState<DraftChecklistItem[]>([]);
 
-  // Watch form values for AI suggestions
   const taskName = watch('ten');
   const taskDescription = watch('mo_ta');
   const taskDeadline = watch('deadline');
+  const templates = useMemo(() => templatesResponse?.data || [], [templatesResponse?.data]);
 
-  // Debounce timeout ref
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Fetch AI suggestions
   const fetchSuggestions = useCallback(async () => {
     if (!taskName || taskName.length < 3 || !phanDuAnId) {
       setSuggestions([]);
@@ -134,7 +152,7 @@ export function CreateTaskModal({
           ten: taskName,
           mo_ta: taskDescription || '',
           priority: selectedPriority,
-          deadline: taskDeadline 
+          deadline: taskDeadline
             ? new Date(taskDeadline).toISOString()
             : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           phan_du_an_id: phanDuAnId,
@@ -161,7 +179,6 @@ export function CreateTaskModal({
     }
   }, [taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
 
-  // Debounced fetch suggestions
   useEffect(() => {
     if (debounceTimer) {
       clearTimeout(debounceTimer);
@@ -182,7 +199,6 @@ export function CreateTaskModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!open) {
       setSuggestions([]);
@@ -192,23 +208,134 @@ export function CreateTaskModal({
       setSelectedFromAI(null);
       setShowManualSelect(false);
       setSelectedPriority('medium');
+      setSelectedTemplateId('no-template');
+      setChecklistItems([]);
+      reset({
+        ten: '',
+        mo_ta: '',
+        deadline: '',
+        priority: 'medium',
+        trang_thai: initialStatus,
+      });
     }
-  }, [open]);
+  }, [open, initialStatus, reset]);
 
-  // Handle AI suggestion selection
+  useEffect(() => {
+    if (selectedTemplateId === 'no-template') {
+      return;
+    }
+
+    const template = templates.find((item) => item.id === selectedTemplateId);
+    if (!template) {
+      return;
+    }
+
+    if (!taskName?.trim()) {
+      setValue('ten', template.ten);
+    }
+
+    if (!taskDescription?.trim() && template.mo_ta) {
+      setValue('mo_ta', template.mo_ta);
+    }
+
+    setSelectedPriority(template.default_priority);
+    setChecklistItems(
+      (template.checklist_template || []).map((item, index) =>
+        createChecklistDraftItem(item.title || `Bước ${index + 1}`)
+      )
+    );
+  }, [selectedTemplateId, templates, taskName, taskDescription, setValue]);
+
   const handleSelectSuggestion = (userId: string) => {
     setSelectedAssignee(userId);
     setSelectedFromAI(userId);
     setShowManualSelect(false);
   };
 
-  // Handle submit
+  const handleAddChecklistItem = () => {
+    setChecklistItems((prev) => [...prev, createChecklistDraftItem('')]);
+  };
+
+  const handleChecklistChange = (id: string, title: string) => {
+    setChecklistItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, title } : item))
+    );
+  };
+
+  const handleRemoveChecklistItem = (id: string) => {
+    setChecklistItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleGenerateChecklist = async () => {
+    if (!taskName?.trim()) {
+      toast.error('Nhập tên task trước khi tạo checklist bằng AI');
+      return;
+    }
+
+    try {
+      const result = await breakdownMutation.mutateAsync({
+        ten: taskName,
+        mo_ta: taskDescription,
+        priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
+      });
+
+      setChecklistItems(
+        (result.checklist || []).map((item) => createChecklistDraftItem(item.title))
+      );
+
+      if (result.error) {
+        toast.message('AI đã tạo checklist bằng phương án fallback');
+      } else {
+        toast.success('Đã tạo checklist bằng AI');
+      }
+    } catch (error) {
+      console.error('Lỗi tạo checklist bằng AI:', error);
+      toast.error('Không thể tạo checklist bằng AI');
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    const cleanedChecklist = checklistItems
+      .map((item, index) => ({
+        title: item.title.trim(),
+        is_done: false,
+        sort_order: index,
+      }))
+      .filter((item) => item.title.length > 0);
+
+    if (!taskName?.trim()) {
+      toast.error('Nhập tên task trước khi lưu template');
+      return;
+    }
+
+    try {
+      await createTemplateMutation.mutateAsync({
+        ten: taskName.trim(),
+        mo_ta: taskDescription || '',
+        default_priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
+        checklist_template: cleanedChecklist,
+      });
+      toast.success('Đã lưu template');
+    } catch (error) {
+      console.error('Lỗi lưu template:', error);
+      toast.error(error instanceof Error ? error.message : 'Không thể lưu template');
+    }
+  };
+
   const onSubmit = async (data: TaskFormData) => {
     try {
       if (!phanDuAnId || phanDuAnId.trim() === '') {
-        console.error('Lỗi: Chưa chọn phần dự án');
+        toast.error('Chưa chọn phần dự án');
         return;
       }
+
+      const normalizedChecklist = checklistItems
+        .map((item, index) => ({
+          title: item.title.trim(),
+          is_done: false,
+          sort_order: index,
+        }))
+        .filter((item) => item.title.length > 0);
 
       const taskInput: CreateTaskInput = {
         ten: data.ten,
@@ -216,6 +343,9 @@ export function CreateTaskModal({
         deadline: data.deadline ? new Date(data.deadline).toISOString() : new Date().toISOString(),
         phan_du_an_id: phanDuAnId,
         priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
+        template_id: selectedTemplateId !== 'no-template' ? selectedTemplateId : null,
+        checklist_items: normalizedChecklist,
+        progress_mode: normalizedChecklist.length > 0 ? 'checklist' : 'manual',
       };
 
       if (selectedAssignee !== 'unassigned') {
@@ -224,7 +354,6 @@ export function CreateTaskModal({
 
       const createdTask = await createTaskMutation.mutateAsync(taskInput);
 
-      // Track AI suggestions nếu có
       if (suggestions.length > 0 && createdTask?.id) {
         try {
           const suggestionsToTrack = suggestions.map((s) => ({
@@ -242,35 +371,26 @@ export function CreateTaskModal({
               suggestions: suggestionsToTrack,
             }),
           });
-
-          console.log('[AI Tracking] Đã lưu suggestions cho task:', createdTask.id);
         } catch (trackError) {
-          // Không block việc tạo task nếu tracking lỗi
           console.warn('Lỗi track AI suggestion:', trackError);
         }
       }
 
-      reset();
-      setSelectedAssignee('unassigned');
-      setSelectedFromAI(null);
-      setSelectedPriority('medium');
       onOpenChange(false);
     } catch (error) {
       console.error('Lỗi tạo task:', error);
+      toast.error(error instanceof Error ? error.message : 'Không thể tạo task');
     }
   };
 
-  // Get initials for avatar fallback
-  const getInitials = (name: string) => {
-    return name
+  const getInitials = (name: string) =>
+    name
       .split(' ')
       .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  };
 
-  // Get score color
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'bg-green-100 text-green-800 border-green-200';
     if (score >= 60) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -279,7 +399,7 @@ export function CreateTaskModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Tạo Task Mới
@@ -295,7 +415,54 @@ export function CreateTaskModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Tên Task */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Template</Label>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no-template">Không dùng template</SelectItem>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.ten}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={handleGenerateChecklist}
+                disabled={breakdownMutation.isPending}
+              >
+                {breakdownMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Wand2 className="w-4 h-4 mr-2" />
+                )}
+                Tạo checklist bằng AI
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveTemplate}
+                disabled={createTemplateMutation.isPending}
+              >
+                {createTemplateMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="ten">Tên Task *</Label>
             <Input
@@ -306,18 +473,16 @@ export function CreateTaskModal({
             {errors.ten && <p className="text-sm text-red-600 mt-1">{errors.ten.message}</p>}
           </div>
 
-          {/* Mô tả */}
           <div>
             <Label htmlFor="mo_ta">Mô Tả</Label>
-            <textarea
+            <Textarea
               id="mo_ta"
               {...register('mo_ta')}
-              className="w-full min-h-[80px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#b9ff66] focus:border-transparent"
               placeholder="Mô tả chi tiết task..."
+              className="min-h-[90px]"
             />
           </div>
 
-          {/* Priority & Deadline */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="priority">Độ Ưu Tiên</Label>
@@ -340,7 +505,48 @@ export function CreateTaskModal({
             </div>
           </div>
 
-          {/* AI Suggestions Section */}
+          <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="font-semibold">Checklist thực thi</Label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Checklist sẽ tự đồng bộ tiến độ task khi được tạo.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddChecklistItem}>
+                <Plus className="w-4 h-4 mr-1" />
+                Thêm mục
+              </Button>
+            </div>
+
+            {checklistItems.length === 0 ? (
+              <div className="text-sm text-gray-500 border border-dashed rounded-lg py-4 text-center">
+                Chưa có checklist. Dùng template hoặc AI để tạo nhanh.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {checklistItems.map((item, index) => (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-5">{index + 1}.</span>
+                    <Input
+                      value={item.title}
+                      onChange={(event) => handleChecklistChange(item.id, event.target.value)}
+                      placeholder={`Bước ${index + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleRemoveChecklistItem(item.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="border rounded-lg p-4 bg-gray-50">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -362,7 +568,6 @@ export function CreateTaskModal({
               )}
             </div>
 
-            {/* Loading State */}
             {isLoadingSuggestions && (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
@@ -378,7 +583,6 @@ export function CreateTaskModal({
               </div>
             )}
 
-            {/* Error State */}
             {suggestionsError && !isLoadingSuggestions && (
               <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-3 rounded-lg">
                 <AlertCircle className="w-4 h-4" />
@@ -386,21 +590,18 @@ export function CreateTaskModal({
               </div>
             )}
 
-            {/* Empty State */}
             {!isLoadingSuggestions && !suggestionsError && suggestions.length === 0 && taskName && taskName.length >= 3 && (
               <div className="text-sm text-gray-500 text-center py-4">
                 Không có gợi ý phù hợp. Vui lòng chọn thủ công.
               </div>
             )}
 
-            {/* Hint when task name is too short */}
             {(!taskName || taskName.length < 3) && !isLoadingSuggestions && (
               <div className="text-sm text-gray-500 text-center py-4">
                 Nhập tên task (ít nhất 3 ký tự) để nhận gợi ý AI.
               </div>
             )}
 
-            {/* Suggestions List */}
             {!isLoadingSuggestions && suggestions.length > 0 && (
               <div className="space-y-2">
                 {suggestions.map((suggestion, index) => (
@@ -413,12 +614,10 @@ export function CreateTaskModal({
                         : 'border-transparent hover:border-gray-200'
                     }`}
                   >
-                    {/* Rank Badge */}
                     <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold">
                       {index + 1}
                     </div>
 
-                    {/* Avatar */}
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={suggestion.user?.avatar_url || ''} />
                       <AvatarFallback>
@@ -426,7 +625,6 @@ export function CreateTaskModal({
                       </AvatarFallback>
                     </Avatar>
 
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm truncate">
@@ -454,7 +652,6 @@ export function CreateTaskModal({
                       )}
                     </div>
 
-                    {/* Score */}
                     <Badge className={`flex-shrink-0 ${getScoreColor(suggestion.diem_phu_hop)}`}>
                       {Math.round(suggestion.diem_phu_hop)}%
                     </Badge>
@@ -463,7 +660,6 @@ export function CreateTaskModal({
               </div>
             )}
 
-            {/* Manual Selection Toggle */}
             <div className="mt-3 pt-3 border-t">
               <button
                 type="button"
@@ -493,16 +689,7 @@ export function CreateTaskModal({
                       <SelectItem value="unassigned">Chưa phân công</SelectItem>
                       {allCandidates.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="w-5 h-5">
-                              <AvatarImage src={user.avatar_url || ''} />
-                              <AvatarFallback className="text-xs">
-                                {getInitials(user.ten)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>{user.ten}</span>
-                            <span className="text-gray-400">({user.email})</span>
-                          </div>
+                          {user.ten} ({user.email})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -512,7 +699,6 @@ export function CreateTaskModal({
             </div>
           </div>
 
-          {/* Selected Assignee Summary */}
           {selectedAssignee !== 'unassigned' && (
             <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
               <Check className="w-4 h-4 text-green-600" />
@@ -539,7 +725,7 @@ export function CreateTaskModal({
             <Button type="submit" disabled={createTaskMutation.isPending}>
               {createTaskMutation.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Đang tạo...
                 </>
               ) : (
