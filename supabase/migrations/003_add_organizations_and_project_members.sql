@@ -233,6 +233,33 @@ CREATE TRIGGER add_project_creator_trigger
   FOR EACH ROW
   EXECUTE FUNCTION add_project_creator_as_owner();
 
+-- Backfill project owners cho các dự án đã tồn tại trước migration này
+INSERT INTO thanh_vien_du_an (
+  du_an_id,
+  nguoi_dung_id,
+  email,
+  vai_tro,
+  trang_thai,
+  ngay_tham_gia,
+  nguoi_moi_id
+)
+SELECT
+  da.id,
+  nd.id,
+  nd.email,
+  'owner',
+  'active',
+  NOW(),
+  da.nguoi_tao_id
+FROM du_an da
+JOIN nguoi_dung nd ON nd.id = da.nguoi_tao_id
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM thanh_vien_du_an tvda
+  WHERE tvda.du_an_id = da.id
+    AND tvda.email = nd.email
+);
+
 -- Function để cập nhật ngay_tham_gia khi chấp nhận lời mời
 CREATE OR REPLACE FUNCTION update_ngay_tham_gia()
 RETURNS TRIGGER AS $$

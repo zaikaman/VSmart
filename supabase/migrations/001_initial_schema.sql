@@ -1,170 +1,157 @@
--- WARNING: This schema is for context only and is not meant to be run.
--- Table order and constraints may not be valid for execution.
+-- Migration: Initial executable schema for VSmart
+-- Created: 2026-01-16
+-- Purpose: bootstrap base tables before incremental migrations 003+
 
-CREATE TABLE public.binh_luan (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  task_id uuid NOT NULL,
-  nguoi_dung_id uuid NOT NULL,
-  noi_dung text NOT NULL,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
-  CONSTRAINT binh_luan_pkey PRIMARY KEY (id),
-  CONSTRAINT binh_luan_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.task(id),
-  CONSTRAINT binh_luan_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE OR REPLACE FUNCTION public.update_cap_nhat_cuoi()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.cap_nhat_cuoi = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE IF NOT EXISTS public.phong_ban (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ten VARCHAR(255) NOT NULL,
+  mo_ta TEXT,
+  so_luong_thanh_vien INTEGER DEFAULT 0,
+  ngay_tao TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.du_an (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  ten character varying NOT NULL,
-  mo_ta text,
-  deadline timestamp with time zone NOT NULL,
-  trang_thai character varying DEFAULT 'todo'::character varying CHECK (trang_thai::text = ANY (ARRAY['todo'::character varying, 'in-progress'::character varying, 'done'::character varying]::text[])),
-  nguoi_tao_id uuid NOT NULL,
-  phan_tram_hoan_thanh real DEFAULT 0.0,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
-  to_chuc_id uuid,
-  CONSTRAINT du_an_pkey PRIMARY KEY (id),
-  CONSTRAINT du_an_nguoi_tao_id_fkey FOREIGN KEY (nguoi_tao_id) REFERENCES public.nguoi_dung(id),
-  CONSTRAINT du_an_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id)
+
+CREATE TABLE IF NOT EXISTS public.nguoi_dung (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ten VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  mat_khau_hash VARCHAR(255) NOT NULL,
+  vai_tro VARCHAR(20) DEFAULT 'member'
+    CHECK (vai_tro IN ('admin', 'manager', 'member')),
+  phong_ban_id UUID REFERENCES public.phong_ban(id),
+  avatar_url VARCHAR(500),
+  ty_le_hoan_thanh REAL DEFAULT 0.0,
+  ngay_tao TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  cap_nhat_cuoi TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.goi_y_phan_cong (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  task_id uuid NOT NULL,
-  nguoi_dung_goi_y_id uuid NOT NULL,
-  diem_phu_hop real NOT NULL CHECK (diem_phu_hop >= 0::double precision AND diem_phu_hop <= 100::double precision),
-  ly_do jsonb NOT NULL,
-  da_chap_nhan boolean DEFAULT false,
-  thoi_gian timestamp with time zone DEFAULT now(),
-  CONSTRAINT goi_y_phan_cong_pkey PRIMARY KEY (id),
-  CONSTRAINT goi_y_phan_cong_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.task(id),
-  CONSTRAINT goi_y_phan_cong_nguoi_dung_goi_y_id_fkey FOREIGN KEY (nguoi_dung_goi_y_id) REFERENCES public.nguoi_dung(id)
+
+CREATE TABLE IF NOT EXISTS public.ky_nang_nguoi_dung (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nguoi_dung_id UUID NOT NULL REFERENCES public.nguoi_dung(id) ON DELETE CASCADE,
+  ten_ky_nang VARCHAR(255) NOT NULL,
+  trinh_do VARCHAR(20) NOT NULL
+    CHECK (trinh_do IN ('beginner', 'intermediate', 'advanced', 'expert')),
+  nam_kinh_nghiem INTEGER DEFAULT 0,
+  ngay_tao TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.ky_nang_nguoi_dung (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  nguoi_dung_id uuid NOT NULL,
-  ten_ky_nang character varying NOT NULL,
-  trinh_do character varying NOT NULL CHECK (trinh_do::text = ANY (ARRAY['beginner'::character varying, 'intermediate'::character varying, 'advanced'::character varying, 'expert'::character varying]::text[])),
-  nam_kinh_nghiem integer DEFAULT 0,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  CONSTRAINT ky_nang_nguoi_dung_pkey PRIMARY KEY (id),
-  CONSTRAINT ky_nang_nguoi_dung_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id)
+
+CREATE TABLE IF NOT EXISTS public.du_an (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ten VARCHAR(255) NOT NULL,
+  mo_ta TEXT,
+  deadline TIMESTAMP WITH TIME ZONE NOT NULL,
+  trang_thai VARCHAR(20) DEFAULT 'todo'
+    CHECK (trang_thai IN ('todo', 'in-progress', 'done')),
+  nguoi_tao_id UUID NOT NULL REFERENCES public.nguoi_dung(id),
+  phan_tram_hoan_thanh REAL DEFAULT 0.0,
+  ngay_tao TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  cap_nhat_cuoi TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.lich_su_task (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  task_id uuid NOT NULL,
-  hanh_dong character varying NOT NULL CHECK (hanh_dong::text = ANY (ARRAY['created'::character varying, 'assigned'::character varying, 'status_changed'::character varying, 'progress_updated'::character varying, 'completed'::character varying, 'deleted'::character varying]::text[])),
-  nguoi_thuc_hien_id uuid NOT NULL,
-  gia_tri_cu jsonb,
-  gia_tri_moi jsonb,
-  thoi_gian timestamp with time zone DEFAULT now(),
-  CONSTRAINT lich_su_task_pkey PRIMARY KEY (id),
-  CONSTRAINT lich_su_task_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.task(id),
-  CONSTRAINT lich_su_task_nguoi_thuc_hien_id_fkey FOREIGN KEY (nguoi_thuc_hien_id) REFERENCES public.nguoi_dung(id)
+
+CREATE TABLE IF NOT EXISTS public.phan_du_an (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ten VARCHAR(255) NOT NULL,
+  mo_ta TEXT,
+  deadline TIMESTAMP WITH TIME ZONE NOT NULL,
+  du_an_id UUID NOT NULL REFERENCES public.du_an(id) ON DELETE CASCADE,
+  phong_ban_id UUID NOT NULL REFERENCES public.phong_ban(id),
+  trang_thai VARCHAR(20) DEFAULT 'todo'
+    CHECK (trang_thai IN ('todo', 'in-progress', 'done')),
+  phan_tram_hoan_thanh REAL DEFAULT 0.0,
+  ngay_tao TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  cap_nhat_cuoi TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.nguoi_dung (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  ten character varying NOT NULL,
-  email character varying NOT NULL UNIQUE,
-  mat_khau_hash character varying NOT NULL,
-  vai_tro character varying DEFAULT 'member'::character varying CHECK (vai_tro::text = ANY (ARRAY['admin'::character varying, 'manager'::character varying, 'member'::character varying]::text[])),
-  phong_ban_id uuid,
-  avatar_url character varying,
-  ty_le_hoan_thanh real DEFAULT 0.0,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
-  to_chuc_id uuid,
-  onboarding_completed boolean DEFAULT false,
-  ten_cong_ty character varying,
-  ten_phong_ban character varying,
-  settings jsonb DEFAULT '{"dashboard": {"defaultPage": "/dashboard", "itemsPerPage": 10}, "notifications": {"pushEnabled": false, "emailComments": true, "emailTaskAssigned": true, "emailDeadlineReminder": true}}'::jsonb,
-  CONSTRAINT nguoi_dung_pkey PRIMARY KEY (id),
-  CONSTRAINT nguoi_dung_phong_ban_id_fkey FOREIGN KEY (phong_ban_id) REFERENCES public.phong_ban(id),
-  CONSTRAINT nguoi_dung_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id)
+
+CREATE TABLE IF NOT EXISTS public.task (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ten VARCHAR(255) NOT NULL,
+  mo_ta TEXT,
+  deadline TIMESTAMP WITH TIME ZONE NOT NULL,
+  phan_du_an_id UUID NOT NULL REFERENCES public.phan_du_an(id) ON DELETE CASCADE,
+  assignee_id UUID REFERENCES public.nguoi_dung(id),
+  trang_thai VARCHAR(20) DEFAULT 'todo'
+    CHECK (trang_thai IN ('todo', 'in-progress', 'done')),
+  priority VARCHAR(20) DEFAULT 'medium'
+    CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  progress INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+  risk_score INTEGER DEFAULT 0 CHECK (risk_score >= 0 AND risk_score <= 100),
+  risk_level VARCHAR(20) DEFAULT 'low'
+    CHECK (risk_level IN ('low', 'medium', 'high')),
+  risk_updated_at TIMESTAMP WITH TIME ZONE,
+  is_stale BOOLEAN DEFAULT FALSE,
+  ngay_tao TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  cap_nhat_cuoi TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  deleted_at TIMESTAMP WITH TIME ZONE
 );
-CREATE TABLE public.phan_du_an (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  ten character varying NOT NULL,
-  mo_ta text,
-  deadline timestamp with time zone NOT NULL,
-  du_an_id uuid NOT NULL,
-  phong_ban_id uuid NOT NULL,
-  trang_thai character varying DEFAULT 'todo'::character varying CHECK (trang_thai::text = ANY (ARRAY['todo'::character varying, 'in-progress'::character varying, 'done'::character varying]::text[])),
-  phan_tram_hoan_thanh real DEFAULT 0.0,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
-  CONSTRAINT phan_du_an_pkey PRIMARY KEY (id),
-  CONSTRAINT phan_du_an_du_an_id_fkey FOREIGN KEY (du_an_id) REFERENCES public.du_an(id),
-  CONSTRAINT phan_du_an_phong_ban_id_fkey FOREIGN KEY (phong_ban_id) REFERENCES public.phong_ban(id)
+
+CREATE TABLE IF NOT EXISTS public.goi_y_phan_cong (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  task_id UUID NOT NULL REFERENCES public.task(id) ON DELETE CASCADE,
+  nguoi_dung_goi_y_id UUID NOT NULL REFERENCES public.nguoi_dung(id) ON DELETE CASCADE,
+  diem_phu_hop REAL NOT NULL CHECK (diem_phu_hop >= 0 AND diem_phu_hop <= 100),
+  ly_do JSONB NOT NULL,
+  da_chap_nhan BOOLEAN DEFAULT FALSE,
+  thoi_gian TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.phong_ban (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  ten character varying NOT NULL,
-  mo_ta text,
-  so_luong_thanh_vien integer DEFAULT 0,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  to_chuc_id uuid,
-  CONSTRAINT phong_ban_pkey PRIMARY KEY (id),
-  CONSTRAINT phong_ban_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id)
+
+CREATE TABLE IF NOT EXISTS public.lich_su_task (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  task_id UUID NOT NULL REFERENCES public.task(id) ON DELETE CASCADE,
+  hanh_dong VARCHAR(30) NOT NULL
+    CHECK (hanh_dong IN ('created', 'assigned', 'status_changed', 'progress_updated', 'completed', 'deleted')),
+  nguoi_thuc_hien_id UUID NOT NULL REFERENCES public.nguoi_dung(id),
+  gia_tri_cu JSONB,
+  gia_tri_moi JSONB,
+  thoi_gian TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.task (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  ten character varying NOT NULL,
-  mo_ta text,
-  deadline timestamp with time zone NOT NULL,
-  phan_du_an_id uuid NOT NULL,
-  assignee_id uuid,
-  trang_thai character varying DEFAULT 'todo'::character varying CHECK (trang_thai::text = ANY (ARRAY['todo'::character varying, 'in-progress'::character varying, 'done'::character varying]::text[])),
-  priority character varying DEFAULT 'medium'::character varying CHECK (priority::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'urgent'::character varying]::text[])),
-  progress integer DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
-  risk_score integer DEFAULT 0 CHECK (risk_score >= 0 AND risk_score <= 100),
-  risk_level character varying DEFAULT 'low'::character varying CHECK (risk_level::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying]::text[])),
-  risk_updated_at timestamp with time zone,
-  is_stale boolean DEFAULT false,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
-  deleted_at timestamp with time zone,
-  CONSTRAINT task_pkey PRIMARY KEY (id),
-  CONSTRAINT task_phan_du_an_id_fkey FOREIGN KEY (phan_du_an_id) REFERENCES public.phan_du_an(id),
-  CONSTRAINT task_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES public.nguoi_dung(id)
+
+CREATE TABLE IF NOT EXISTS public.thong_bao (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nguoi_dung_id UUID NOT NULL REFERENCES public.nguoi_dung(id) ON DELETE CASCADE,
+  loai VARCHAR(30) NOT NULL
+    CHECK (loai IN ('risk_alert', 'stale_task', 'assignment', 'overload')),
+  noi_dung TEXT NOT NULL,
+  task_lien_quan_id UUID REFERENCES public.task(id) ON DELETE CASCADE,
+  da_doc BOOLEAN DEFAULT FALSE,
+  thoi_gian TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-CREATE TABLE public.thanh_vien_du_an (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  du_an_id uuid NOT NULL,
-  nguoi_dung_id uuid,
-  email character varying NOT NULL,
-  vai_tro character varying DEFAULT 'member'::character varying CHECK (vai_tro::text = ANY (ARRAY['owner'::character varying, 'admin'::character varying, 'member'::character varying, 'viewer'::character varying]::text[])),
-  trang_thai character varying DEFAULT 'pending'::character varying CHECK (trang_thai::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'declined'::character varying]::text[])),
-  ngay_moi timestamp with time zone DEFAULT now(),
-  ngay_tham_gia timestamp with time zone,
-  nguoi_moi_id uuid NOT NULL,
-  CONSTRAINT thanh_vien_du_an_pkey PRIMARY KEY (id),
-  CONSTRAINT thanh_vien_du_an_du_an_id_fkey FOREIGN KEY (du_an_id) REFERENCES public.du_an(id),
-  CONSTRAINT thanh_vien_du_an_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id),
-  CONSTRAINT thanh_vien_du_an_nguoi_moi_id_fkey FOREIGN KEY (nguoi_moi_id) REFERENCES public.nguoi_dung(id)
-);
-CREATE TABLE public.thong_bao (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  nguoi_dung_id uuid NOT NULL,
-  loai character varying NOT NULL CHECK (loai::text = ANY (ARRAY['risk_alert'::character varying::text, 'stale_task'::character varying::text, 'assignment'::character varying::text, 'overload'::character varying::text, 'project_invitation'::character varying::text])),
-  noi_dung text NOT NULL,
-  task_lien_quan_id uuid,
-  da_doc boolean DEFAULT false,
-  thoi_gian timestamp with time zone DEFAULT now(),
-  du_an_lien_quan_id uuid,
-  thanh_vien_du_an_id uuid,
-  CONSTRAINT thong_bao_pkey PRIMARY KEY (id),
-  CONSTRAINT thong_bao_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id),
-  CONSTRAINT thong_bao_task_lien_quan_id_fkey FOREIGN KEY (task_lien_quan_id) REFERENCES public.task(id),
-  CONSTRAINT thong_bao_du_an_lien_quan_id_fkey FOREIGN KEY (du_an_lien_quan_id) REFERENCES public.du_an(id),
-  CONSTRAINT thong_bao_thanh_vien_du_an_id_fkey FOREIGN KEY (thanh_vien_du_an_id) REFERENCES public.thanh_vien_du_an(id)
-);
-CREATE TABLE public.to_chuc (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  ten character varying NOT NULL,
-  mo_ta text,
-  logo_url character varying,
-  nguoi_tao_id uuid NOT NULL,
-  ngay_tao timestamp with time zone DEFAULT now(),
-  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
-  CONSTRAINT to_chuc_pkey PRIMARY KEY (id)
-);
+
+CREATE INDEX IF NOT EXISTS idx_task_phan_du_an_id ON public.task(phan_du_an_id);
+CREATE INDEX IF NOT EXISTS idx_task_assignee_id ON public.task(assignee_id);
+CREATE INDEX IF NOT EXISTS idx_task_deleted_at ON public.task(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_phan_du_an_du_an_id ON public.phan_du_an(du_an_id);
+CREATE INDEX IF NOT EXISTS idx_ky_nang_nguoi_dung_nguoi_dung_id ON public.ky_nang_nguoi_dung(nguoi_dung_id);
+CREATE INDEX IF NOT EXISTS idx_thong_bao_nguoi_dung_id ON public.thong_bao(nguoi_dung_id);
+
+DROP TRIGGER IF EXISTS update_nguoi_dung_cap_nhat_cuoi ON public.nguoi_dung;
+CREATE TRIGGER update_nguoi_dung_cap_nhat_cuoi
+  BEFORE UPDATE ON public.nguoi_dung
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_cap_nhat_cuoi();
+
+DROP TRIGGER IF EXISTS update_du_an_cap_nhat_cuoi ON public.du_an;
+CREATE TRIGGER update_du_an_cap_nhat_cuoi
+  BEFORE UPDATE ON public.du_an
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_cap_nhat_cuoi();
+
+DROP TRIGGER IF EXISTS update_phan_du_an_cap_nhat_cuoi ON public.phan_du_an;
+CREATE TRIGGER update_phan_du_an_cap_nhat_cuoi
+  BEFORE UPDATE ON public.phan_du_an
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_cap_nhat_cuoi();
+
+DROP TRIGGER IF EXISTS update_task_cap_nhat_cuoi ON public.task;
+CREATE TRIGGER update_task_cap_nhat_cuoi
+  BEFORE UPDATE ON public.task
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_cap_nhat_cuoi();
