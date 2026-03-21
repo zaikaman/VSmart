@@ -35,6 +35,8 @@ export function useProjectParts(projectId: string) {
             return result.data as ProjectPart[];
         },
         enabled: !!projectId,
+        staleTime: 3 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
     });
 }
 

@@ -1,7 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 export interface Notification {
   id: string;
@@ -20,38 +25,51 @@ export interface Notification {
   } | null;
 }
 
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface NotificationsResponse {
   data: Notification[];
   unreadCount: number;
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  pagination: PaginationMeta;
 }
 
-async function fetchNotifications(page = 1, unreadOnly = false): Promise<NotificationsResponse> {
+async function fetchNotifications({
+  page,
+  limit,
+  unreadOnly,
+}: {
+  page: number;
+  limit: number;
+  unreadOnly: boolean;
+}): Promise<NotificationsResponse> {
   const params = new URLSearchParams({
     page: page.toString(),
-    limit: '20',
-    ...(unreadOnly && { unreadOnly: 'true' }),
+    limit: limit.toString(),
   });
-  
-  const res = await fetch(`/api/notifications?${params}`);
-  
+
+  if (unreadOnly) {
+    params.set('unreadOnly', 'true');
+  }
+
+  const res = await fetch(`/api/notifications?${params.toString()}`);
+
   if (!res.ok) {
     throw new Error('Không thể tải thông báo');
   }
-  
-  return res.json();
+
+  return res.json() as Promise<NotificationsResponse>;
 }
 
 async function markAsRead(id: string): Promise<void> {
   const res = await fetch(`/api/notifications/${id}/read`, {
     method: 'PATCH',
   });
-  
+
   if (!res.ok) {
     throw new Error('Không thể đánh dấu đã đọc');
   }
@@ -61,120 +79,145 @@ async function markAllAsRead(): Promise<void> {
   const res = await fetch('/api/notifications/read-all', {
     method: 'PATCH',
   });
-  
+
   if (!res.ok) {
     throw new Error('Không thể đánh dấu tất cả đã đọc');
   }
 }
 
-export function useNotifications(options?: { unreadOnly?: boolean }) {
+export function useNotifications(options?: { unreadOnly?: boolean; limit?: number }) {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  
-  // Query notifications với polling
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['notifications', page, options?.unreadOnly],
-    queryFn: () => fetchNotifications(page, options?.unreadOnly),
-    staleTime: 5 * 1000, // 5 giây - notifications cần fresh
-    gcTime: 2 * 60 * 1000, // 2 phút cache
-    refetchInterval: 10 * 1000, // Polling mỗi 10 giây
-    refetchOnWindowFocus: true, // Refetch khi user quay lại tab
-    refetchIntervalInBackground: false, // Không poll khi tab không active
+  const limit = options?.limit ?? 10;
+  const unreadOnly = options?.unreadOnly ?? false;
+
+  const queryKey = useMemo(
+    () => ['notifications', { page, limit, unreadOnly }] as const,
+    [limit, page, unreadOnly]
+  );
+
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey,
+    queryFn: () => fetchNotifications({ page, limit, unreadOnly }),
+    placeholderData: keepPreviousData,
+    staleTime: 15 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false,
   });
-  
-  // Mutation: mark as read
+
   const markAsReadMutation = useMutation({
     mutationFn: markAsRead,
     onMutate: async (id) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
-      
-      // Snapshot previous value
-      const previous = queryClient.getQueryData<NotificationsResponse>(['notifications', page, options?.unreadOnly]);
-      
-      // Optimistically update
-      if (previous) {
-        queryClient.setQueryData<NotificationsResponse>(['notifications', page, options?.unreadOnly], {
-          ...previous,
-          data: previous.data.map((n) =>
-            n.id === id ? { ...n, da_doc: true } : n
-          ),
-          unreadCount: Math.max(0, previous.unreadCount - 1),
-        });
-      }
-      
-      return { previous };
+
+      const snapshots = queryClient.getQueriesData<NotificationsResponse>({
+        queryKey: ['notifications'],
+      });
+
+      queryClient.setQueriesData<NotificationsResponse>(
+        { queryKey: ['notifications'] },
+        (previous) => {
+          if (!previous) return previous;
+
+          const wasUnread = previous.data.some((notification) => notification.id === id && !notification.da_doc);
+
+          return {
+            ...previous,
+            data: previous.data.map((notification) =>
+              notification.id === id ? { ...notification, da_doc: true } : notification
+            ),
+            unreadCount: wasUnread ? Math.max(0, previous.unreadCount - 1) : previous.unreadCount,
+          };
+        }
+      );
+
+      return { snapshots };
     },
-    onError: (err, id, context) => {
-      // Rollback on error
-      if (context?.previous) {
-        queryClient.setQueryData(['notifications', page, options?.unreadOnly], context.previous);
-      }
+    onError: (_error, _id, context) => {
+      context?.snapshots.forEach(([key, value]) => {
+        queryClient.setQueryData(key, value);
+      });
     },
     onSettled: () => {
-      // Refetch after mutation
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
-  
-  // Mutation: mark all as read
+
   const markAllAsReadMutation = useMutation({
     mutationFn: markAllAsRead,
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['notifications'] });
-      
-      const previous = queryClient.getQueryData<NotificationsResponse>(['notifications', page, options?.unreadOnly]);
-      
-      if (previous) {
-        queryClient.setQueryData<NotificationsResponse>(['notifications', page, options?.unreadOnly], {
-          ...previous,
-          data: previous.data.map((n) => ({ ...n, da_doc: true })),
-          unreadCount: 0,
-        });
-      }
-      
-      return { previous };
+
+      const snapshots = queryClient.getQueriesData<NotificationsResponse>({
+        queryKey: ['notifications'],
+      });
+
+      queryClient.setQueriesData<NotificationsResponse>(
+        { queryKey: ['notifications'] },
+        (previous) => {
+          if (!previous) return previous;
+
+          return {
+            ...previous,
+            data: previous.data.map((notification) => ({ ...notification, da_doc: true })),
+            unreadCount: 0,
+          };
+        }
+      );
+
+      return { snapshots };
     },
-    onError: (err, variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['notifications', page, options?.unreadOnly], context.previous);
-      }
+    onError: (_error, _variables, context) => {
+      context?.snapshots.forEach(([key, value]) => {
+        queryClient.setQueryData(key, value);
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
-  
-  const handleMarkAsRead = useCallback((id: string) => {
-    markAsReadMutation.mutate(id);
-  }, [markAsReadMutation]);
-  
+
+  const handleMarkAsRead = useCallback(
+    (id: string) => {
+      markAsReadMutation.mutate(id);
+    },
+    [markAsReadMutation]
+  );
+
   const handleMarkAllAsRead = useCallback(() => {
     markAllAsReadMutation.mutate();
   }, [markAllAsReadMutation]);
-  
+
+  const totalPages = data?.pagination.totalPages ?? 0;
+
   const handleNextPage = useCallback(() => {
     if (data && page < data.pagination.totalPages) {
-      setPage((p) => p + 1);
+      setPage((previous) => previous + 1);
     }
   }, [data, page]);
-  
+
   const handlePrevPage = useCallback(() => {
     if (page > 1) {
-      setPage((p) => p - 1);
+      setPage((previous) => previous - 1);
     }
   }, [page]);
-  
+
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      if (nextPage < 1 || (totalPages > 0 && nextPage > totalPages)) {
+        return;
+      }
+      setPage(nextPage);
+    },
+    [totalPages]
+  );
+
   return {
     notifications: data?.data || [],
     unreadCount: data?.unreadCount || 0,
-    pagination: data?.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
+    pagination: data?.pagination || { page: 1, limit, total: 0, totalPages: 0 },
     isLoading,
     isFetching,
     error,
@@ -183,6 +226,9 @@ export function useNotifications(options?: { unreadOnly?: boolean }) {
     markAllAsRead: handleMarkAllAsRead,
     nextPage: handleNextPage,
     prevPage: handlePrevPage,
+    setPage: handlePageChange,
     currentPage: page,
+    hasNextPage: totalPages > 0 && page < totalPages,
+    hasPrevPage: page > 1,
   };
 }

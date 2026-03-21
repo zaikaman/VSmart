@@ -1,110 +1,129 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ComponentProps, useState } from 'react';
+import { AlertCircle, Filter } from 'lucide-react';
+import { Task as KanbanTask } from '@/components/kanban/kanban-column';
+import { toast } from 'sonner';
 import { KanbanBoard } from '@/components/kanban/kanban-board';
 import { CreateTaskModal } from '@/components/kanban/create-task-modal';
 import { TaskDetailModal } from '@/components/kanban/task-detail-modal';
-import { useTasks } from '@/lib/hooks/use-tasks';
-import { useProjects } from '@/lib/hooks/use-projects';
-import { useProjectParts, ProjectPart } from '@/lib/hooks/use-project-parts';
-import { useUserSettings } from '@/lib/hooks/use-settings';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, AlertTriangle, CheckCircle2, Filter } from 'lucide-react';
-import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
+import { Pagination } from '@/components/ui/pagination';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useProjectParts, ProjectPart } from '@/lib/hooks/use-project-parts';
+import { useProjects } from '@/lib/hooks/use-projects';
+import { useUserSettings } from '@/lib/hooks/use-settings';
+import { useTasks } from '@/lib/hooks/use-tasks';
 
 type RiskFilter = 'all' | 'low' | 'medium' | 'high' | 'stale';
+type TaskDetailData = ComponentProps<typeof TaskDetailModal>['task'];
 
 export default function KanbanPage() {
   const { data: settingsResponse } = useUserSettings();
   const itemsPerPage = settingsResponse?.data?.dashboard?.itemsPerPage || 10;
 
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [selectedPartId, setSelectedPartId] = useState<string>('');
-  const [selectedPartName, setSelectedPartName] = useState<string>('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedPartId, setSelectedPartId] = useState('');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
-  const { data: projects, isLoading: projectsLoading } = useProjects({ limit: itemsPerPage });
-  const { data: parts, isLoading: partsLoading } = useProjectParts(selectedProjectId);
-  const { data: tasks, isLoading: tasksLoading, error } = useTasks();
-
-  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTask, setSelectedTask] = useState<TaskDetailData>(null);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [initialStatus, setInitialStatus] = useState('todo');
 
-  // Tự động chọn project đầu tiên
-  useEffect(() => {
-    if (projects?.data && projects.data.length > 0 && !selectedProjectId) {
-      setSelectedProjectId(projects.data[0].id);
-    }
-  }, [projects, selectedProjectId]);
+  const { data: projects, isLoading: projectsLoading } = useProjects({ page: 1, limit: 100 });
+  const projectList = projects?.data || [];
+  const effectiveProjectId = projectList.some((project) => project.id === selectedProjectId)
+    ? selectedProjectId
+    : (projectList[0]?.id ?? '');
 
-  // Tự động chọn part đầu tiên khi project thay đổi
-  useEffect(() => {
-    if (parts && parts.length > 0 && !selectedPartId) {
-      setSelectedPartId(parts[0].id);
-      setSelectedPartName(parts[0].ten);
-    }
-  }, [parts, selectedPartId]);
+  const { data: parts, isLoading: partsLoading } = useProjectParts(effectiveProjectId);
+  const partList = parts || [];
+  const effectivePartId = partList.some((part) => part.id === selectedPartId)
+    ? selectedPartId
+    : (partList[0]?.id ?? '');
+  const selectedPartName = partList.find((part) => part.id === effectivePartId)?.ten || '';
 
-  // Reset part khi project thay đổi
-  useEffect(() => {
+  const { data: tasksResponse, isLoading: tasksLoading, error } = useTasks({
+    page: currentPage,
+    limit: itemsPerPage,
+    duAnId: effectiveProjectId || undefined,
+    phanDuAnId: effectivePartId || undefined,
+    riskLevel:
+      riskFilter === 'low' || riskFilter === 'medium' || riskFilter === 'high'
+        ? riskFilter
+        : undefined,
+    isStale: riskFilter === 'stale',
+  });
+
+  const handleProjectChange = (value: string) => {
+    setSelectedProjectId(value);
     setSelectedPartId('');
-    setSelectedPartName('');
-  }, [selectedProjectId]);
+    setCurrentPage(1);
+  };
+
+  const handlePartChange = (value: string) => {
+    setSelectedPartId(value);
+    setCurrentPage(1);
+  };
+
+  const handleRiskFilterChange = (value: string) => {
+    setRiskFilter(value as RiskFilter);
+    setCurrentPage(1);
+  };
 
   const handleAddTask = (columnId: string) => {
-    if (!selectedPartId) {
+    if (!effectivePartId) {
       toast.error('Vui lòng chọn phần dự án trước khi tạo task');
       return;
     }
+
     setInitialStatus(columnId);
     setCreateTaskOpen(true);
   };
 
-  // Filter tasks theo selected part và risk level
-  const filteredTasks = (tasks?.filter((task: any) => {
-    // Filter theo part
-    const partMatch = selectedPartId ? task.phan_du_an_id === selectedPartId : true;
-
-    // Filter theo risk level
-    let riskMatch = true;
-    if (riskFilter !== 'all') {
-      if (riskFilter === 'stale') {
-        riskMatch = task.is_stale === true;
-      } else {
-        riskMatch = task.risk_level === riskFilter;
-      }
-    }
-
-    return partMatch && riskMatch;
-  }) || []);
-
-  // Đếm số tasks theo risk level
-  const allTasks = tasks?.filter((task: any) =>
-    selectedPartId ? task.phan_du_an_id === selectedPartId : true
-  ) || [];
-
-  const riskCounts = {
-    all: allTasks.length,
-    low: allTasks.filter((t: any) => t.risk_level === 'low' || !t.risk_level).length,
-    medium: allTasks.filter((t: any) => t.risk_level === 'medium').length,
-    high: allTasks.filter((t: any) => t.risk_level === 'high').length,
-    stale: allTasks.filter((t: any) => t.is_stale === true).length,
+  const handleTaskClick = (task: KanbanTask) => {
+    setSelectedTask({
+      id: task.id,
+      ten: task.ten,
+      moTa: task.mo_ta,
+      deadline: task.deadline || null,
+      trangThai: task.trang_thai || 'todo',
+      priority: task.priority,
+      progress: task.progress,
+      riskScore: task.risk_score,
+      nguoi_dung: task.nguoi_dung
+        ? {
+            hoTen: task.nguoi_dung.ten,
+            email: task.nguoi_dung.email,
+          }
+        : null,
+      phan_du_an: task.phan_du_an
+        ? {
+            ten: task.phan_du_an.ten,
+            du_an: {
+              ten: task.phan_du_an.du_an?.ten || '',
+            },
+          }
+        : null,
+      taoLuc: undefined,
+      capNhatCuoi: undefined,
+    });
   };
 
   const isLoading = projectsLoading || tasksLoading;
+  const tasks = tasksResponse?.data || [];
+  const pagination = tasksResponse?.pagination;
 
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="min-w-[320px]">
-              <Skeleton className="h-12 mb-4" />
-              <Skeleton className="h-40 mb-3" />
-              <Skeleton className="h-40 mb-3" />
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="min-w-[320px]">
+              <Skeleton className="mb-4 h-12" />
+              <Skeleton className="mb-3 h-40" />
+              <Skeleton className="mb-3 h-40" />
               <Skeleton className="h-40" />
             </div>
           ))}
@@ -116,39 +135,30 @@ export default function KanbanPage() {
   if (error) {
     return (
       <div className="container mx-auto p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
           <h3 className="font-semibold">Lỗi tải tasks</h3>
-          <p className="text-sm mt-1">Vui lòng thử lại sau</p>
+          <p className="mt-1 text-sm">Vui lòng thử lại sau</p>
         </div>
       </div>
     );
   }
 
-  const projectList = projects?.data || [];
-  const partList = parts || [];
-
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Bảng Kanban</h1>
+        <h1 className="mb-2 text-2xl font-bold">Bảng Kanban</h1>
         <p className="text-gray-600">Quản lý tasks theo từng trạng thái</p>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4 mb-6 flex-wrap">
+      <div className="mb-6 flex flex-wrap gap-4">
         <div className="min-w-[250px]">
-          <Label className="text-sm text-gray-600 mb-1 block">Dự án</Label>
-          <Select
-            value={selectedProjectId}
-            onValueChange={(value) => {
-              setSelectedProjectId(value);
-            }}
-          >
+          <Label className="mb-1 block text-sm text-gray-600">Dự án</Label>
+          <Select value={effectiveProjectId} onValueChange={handleProjectChange}>
             <SelectTrigger>
               <SelectValue placeholder="Chọn dự án" />
             </SelectTrigger>
             <SelectContent>
-              {projectList.map((project: any) => (
+              {projectList.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   {project.ten}
                 </SelectItem>
@@ -158,26 +168,24 @@ export default function KanbanPage() {
         </div>
 
         <div className="min-w-[250px]">
-          <Label className="text-sm text-gray-600 mb-1 block">Phần dự án</Label>
+          <Label className="mb-1 block text-sm text-gray-600">Phần dự án</Label>
           <Select
-            value={selectedPartId}
-            onValueChange={(value) => {
-              setSelectedPartId(value);
-              const part = partList.find((p: ProjectPart) => p.id === value);
-              setSelectedPartName(part?.ten || '');
-            }}
-            disabled={!selectedProjectId || partsLoading}
+            value={effectivePartId}
+            onValueChange={handlePartChange}
+            disabled={!effectiveProjectId || partsLoading}
           >
             <SelectTrigger>
-              <SelectValue placeholder={
-                !selectedProjectId
-                  ? "Chọn dự án trước"
-                  : partsLoading
-                    ? "Đang tải..."
-                    : partList.length === 0
-                      ? "Chưa có phần dự án"
-                      : "Chọn phần dự án"
-              } />
+              <SelectValue
+                placeholder={
+                  !effectiveProjectId
+                    ? 'Chọn dự án trước'
+                    : partsLoading
+                      ? 'Đang tải...'
+                      : partList.length === 0
+                        ? 'Chưa có phần dự án'
+                        : 'Chọn phần dự án'
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {partList.map((part: ProjectPart) => (
@@ -189,107 +197,61 @@ export default function KanbanPage() {
           </Select>
         </div>
 
-        {/* Risk Filter */}
         <div className="min-w-[200px]">
-          <Label className="text-sm text-gray-600 mb-1 block">Lọc theo rủi ro</Label>
-          <Select
-            value={riskFilter}
-            onValueChange={(value) => setRiskFilter(value as RiskFilter)}
-          >
+          <Label className="mb-1 block text-sm text-gray-600">Lọc theo rủi ro</Label>
+          <Select value={riskFilter} onValueChange={handleRiskFilterChange}>
             <SelectTrigger>
               <SelectValue placeholder="Tất cả" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">
                 <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-gray-500" />
+                  <Filter className="h-4 w-4 text-gray-500" />
                   <span>Tất cả</span>
-                  <Badge variant="secondary" className="ml-auto">{riskCounts.all}</Badge>
                 </div>
               </SelectItem>
-              <SelectItem value="low">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  <span>Rủi ro thấp</span>
-                  <Badge variant="secondary" className="ml-auto bg-green-100 text-green-700">{riskCounts.low}</Badge>
-                </div>
-              </SelectItem>
-              <SelectItem value="medium">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                  <span>Rủi ro TB</span>
-                  <Badge variant="secondary" className="ml-auto bg-yellow-100 text-yellow-700">{riskCounts.medium}</Badge>
-                </div>
-              </SelectItem>
-              <SelectItem value="high">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-500" />
-                  <span>Rủi ro cao</span>
-                  <Badge variant="secondary" className="ml-auto bg-red-100 text-red-700">{riskCounts.high}</Badge>
-                </div>
-              </SelectItem>
-              <SelectItem value="stale">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-orange-500" />
-                  <span>Không cập nhật</span>
-                  <Badge variant="secondary" className="ml-auto bg-orange-100 text-orange-700">{riskCounts.stale}</Badge>
-                </div>
-              </SelectItem>
+              <SelectItem value="low">Rủi ro thấp</SelectItem>
+              <SelectItem value="medium">Rủi ro trung bình</SelectItem>
+              <SelectItem value="high">Rủi ro cao</SelectItem>
+              <SelectItem value="stale">Không cập nhật</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Risk Summary Banner */}
-      {(riskCounts.high > 0 || riskCounts.stale > 0) && riskFilter === 'all' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
-          <div className="flex-1">
-            <span className="text-amber-800 text-sm">
-              {riskCounts.high > 0 && (
-                <span className="font-medium">{riskCounts.high} task rủi ro cao</span>
-              )}
-              {riskCounts.high > 0 && riskCounts.stale > 0 && ' • '}
-              {riskCounts.stale > 0 && (
-                <span className="font-medium">{riskCounts.stale} task không cập nhật</span>
-              )}
-            </span>
-          </div>
-          <button
-            onClick={() => setRiskFilter('high')}
-            className="text-xs text-amber-700 hover:text-amber-900 underline"
-          >
-            Xem tasks có vấn đề
-          </button>
-        </div>
-      )}
-
-      {/* Warning if no part selected */}
-      {!selectedPartId && selectedProjectId && partList.length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800 mb-6 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+      {!effectivePartId && effectiveProjectId && partList.length === 0 && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
           <div>
             <h3 className="font-semibold">Chưa có phần dự án</h3>
-            <p className="text-sm mt-1">
+            <p className="mt-1 text-sm">
               Dự án này chưa có phần dự án nào. Vui lòng tạo phần dự án trước để có thể thêm tasks.
             </p>
           </div>
         </div>
       )}
 
-      <KanbanBoard
-        tasks={filteredTasks}
-        onTaskClick={(task) => setSelectedTask(task)}
-        onAddTask={handleAddTask}
-      />
+      <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onAddTask={handleAddTask} />
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.total}
+            itemsPerPage={pagination.limit}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
 
       <CreateTaskModal
         open={createTaskOpen}
         onOpenChange={setCreateTaskOpen}
         initialStatus={initialStatus}
-        phanDuAnId={selectedPartId}
+        phanDuAnId={effectivePartId}
         phanDuAnName={selectedPartName}
-        projectId={selectedProjectId}
+        projectId={effectiveProjectId}
       />
 
       <TaskDetailModal

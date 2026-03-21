@@ -1,0 +1,2 @@
+- Sau khi hoàn thành 1 task nào đó, nhớ chạy lại npm run build để kiểm tra còn lỗi không và fix.
+- Luôn luôn viết content bằng tiếng Việt.

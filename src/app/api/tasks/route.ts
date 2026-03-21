@@ -12,78 +12,115 @@ const taskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
 });
 
-// GET /api/tasks - List tasks của các dự án mà user tham gia
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+
+function parsePositiveInt(value: string | null, fallback: number) {
+  const parsed = Number.parseInt(value || '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function buildEmptyResponse(page: number, limit: number) {
+  return NextResponse.json({
+    data: [],
+    pagination: {
+      page,
+      limit,
+      total: 0,
+      totalPages: 0,
+    },
+  });
+}
+
+async function getAccessiblePartIds({
+  supabase,
+  email,
+  duAnId,
+  phanDuAnId,
+}: {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  email: string;
+  duAnId: string | null;
+  phanDuAnId: string | null;
+}) {
+  const { data: memberships, error: membershipError } = await supabase
+    .from('thanh_vien_du_an')
+    .select('du_an_id')
+    .eq('email', email)
+    .eq('trang_thai', 'active');
+
+  if (membershipError) {
+    throw membershipError;
+  }
+
+  let projectIds = memberships?.map((membership) => membership.du_an_id) || [];
+
+  if (duAnId) {
+    projectIds = projectIds.filter((projectId) => projectId === duAnId);
+  }
+
+  if (projectIds.length === 0) {
+    return [];
+  }
+
+  let partsQuery = supabase
+    .from('phan_du_an')
+    .select('id')
+    .in('du_an_id', projectIds)
+    .is('deleted_at', null);
+
+  if (phanDuAnId) {
+    partsQuery = partsQuery.eq('id', phanDuAnId);
+  }
+
+  const { data: projectParts, error: partsError } = await partsQuery;
+
+  if (partsError) {
+    throw partsError;
+  }
+
+  return projectParts?.map((part) => part.id) || [];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '100'); // Tăng limit cho kanban board
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const limit = Math.min(parsePositiveInt(searchParams.get('limit'), DEFAULT_LIMIT), MAX_LIMIT);
     const trangThai = searchParams.get('trangThai');
     const assigneeId = searchParams.get('assigneeId');
     const deadline = searchParams.get('deadline');
-    const duAnId = searchParams.get('duAnId'); // Filter theo dự án cụ thể
+    const duAnId = searchParams.get('duAnId');
+    const phanDuAnId = searchParams.get('phanDuAnId');
+    const riskLevel = searchParams.get('riskLevel');
+    const riskScoreMin = searchParams.get('riskScoreMin');
+    const isStale = searchParams.get('isStale') === 'true';
 
-    // Lấy danh sách project IDs mà user tham gia
-    const { data: userProjects } = await supabase
-      .from('thanh_vien_du_an')
-      .select('du_an_id')
-      .eq('email', user.email)
-      .eq('trang_thai', 'active');
+    const accessiblePartIds = await getAccessiblePartIds({
+      supabase,
+      email: user.email || '',
+      duAnId,
+      phanDuAnId,
+    });
 
-    let projectIds = userProjects?.map(p => p.du_an_id) || [];
-
-    if (duAnId) {
-      projectIds = projectIds.filter((projectId) => projectId === duAnId);
-    }
-
-    if (projectIds.length === 0) {
-      return NextResponse.json({
-        data: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-        },
-      });
+    if (accessiblePartIds.length === 0) {
+      return buildEmptyResponse(page, limit);
     }
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    const { data: activeProjects } = await supabase
-      .from('du_an')
-      .select('id')
-      .in('id', projectIds)
-      .is('deleted_at', null);
-
-    const activeProjectIds = activeProjects?.map((project) => project.id) || [];
-
-    if (activeProjectIds.length === 0) {
-      return NextResponse.json({
-        data: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-        },
-      });
-    }
-
-    // Query tasks từ các dự án mà user tham gia
     let query = supabase
       .from('task')
       .select(
@@ -91,44 +128,21 @@ export async function GET(request: NextRequest) {
         *,
         nguoi_dung:assignee_id (id, ten, email, avatar_url),
         phan_du_an (
-          id, 
-          ten, 
+          id,
+          ten,
           du_an_id,
-          du_an (id, ten)
+          du_an (
+            ten
+          )
         )
       `,
         { count: 'exact' }
       )
+      .in('phan_du_an_id', accessiblePartIds)
       .is('deleted_at', null)
       .range(from, to)
       .order('ngay_tao', { ascending: false });
 
-    // Filter tasks theo projects của user thông qua phan_du_an
-    // Lấy tất cả part IDs của các projects user tham gia
-    const { data: projectParts } = await supabase
-      .from('phan_du_an')
-      .select('id')
-      .in('du_an_id', activeProjectIds)
-      .is('deleted_at', null);
-
-    const partIds = projectParts?.map(p => p.id) || [];
-
-    if (partIds.length > 0) {
-      query = query.in('phan_du_an_id', partIds);
-    } else {
-      // Không có part nào, return empty
-      return NextResponse.json({
-        data: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-        },
-      });
-    }
-
-    // Apply filters
     if (trangThai) {
       query = query.eq('trang_thai', trangThai);
     }
@@ -141,6 +155,21 @@ export async function GET(request: NextRequest) {
       query = query.lte('deadline', deadline);
     }
 
+    if (riskLevel) {
+      query = query.eq('risk_level', riskLevel);
+    }
+
+    if (riskScoreMin) {
+      const parsedRiskScore = Number.parseInt(riskScoreMin, 10);
+      if (Number.isFinite(parsedRiskScore)) {
+        query = query.gte('risk_score', parsedRiskScore);
+      }
+    }
+
+    if (isStale) {
+      query = query.eq('is_stale', true);
+    }
+
     const { data, error, count } = await query;
 
     if (error) {
@@ -149,7 +178,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      data,
+      data: data || [],
       pagination: {
         page,
         limit,
@@ -159,32 +188,26 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in GET /api/tasks:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/tasks - Create new task
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const validated = taskSchema.parse(body);
 
-    // Verify user có quyền tạo task trong project này không
     const { data: partData } = await supabase
       .from('phan_du_an')
       .select('du_an_id, du_an:du_an_id (ten)')
@@ -193,13 +216,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!partData) {
-      return NextResponse.json(
-        { error: 'Phần dự án không tồn tại' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Phần dự án không tồn tại' }, { status: 404 });
     }
 
-    // Check user có phải thành viên của project này không
     const { data: membership } = await supabase
       .from('thanh_vien_du_an')
       .select('id')
@@ -240,7 +259,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Gửi email thông báo cho assignee nếu có
     if (validated.assignee_id) {
       try {
         const { data: assigneeData } = await supabase
@@ -252,32 +270,23 @@ export async function POST(request: NextRequest) {
         if (assigneeData && assigneeData.email !== user.email) {
           const shouldSend = await shouldSendNotification(assigneeData.email, 'emailTaskAssigned');
           if (shouldSend) {
-            // Get project name
             const projectName = Array.isArray(partData.du_an)
               ? partData.du_an[0]?.ten
-              : (partData.du_an as { ten: string })?.ten || 'Chưa xác định';
+              : (partData.du_an as { ten: string } | null)?.ten || 'Chưa xác định';
 
-            sendTaskAssignedEmail(
-              assigneeData.email,
-              assigneeData.ten,
-              {
-                taskId: data.id,
-                taskName: validated.ten,
-                projectName,
-                deadline: validated.deadline,
-                priority: validated.priority,
-              }
-            ).catch(err => console.error('Error sending task assigned email:', err));
+            sendTaskAssignedEmail(assigneeData.email, assigneeData.ten, {
+              taskId: data.id,
+              taskName: validated.ten,
+              projectName,
+              deadline: validated.deadline,
+              priority: validated.priority,
+            }).catch((emailError) => console.error('Error sending task assigned email:', emailError));
           }
         }
       } catch (emailError) {
         console.error('Error sending task assignment notification:', emailError);
-        // Don't fail the request if email fails
       }
     }
-
-    // Socket broadcast đã bị vô hiệu hóa - sử dụng polling thay thế
-    // Task mới sẽ được hiển thị qua polling mỗi 10 giây
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
@@ -285,9 +294,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     console.error('Error in POST /api/tasks:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

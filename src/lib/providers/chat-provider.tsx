@@ -1,12 +1,21 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode, lazy, Suspense } from 'react';
+import dynamic from 'next/dynamic';
+import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
 
-// Dynamic import ChatSidebar để giảm initial bundle size
-const ChatSidebar = lazy(() => 
-  import('@/components/chat/chat-sidebar').then((mod) => ({ 
-    default: mod.ChatSidebar 
-  }))
+const ChatSidebar = dynamic(
+  () => import('@/components/chat/chat-sidebar').then((mod) => ({ default: mod.ChatSidebar })),
+  {
+    loading: () => (
+      <div className="fixed right-0 top-0 z-50 flex h-full w-[400px] items-center justify-center border-l border-border bg-background shadow-2xl">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Đang tải Chat AI...</p>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
 );
 
 interface ChatContextType {
@@ -18,9 +27,6 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-/**
- * Hook để sử dụng chat context
- */
 export function useChat() {
   const context = useContext(ChatContext);
   if (!context) {
@@ -33,40 +39,17 @@ interface ChatProviderProps {
   children: ReactNode;
 }
 
-/**
- * Loading component cho ChatSidebar
- */
-function ChatSidebarLoading() {
-  return (
-    <div className="fixed right-0 top-0 h-full w-[400px] bg-background border-l border-border shadow-2xl z-50 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-muted-foreground">Đang tải Chat AI...</p>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Provider quản lý state của Chat AI
- * Wrap layout để sử dụng chat từ mọi nơi trong dashboard
- * ChatSidebar được lazy load để tối ưu performance
- */
 export function ChatProvider({ children }: ChatProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const openChat = useCallback(() => setIsOpen(true), []);
   const closeChat = useCallback(() => setIsOpen(false), []);
-  const toggleChat = useCallback(() => setIsOpen((prev) => !prev), []);
+  const toggleChat = useCallback(() => setIsOpen((previous) => !previous), []);
 
   return (
     <ChatContext.Provider value={{ isOpen, openChat, closeChat, toggleChat }}>
       {children}
-      {isOpen && (
-        <Suspense fallback={<ChatSidebarLoading />}>
-          <ChatSidebar isOpen={isOpen} onClose={closeChat} />
-        </Suspense>
-      )}
+      {isOpen ? <ChatSidebar isOpen={isOpen} onClose={closeChat} /> : null}
     </ChatContext.Provider>
   );
 }

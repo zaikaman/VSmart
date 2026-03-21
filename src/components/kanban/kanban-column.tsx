@@ -2,8 +2,8 @@
 
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { KanbanCard } from './kanban-card';
 import { Plus } from 'lucide-react';
+import { KanbanCard } from './kanban-card';
 
 export interface Task {
   id: string;
@@ -24,6 +24,13 @@ export interface Task {
     email: string;
     avatar_url?: string | null;
   } | null;
+  phan_du_an?: {
+    id?: string;
+    ten: string;
+    du_an?: {
+      ten: string;
+    } | null;
+  } | null;
 }
 
 interface KanbanColumnProps {
@@ -40,12 +47,6 @@ const columnStyles = {
   done: 'bg-gray-50/50 border-gray-200',
 };
 
-const columnTitles = {
-  todo: 'Cần Làm',
-  'in-progress': 'Đang Làm',
-  done: 'Hoàn Thành',
-};
-
 export function KanbanColumn({ id, title, tasks, onTaskClick, onAddTask }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id,
@@ -56,35 +57,32 @@ export function KanbanColumn({ id, title, tasks, onTaskClick, onAddTask }: Kanba
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col min-w-[320px] max-w-[380px] rounded-xl border-2 p-4 transition-colors ${columnStyles[id as keyof typeof columnStyles]
-        } ${isOver ? 'ring-2 ring-[#b9ff66] ring-offset-2 border-[#b9ff66]' : ''}`}
+      className={`flex min-w-[320px] max-w-[380px] flex-col rounded-xl border-2 p-4 transition-colors ${columnStyles[id as keyof typeof columnStyles]} ${isOver ? 'border-[#b9ff66] ring-2 ring-[#b9ff66] ring-offset-2' : ''}`}
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-gray-800">{columnTitles[id as keyof typeof columnTitles]}</h3>
-          <span className="px-2 py-0.5 rounded-full bg-gray-200 text-xs font-medium">{tasks.length}</span>
+          <h3 className="font-semibold text-gray-800">{title}</h3>
+          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium">{tasks.length}</span>
         </div>
-        {onAddTask && (
+        {onAddTask ? (
           <button
             onClick={() => onAddTask(id)}
-            className="p-1 hover:bg-gray-200 rounded transition-colors"
+            className="rounded p-1 transition-colors hover:bg-gray-200"
             aria-label="Thêm task mới"
           >
-            <Plus className="w-5 h-5 text-gray-600" />
+            <Plus className="h-5 w-5 text-gray-600" />
           </button>
-        )}
+        ) : null}
       </div>
 
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3 flex-1 overflow-y-auto min-h-[200px]">
+        <div className="min-h-[200px] flex-1 space-y-3 overflow-y-auto">
           {tasks.map((task) => (
             <KanbanCard key={task.id} task={task} onTaskClick={onTaskClick} />
           ))}
-          {tasks.length === 0 && (
-            <div className="text-center text-gray-400 text-sm py-8">
-              Chưa có task nào
-            </div>
-          )}
+          {tasks.length === 0 ? (
+            <div className="py-8 text-center text-sm text-gray-400">Chưa có task nào</div>
+          ) : null}
         </div>
       </SortableContext>
     </div>

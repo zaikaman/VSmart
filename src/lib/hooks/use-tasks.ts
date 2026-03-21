@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export interface Task {
   id: string;
@@ -27,7 +27,22 @@ export interface Task {
     id: string;
     ten: string;
     du_an_id: string;
+    du_an?: {
+      ten: string;
+    } | null;
   };
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedTasksResponse {
+  data: Task[];
+  pagination: PaginationMeta;
 }
 
 export interface CreateTaskInput {
@@ -52,39 +67,63 @@ export interface UpdateTaskInput {
 
 interface TasksParams {
   page?: number;
+  limit?: number;
   trangThai?: string;
   assigneeId?: string;
   deadline?: string;
   duAnId?: string;
+  phanDuAnId?: string;
+  riskLevel?: 'low' | 'medium' | 'high';
+  riskScoreMin?: number;
+  isStale?: boolean;
 }
 
-// Fetch all tasks
 export function useTasks(params?: TasksParams) {
-  return useQuery({
-    queryKey: ['tasks', params],
-    queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set('page', params.page.toString());
-      if (params?.trangThai) searchParams.set('trangThai', params.trangThai);
-      if (params?.assigneeId) searchParams.set('assigneeId', params.assigneeId);
-      if (params?.deadline) searchParams.set('deadline', params.deadline);
-      if (params?.duAnId) searchParams.set('duAnId', params.duAnId);
+  const normalizedParams = {
+    page: params?.page ?? 1,
+    limit: params?.limit ?? 10,
+    trangThai: params?.trangThai ?? null,
+    assigneeId: params?.assigneeId ?? null,
+    deadline: params?.deadline ?? null,
+    duAnId: params?.duAnId ?? null,
+    phanDuAnId: params?.phanDuAnId ?? null,
+    riskLevel: params?.riskLevel ?? null,
+    riskScoreMin: params?.riskScoreMin ?? null,
+    isStale: params?.isStale ?? false,
+  };
 
-      const response = await fetch(`/api/tasks?${searchParams}`);
+  return useQuery<PaginatedTasksResponse>({
+    queryKey: ['tasks', normalizedParams],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams({
+        page: normalizedParams.page.toString(),
+        limit: normalizedParams.limit.toString(),
+      });
+
+      if (normalizedParams.trangThai) searchParams.set('trangThai', normalizedParams.trangThai);
+      if (normalizedParams.assigneeId) searchParams.set('assigneeId', normalizedParams.assigneeId);
+      if (normalizedParams.deadline) searchParams.set('deadline', normalizedParams.deadline);
+      if (normalizedParams.duAnId) searchParams.set('duAnId', normalizedParams.duAnId);
+      if (normalizedParams.phanDuAnId) searchParams.set('phanDuAnId', normalizedParams.phanDuAnId);
+      if (normalizedParams.riskLevel) searchParams.set('riskLevel', normalizedParams.riskLevel);
+      if (normalizedParams.riskScoreMin !== null) {
+        searchParams.set('riskScoreMin', normalizedParams.riskScoreMin.toString());
+      }
+      if (normalizedParams.isStale) searchParams.set('isStale', 'true');
+
+      const response = await fetch(`/api/tasks?${searchParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch tasks');
-      const result = await response.json();
-      // API returns { data, pagination }, extract the array
-      return result.data || [];
+      return response.json() as Promise<PaginatedTasksResponse>;
     },
-    staleTime: 5 * 1000, // 5 giây - tasks cần fresh
-    gcTime: 5 * 60 * 1000, // 5 phút
-    refetchInterval: 10 * 1000, // Polling mỗi 10 giây cho realtime updates
-    refetchOnWindowFocus: true, // Refetch khi quay lại tab
-    refetchIntervalInBackground: false, // Không poll khi tab không active
+    placeholderData: keepPreviousData,
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false,
   });
 }
 
-// Fetch single task
 export function useTask(id: string) {
   return useQuery({
     queryKey: ['tasks', id],
@@ -94,12 +133,11 @@ export function useTask(id: string) {
       return response.json() as Promise<Task>;
     },
     enabled: !!id,
-    staleTime: 30 * 1000, // 30 giây - task detail cần fresh hơn
-    gcTime: 3 * 60 * 1000, // 3 phút
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 }
 
-// Create task mutation
 export function useCreateTask() {
   const queryClient = useQueryClient();
 
@@ -112,12 +150,13 @@ export function useCreateTask() {
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Create task error:', errorData);
-        // Handle Zod validation errors (array format)
         if (Array.isArray(errorData.error)) {
-          const messages = errorData.error.map((e: { path?: string[], message?: string }) =>
-            `${e.path?.join('.') || 'field'}: ${e.message || 'invalid'}`
-          ).join(', ');
+          const messages = errorData.error
+            .map((error: { path?: string[]; message?: string }) => {
+              const field = error.path?.join('.') || 'field';
+              return `${field}: ${error.message || 'invalid'}`;
+            })
+            .join(', ');
           throw new Error(messages);
         }
         throw new Error(errorData.error || 'Failed to create task');
@@ -130,7 +169,6 @@ export function useCreateTask() {
   });
 }
 
-// Update task mutation - now takes input with id included
 export function useUpdateTask() {
   const queryClient = useQueryClient();
 
@@ -152,7 +190,6 @@ export function useUpdateTask() {
   });
 }
 
-// Delete task mutation
 export function useDeleteTask() {
   const queryClient = useQueryClient();
 

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export interface Project {
   id: string;
@@ -26,6 +26,18 @@ export interface ProjectPart {
   cap_nhat_cuoi: string;
 }
 
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedProjectsResponse {
+  data: Project[];
+  pagination: PaginationMeta;
+}
+
 export interface CreateProjectInput {
   ten: string;
   mo_ta?: string;
@@ -40,26 +52,41 @@ export interface UpdateProjectInput {
   phan_tram_hoan_thanh?: number;
 }
 
-// Fetch all projects
-export function useProjects(params?: { page?: number; limit?: number; trangThai?: string }) {
-  return useQuery({
-    queryKey: ['projects', params],
-    queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.set('page', params.page.toString());
-      if (params?.limit) searchParams.set('limit', params.limit.toString());
-      if (params?.trangThai) searchParams.set('trangThai', params.trangThai);
+interface ProjectsParams {
+  page?: number;
+  limit?: number;
+  trangThai?: string;
+}
 
-      const response = await fetch(`/api/projects?${searchParams}`);
+export function useProjects(params?: ProjectsParams) {
+  const normalizedParams = {
+    page: params?.page ?? 1,
+    limit: params?.limit ?? 10,
+    trangThai: params?.trangThai ?? null,
+  };
+
+  return useQuery<PaginatedProjectsResponse>({
+    queryKey: ['projects', normalizedParams],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams({
+        page: normalizedParams.page.toString(),
+        limit: normalizedParams.limit.toString(),
+      });
+
+      if (normalizedParams.trangThai) {
+        searchParams.set('trangThai', normalizedParams.trangThai);
+      }
+
+      const response = await fetch(`/api/projects?${searchParams.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch projects');
-      return response.json();
+      return response.json() as Promise<PaginatedProjectsResponse>;
     },
-    staleTime: 3 * 60 * 1000, // 3 phút - projects ít thay đổi
-    gcTime: 10 * 60 * 1000, // 10 phút
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 }
 
-// Fetch single project
 export function useProject(id: string) {
   return useQuery({
     queryKey: ['projects', id],
@@ -69,12 +96,11 @@ export function useProject(id: string) {
       return response.json() as Promise<Project>;
     },
     enabled: !!id,
-    staleTime: 2 * 60 * 1000, // 2 phút - project detail cache
-    gcTime: 5 * 60 * 1000, // 5 phút
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 
-// Create project mutation
 export function useCreateProject() {
   const queryClient = useQueryClient();
 
@@ -94,7 +120,6 @@ export function useCreateProject() {
   });
 }
 
-// Update project mutation
 export function useUpdateProject(id: string) {
   const queryClient = useQueryClient();
 
@@ -115,7 +140,6 @@ export function useUpdateProject(id: string) {
   });
 }
 
-// Delete project mutation
 export function useDeleteProject() {
   const queryClient = useQueryClient();
 

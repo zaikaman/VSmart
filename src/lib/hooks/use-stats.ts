@@ -16,5 +16,7 @@ export function useStats() {
             const result = await response.json();
             return result.data as DashboardStats;
         },
+        staleTime: 2 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
     });
 }

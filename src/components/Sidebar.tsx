@@ -1,6 +1,7 @@
 
 "use client"
 
+import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -17,7 +18,16 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { LogoutButton } from "@/components/LogoutButton"
 import { NotificationBell } from "@/components/notifications/notification-bell"
-import { ChatButton } from "@/components/chat/chat-button"
+
+const ChatButton = dynamic(
+    () => import("@/components/chat/chat-button").then((mod) => ({ default: mod.ChatButton })),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="h-10 rounded-md bg-[#2a2b35]/40" />
+        ),
+    }
+)
 
 const navItems = [
     { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },

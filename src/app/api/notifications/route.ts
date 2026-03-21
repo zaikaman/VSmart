@@ -9,49 +9,49 @@ const createNotificationSchema = z.object({
   task_lien_quan_id: z.string().uuid().optional().nullable(),
 });
 
-/**
- * GET /api/notifications
- * Lấy danh sách thông báo của user hiện tại
- */
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 50;
+
+function parsePositiveInt(value: string | null, fallback: number) {
+  const parsed = Number.parseInt(value || '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    // Kiểm tra authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    // Lấy user ID từ nguoi_dung table
+
     const { data: userData } = await supabase
       .from('nguoi_dung')
       .select('id')
       .eq('email', user.email)
       .single();
-    
+
     if (!userData) {
-      return NextResponse.json(
-        { error: 'User không tồn tại' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User không tồn tại' }, { status: 404 });
     }
-    
+
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const limit = Math.min(parsePositiveInt(searchParams.get('limit'), DEFAULT_LIMIT), MAX_LIMIT);
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
-    
+
     const from = (page - 1) * limit;
     const to = from + limit - 1;
-    
-    let query = supabase
+
+    let notificationsQuery = supabase
       .from('thong_bao')
-      .select(`
+      .select(
+        `
         *,
         task:task_lien_quan_id (
           id,
@@ -60,35 +60,36 @@ export async function GET(request: NextRequest) {
           progress,
           risk_level
         )
-      `, { count: 'exact' })
+      `,
+        { count: 'exact' }
+      )
       .eq('nguoi_dung_id', userData.id)
       .order('thoi_gian', { ascending: false })
       .range(from, to);
-    
+
     if (unreadOnly) {
-      query = query.eq('da_doc', false);
+      notificationsQuery = notificationsQuery.eq('da_doc', false);
     }
-    
-    const { data: notifications, error, count } = await query;
-    
+
+    const [notificationsResult, unreadResult] = await Promise.all([
+      notificationsQuery,
+      supabase
+        .from('thong_bao')
+        .select('id', { count: 'exact', head: true })
+        .eq('nguoi_dung_id', userData.id)
+        .eq('da_doc', false),
+    ]);
+
+    const { data: notifications, error, count } = notificationsResult;
+
     if (error) {
       console.error('Error fetching notifications:', error);
-      return NextResponse.json(
-        { error: 'Lỗi khi lấy thông báo' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Lỗi khi lấy thông báo' }, { status: 500 });
     }
-    
-    // Đếm số thông báo chưa đọc
-    const { count: unreadCount } = await supabase
-      .from('thong_bao')
-      .select('id', { count: 'exact', head: true })
-      .eq('nguoi_dung_id', userData.id)
-      .eq('da_doc', false);
-    
+
     return NextResponse.json({
       data: notifications || [],
-      unreadCount: unreadCount || 0,
+      unreadCount: unreadResult.count || 0,
       pagination: {
         page,
         limit,
@@ -96,36 +97,25 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil((count || 0) / limit),
       },
     });
-    
   } catch (error) {
     console.error('Error in GET /api/notifications:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-/**
- * POST /api/notifications
- * Tạo thông báo mới (internal use - từ cron job hoặc các API khác)
- */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    // Parse và validate body
     const body = await request.json();
     const parsed = createNotificationSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
-    
-    // Tạo notification
+
     const { data: notification, error } = await supabase
       .from('thong_bao')
       .insert({
@@ -136,25 +126,18 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
-    
+
     if (error) {
       console.error('Error creating notification:', error);
-      return NextResponse.json(
-        { error: 'Lỗi khi tạo thông báo' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Lỗi khi tạo thông báo' }, { status: 500 });
     }
-    
+
     return NextResponse.json({
       success: true,
       data: notification,
     });
-    
   } catch (error) {
     console.error('Error in POST /api/notifications:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
