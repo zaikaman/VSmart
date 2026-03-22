@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  Activity,
   Award,
   BarChart3,
   CalendarRange,
@@ -15,7 +14,6 @@ import {
   LayoutDashboard,
   List,
   Settings,
-  Sparkles,
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,7 +50,6 @@ interface UserInfo {
   email: string;
   displayName?: string;
   vai_tro?: string;
-  onboarding_completed?: boolean;
   extendedData?: {
     avatarUrl?: string;
   };
@@ -74,14 +71,13 @@ export function Sidebar({ className }: { className?: string }) {
             email: data.email,
             displayName: data.ten,
             vai_tro: data.vai_tro,
-            onboarding_completed: data.onboarding_completed,
             extendedData: {
               avatarUrl: data.avatar_url,
             },
           });
         }
       } catch {
-        // Giữ sidebar ổn định ngay cả khi request nhẹ này lỗi
+        // Giữ sidebar ổn định nếu request người dùng lỗi
       }
     }
     fetchUser();
@@ -96,30 +92,15 @@ export function Sidebar({ className }: { className?: string }) {
         className
       )}
     >
-      <div className="flex flex-col space-y-6 p-4">
-        <div className="rounded-[28px] border border-[#dfe6d3] bg-white/80 p-4 shadow-[0_20px_45px_-40px_rgba(92,110,84,0.35)]">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center transition-opacity hover:opacity-80">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#dce6cf] bg-[#eef6df]">
-                <Command className="h-5 w-5 text-[#6f9650]" />
-              </div>
-              <div className="ml-3">
-                <div className="text-lg font-semibold tracking-tight text-[#233022]">VSmart</div>
-                <div className="text-xs uppercase tracking-[0.18em] text-[#7b8775]">Workspace</div>
-              </div>
-            </Link>
-            <NotificationBell />
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-[#e6ebde] bg-[linear-gradient(135deg,#fffdf8_0%,#f6f8ef_100%)] p-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#dde6cf] bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#61705f]">
-              <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-              Light workspace
+      <div className="flex flex-col gap-6 p-4">
+        <div className="flex items-center justify-between px-1">
+          <Link href="/" className="flex items-center transition-opacity hover:opacity-80">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#dce6cf] bg-[#eef6df]">
+              <Command className="h-5 w-5 text-[#6f9650]" />
             </div>
-            <p className="mt-3 text-sm leading-6 text-[#5e6b58]">
-              Theo dõi dự án, planning và review trong cùng một nhịp vận hành sáng, gọn và dễ bám sát.
-            </p>
-          </div>
+            <div className="ml-3 text-lg font-semibold tracking-tight text-[#233022]">VSmart</div>
+          </Link>
+          <NotificationBell />
         </div>
 
         <nav className="flex flex-col gap-1">
@@ -130,16 +111,14 @@ export function Sidebar({ className }: { className?: string }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium transition-all",
+                  "flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all",
                   isActive
                     ? "border border-[#d7e3c8] bg-[#edf6df] text-[#42533d] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]"
                     : "border border-transparent text-[#62705d] hover:border-[#e2e8d9] hover:bg-white/80 hover:text-[#223021]"
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <item.icon className={cn("h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
-                  <span>{item.name}</span>
-                </div>
+                <item.icon className={cn("mr-3 h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
+                <span>{item.name}</span>
               </Link>
             );
           })}
@@ -168,25 +147,6 @@ export function Sidebar({ className }: { className?: string }) {
                 );
               })}
             </>
-          ) : null}
-
-          {!user?.onboarding_completed ? (
-            <Link
-              href="/dashboard"
-              className="mt-4 rounded-[24px] border border-[#e3e8da] bg-white/85 p-4 shadow-[0_18px_38px_-34px_rgba(96,112,88,0.32)] transition-colors hover:border-[#d4dfc6]"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#eef6df]">
-                  <Activity className="h-4 w-4 text-[#719254]" />
-                </div>
-                <div>
-                  <p className="font-medium text-[#223021]">Lộ trình bắt đầu</p>
-                  <p className="mt-1 text-xs leading-5 text-[#67745f]">
-                    Hoàn thiện dự án đầu tiên, tạo task mẫu và bật digest để đội vào guồng nhanh hơn.
-                  </p>
-                </div>
-              </div>
-            </Link>
           ) : null}
 
           <div className="pt-2">

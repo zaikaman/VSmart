@@ -94,11 +94,11 @@ export default function SettingsPage() {
       badge={
         <>
           <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Workspace settings
+          Cài đặt
         </>
       }
-      title="Một màn cài đặt sáng, gọn và đủ rõ để chỉnh thói quen làm việc hằng ngày."
-      description="Quản lý thông báo, giao diện mặc định và các lớp bảo mật cá nhân trong cùng một không gian nhất quán với phần Planning."
+      title="Cài đặt"
+      description="Quản lý thông báo, giao diện mặc định và bảo mật tài khoản."
       metrics={[
         {
           label: 'Thông báo chủ động',
@@ -118,7 +118,7 @@ export default function SettingsPage() {
         },
       ]}
     >
-      <DashboardSection title="Thông báo" description="Chọn đúng lượng tín hiệu bạn muốn nhận để không bỏ lỡ task quan trọng nhưng cũng không bị ngập nhắc việc.">
+      <DashboardSection title="Thông báo" description="Chọn loại nhắc việc bạn muốn nhận.">
         <div className="space-y-6">
           {[
             ['emailTaskAssigned', 'Email khi được phân công', 'Nhận email khi có task mới được giao cho bạn'],
@@ -141,7 +141,7 @@ export default function SettingsPage() {
       </DashboardSection>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <DashboardSection title="Trải nghiệm mặc định" description="Chỉnh nơi bắt đầu và mật độ hiển thị để dashboard khớp hơn với cách bạn làm việc mỗi ngày.">
+        <DashboardSection title="Mặc định" description="Chỉnh trang mở đầu và số lượng hiển thị.">
           <div className="space-y-5">
             <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
               <Label className="text-base text-[#223021]">Trang mặc định</Label>
@@ -178,7 +178,7 @@ export default function SettingsPage() {
           </div>
         </DashboardSection>
 
-        <DashboardSection title="Giao diện" description="Hiện hệ thống đang ưu tiên trải nghiệm sáng, nhưng bạn vẫn có thể quyết định cách mở app theo thói quen của mình.">
+        <DashboardSection title="Giao diện" description="Chọn chế độ hiển thị và ngôn ngữ bạn muốn dùng.">
           <div className="space-y-5">
             <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
               <Label className="text-base text-[#223021]">Chế độ hiển thị</Label>
@@ -212,7 +212,7 @@ export default function SettingsPage() {
         </DashboardSection>
       </div>
 
-      <DashboardSection title="Bảo mật và dữ liệu" description="Các thao tác nhạy cảm được tách riêng để bạn kiểm soát tài khoản mà không nhầm với phần cấu hình thường ngày.">
+      <DashboardSection title="Bảo mật và dữ liệu" description="Các thao tác liên quan tới phiên đăng nhập và tài khoản.">
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4 rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
             <div>

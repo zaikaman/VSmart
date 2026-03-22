@@ -15,11 +15,11 @@ export default function ProjectsPage() {
       badge={
         <>
           <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Project workspace
+          Dự án
         </>
       }
-      title="Danh mục dự án được sắp lại để nhìn nhanh hơn và chọn đúng việc hơn."
-      description="Một nơi sáng, gọn và nhất quán để giữ nhịp giữa dự án mới, dự án đang chạy và những nhóm việc cần quay lại ngay."
+      title="Dự án"
+      description="Xem toàn bộ dự án và mở nhanh phần đang cần làm."
       actions={
         <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
@@ -45,7 +45,7 @@ export default function ProjectsPage() {
         },
       ]}
     >
-      <DashboardSection title="Tất cả dự án" description="Danh sách dự án bên dưới vẫn giữ logic cũ, nhưng được đặt trong cùng ngôn ngữ giao diện với phần Planning.">
+      <DashboardSection title="Tất cả dự án" description="Danh sách dự án hiện có của bạn.">
         <ProjectList />
       </DashboardSection>
 

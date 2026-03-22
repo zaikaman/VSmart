@@ -102,11 +102,11 @@ export default function DashboardPage() {
       badge={
         <>
           <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Operations overview
+          Tổng quan
         </>
       }
-      title={currentUser?.ten ? `Chào ${currentUser.ten}, đây là nhịp vận hành hôm nay.` : 'Một góc nhìn sáng và rõ hơn cho toàn bộ nhịp vận hành.'}
-      description="Theo dõi dự án nóng, deadline cần giữ sát và trạng thái sẵn sàng của đội trong cùng một màn tổng quan."
+      title={currentUser?.ten ? `Chào ${currentUser.ten}` : 'Tổng quan'}
+      description="Theo dõi tiến độ chung, deadline sắp tới và các điểm cần chú ý."
       actions={
         <>
           <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
@@ -156,7 +156,7 @@ export default function DashboardPage() {
       ]}
     >
       {!currentUser?.onboarding_completed ? (
-        <DashboardSection title="Bắt đầu nhanh" description="Ba bước ngắn để team vào guồng mượt hơn ngay từ lần dùng đầu tiên.">
+        <DashboardSection title="Bắt đầu nhanh" description="Hoàn thành vài bước cơ bản để bắt đầu làm việc thuận hơn.">
           <div className="mb-4 inline-flex rounded-full border border-[#d7e1cb] bg-[#f7fbef] px-3 py-1 text-sm font-medium text-[#50614f]">
             {completedOnboardingSteps}/3 đã xong
           </div>
@@ -212,14 +212,14 @@ export default function DashboardPage() {
       ) : null}
 
       {shouldShowExecutiveSummary ? (
-        <DashboardSection title="Nhịp điều hành" description="Bản tóm tắt ưu tiên, điểm nghẽn và tín hiệu AI cần xem trước khi bước vào ngày làm việc.">
+        <DashboardSection title="Tóm tắt hôm nay" description="Những điểm chính cần xem trước khi bắt đầu làm việc.">
           <ExecutiveSummaryWidget />
           {digestReference ? <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#7c8776]">Đang mở digest: {digestReference}</p> : null}
         </DashboardSection>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <DashboardSection title="Deadline và tải tuần này" description="Những mốc cần nhìn trước để tránh bị động ở nửa cuối tuần.">
+        <DashboardSection title="Deadline và tải tuần này" description="Các mốc gần nhất và nơi có dấu hiệu dồn việc.">
           <div className="space-y-3">
             {(stats?.upcomingDeadlines || []).length === 0 ? (
               <div className="rounded-[22px] border border-dashed border-[#dce4d3] bg-[#f8faf4] py-8 text-center text-sm text-[#72806c]">
@@ -243,7 +243,7 @@ export default function DashboardPage() {
           </div>
         </DashboardSection>
 
-        <DashboardSection title="Dự án và thành viên nóng" description="Các tín hiệu cần xử lý sớm khi tải đội bắt đầu dồn hoặc forecast xấu đi.">
+        <DashboardSection title="Dự án và thành viên cần chú ý" description="Những chỗ nên xem lại sớm để tránh trễ việc.">
           <div className="space-y-3">
             {(stats?.riskyProjects || []).slice(0, 2).map((project) => (
               <div key={project.id} className="rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
@@ -268,13 +268,13 @@ export default function DashboardPage() {
         </DashboardSection>
       </div>
 
-      <DashboardSection title="Lời mời dự án" description="Các lời mời đang chờ xác nhận để bạn không bỏ lỡ nhịp tham gia mới.">
+      <DashboardSection title="Lời mời dự án" description="Các lời mời đang chờ bạn xác nhận.">
         <ProjectInvitations />
       </DashboardSection>
 
       <DashboardSection
         title="Dự án gần đây"
-        description="Những dự án đang được truy cập nhiều nhất hoặc vừa được cập nhật gần đây."
+        description="Các dự án bạn vừa làm việc hoặc mới được cập nhật."
         actions={
           <Link href="/dashboard/projects">
             <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">

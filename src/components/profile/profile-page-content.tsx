@@ -207,11 +207,11 @@ export function ProfilePageContent() {
       badge={
         <>
           <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Personal profile
+          Hồ sơ
         </>
       }
-      title="Một hồ sơ sáng, rõ và đủ sâu để AI hiểu đúng thế mạnh của bạn."
-      description="Cập nhật thông tin cá nhân, ảnh đại diện và bộ kỹ năng để các gợi ý phân công khớp hơn với năng lực thật."
+      title="Hồ sơ"
+      description="Cập nhật thông tin cá nhân và kỹ năng của bạn."
       metrics={[
         {
           label: 'Vai trò hiện tại',
@@ -232,7 +232,7 @@ export function ProfilePageContent() {
       ]}
     >
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <DashboardSection title="Nhận diện cá nhân" description="Ảnh đại diện và thông tin nền tảng giúp hồ sơ gọn và nhất quán hơn khi xuất hiện trong team.">
+        <DashboardSection title="Thông tin cơ bản" description="Ảnh đại diện và thông tin hiển thị của bạn.">
           <div className="flex flex-col items-center rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-5">
             <AvatarUpload currentAvatarUrl={user.avatar_url} userName={user.ten} onAvatarChange={(url) => updateAvatarMutation.mutate(url)} />
             <div className="mt-6 w-full space-y-3 text-center">
@@ -259,7 +259,7 @@ export function ProfilePageContent() {
 
         <DashboardSection
           title="Thông tin cá nhân"
-          description="Những trường này được dùng cho hồ sơ hiển thị và một phần ngữ cảnh AI khi gợi ý phân công."
+          description="Thông tin cá nhân dùng trong hồ sơ và khi làm việc cùng team."
           actions={
             !isEditing ? (
               <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={handleEditProfile}>
@@ -325,7 +325,7 @@ export function ProfilePageContent() {
         </DashboardSection>
       </div>
 
-      <DashboardSection title="Bộ kỹ năng" description="Khai báo kỹ năng và mức độ thành thạo để ma trận năng lực và AI gợi ý assignee phản ánh sát thực tế hơn.">
+      <DashboardSection title="Kỹ năng" description="Khai báo kỹ năng và mức độ thành thạo của bạn.">
         <div className="space-y-6">
           <SkillsInput onAddSkill={(data) => addSkillMutation.mutate(data)} isLoading={addSkillMutation.isPending} />
 

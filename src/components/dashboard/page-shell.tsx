@@ -18,7 +18,7 @@ export function DashboardPageShell({
 }: {
   badge?: ReactNode;
   title: string;
-  description: string;
+  description?: string;
   actions?: ReactNode;
   metrics?: Array<{
     label: string;
@@ -34,53 +34,37 @@ export function DashboardPageShell({
   return (
     <div className={cn(`min-h-[calc(100vh-4rem)] bg-[linear-gradient(180deg,#fbfaf4_0%,#f4f6ef_44%,#edf2ea_100%)] ${bricolage.className}`, className)}>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <section className="relative overflow-hidden rounded-[38px] border border-[#e3e7d8] bg-[linear-gradient(135deg,#fffdf7_0%,#f5f8ef_55%,#f0f5ee_100%)] px-6 py-7 shadow-[0_28px_80px_-48px_rgba(94,114,88,0.28)] md:px-8 md:py-8">
-          <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_left,_rgba(210,227,189,0.6),_transparent_60%)]" />
-          <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[radial-gradient(circle,_rgba(250,229,213,0.72),_transparent_68%)]" />
-
-          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.25fr_0.95fr] lg:items-start">
-            <div>
-              {badge ? (
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#dde6cf] bg-white/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[#61705f]">
-                  {badge}
-                </div>
-              ) : null}
-
-              <h1 className="mt-5 max-w-3xl text-[clamp(2.4rem,4vw,3.8rem)] font-extrabold leading-[1.02] text-[#1f2b1f]">
-                {title}
-              </h1>
-
-              <p className="mt-4 max-w-2xl text-[15px] leading-7 text-[#61705f]">{description}</p>
-
-              {actions ? <div className="mt-6 flex flex-wrap items-center gap-3">{actions}</div> : null}
-            </div>
-
-            {metrics?.length ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {metrics.map((metric) => (
-                  <article
-                    key={metric.label}
-                    className={cn(
-                      'rounded-[24px] border p-4 shadow-[0_18px_40px_-32px_rgba(100,116,93,0.35)]',
-                      metric.surfaceClassName || 'border-[#dce5d2] bg-white'
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6a7762]">{metric.label}</span>
-                      {metric.icon}
-                    </div>
-                    <div className={cn(`mt-4 text-3xl font-semibold text-[#243223] ${jetbrains.className}`, metric.valueClassName)}>
-                      {metric.value}
-                    </div>
-                    {metric.note ? <p className="mt-2 text-sm text-[#697564]">{metric.note}</p> : null}
-                  </article>
-                ))}
-              </div>
-            ) : null}
+        <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            {badge ? <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#7a8774]">{badge}</div> : null}
+            <h1 className="text-[clamp(2rem,3.5vw,3rem)] font-bold leading-tight text-[#1f2b1f]">{title}</h1>
+            {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-[#61705f]">{description}</p> : null}
           </div>
-        </section>
+          {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
+        </header>
 
-        <div className="mt-6 space-y-6">{children}</div>
+        {metrics?.length ? (
+          <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {metrics.map((metric) => (
+              <article
+                key={metric.label}
+                className={cn(
+                  'rounded-[24px] border p-4 shadow-[0_16px_35px_-32px_rgba(100,116,93,0.3)]',
+                  metric.surfaceClassName || 'border-[#dce5d2] bg-white'
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6a7762]">{metric.label}</span>
+                  {metric.icon}
+                </div>
+                <div className={cn(`mt-3 text-3xl font-semibold text-[#243223] ${jetbrains.className}`, metric.valueClassName)}>{metric.value}</div>
+                {metric.note ? <p className="mt-1.5 text-sm text-[#697564]">{metric.note}</p> : null}
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="space-y-6">{children}</div>
       </div>
     </div>
   );

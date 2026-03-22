@@ -155,11 +155,11 @@ export default function KanbanPage() {
       badge={
         <>
           <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Execution board
+          Kanban
         </>
       }
-      title="Bảng Kanban được làm sáng lại để việc điều phối nhìn nhanh và đỡ nặng mắt hơn."
-      description="Giữ cùng logic xử lý task, nhưng bộ lọc, góc nhìn lưu sẵn và vùng thao tác nay cùng một nhịp thị giác với Planning."
+      title="Bảng Kanban"
+      description="Theo dõi task theo trạng thái, lọc nhanh theo dự án và mức rủi ro."
       actions={
         <>
           <Button
@@ -233,7 +233,7 @@ export default function KanbanPage() {
         saving={savedViews.isSaving}
       />
 
-      <DashboardSection title="Bộ lọc Kanban" description="Chọn đúng dự án, phần việc và mức rủi ro để bảng phản ánh sát tình hình đang cần xử lý.">
+      <DashboardSection title="Bộ lọc" description="Chọn dự án, phần việc và mức rủi ro cần xem.">
         <div className="flex flex-wrap gap-4">
           <div className="min-w-[250px]">
             <Label className="mb-1 block text-sm text-[#67745f]">Dự án</Label>
@@ -327,7 +327,7 @@ export default function KanbanPage() {
         </div>
       ) : null}
 
-      <DashboardSection title="Bảng thực thi" description="Board giữ nguyên cơ chế thao tác hiện tại để tránh ảnh hưởng flow tạo task, kéo thả và xem chi tiết.">
+      <DashboardSection title="Bảng task" description="Kéo thả và mở chi tiết task như bình thường.">
         <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onAddTask={handleAddTask} />
 
         {pagination && pagination.totalPages > 1 ? (
