@@ -54,12 +54,12 @@ export function NotificationBell({ className }: NotificationBellProps) {
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            'group relative rounded-lg p-2 outline-none transition-colors hover:bg-[#2a2b35]',
+            'group relative rounded-2xl border border-transparent p-2 outline-none transition-colors hover:border-[#e2e8d9] hover:bg-white/80',
             className
           )}
           aria-label="Thông báo"
         >
-          <Bell className="h-5 w-5 text-white/70 transition-colors group-hover:text-white" />
+          <Bell className="h-5 w-5 text-[#6e7a69] transition-colors group-hover:text-[#223021]" />
           {unreadCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white animate-pulse">
               {unreadCount > 99 ? '99+' : unreadCount}
