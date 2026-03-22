@@ -86,7 +86,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [agentMode, setAgentMode] = useState(false);
+  const [agentMode, setAgentMode] = useState(true);
   const [executingTools, setExecutingTools] = useState(false);
   const [showMeetingTool, setShowMeetingTool] = useState(false);
   const [meetingNotes, setMeetingNotes] = useState('');
@@ -101,8 +101,8 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
     }
 
     const savedAgentMode = localStorage.getItem(AGENT_MODE_KEY);
-    if (savedAgentMode === 'true') {
-      setAgentMode(true);
+    if (savedAgentMode === 'false') {
+      setAgentMode(false);
     }
   }, []);
 
