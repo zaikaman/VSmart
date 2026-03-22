@@ -37,7 +37,7 @@ export default async function DashboardLayout({
 
   return (
     <DashboardWrapper>
-      <div className="flex min-h-screen bg-slate-50">
+      <div className="flex min-h-screen bg-[linear-gradient(180deg,#fbfaf4_0%,#f4f6ef_44%,#edf2ea_100%)]">
         <Sidebar className="hidden md:flex" />
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto">

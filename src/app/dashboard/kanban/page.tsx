@@ -1,12 +1,13 @@
 'use client';
 
 import { ComponentProps, useMemo, useState } from 'react';
-import { AlertCircle, Filter, Keyboard } from 'lucide-react';
+import { AlertCircle, Filter, Keyboard, Layers3, PlusCircle, Sparkles, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { KanbanBoard } from '@/components/kanban/kanban-board';
 import { CreateTaskModal } from '@/components/kanban/create-task-modal';
 import { TaskDetailModal } from '@/components/kanban/task-detail-modal';
 import { Task as KanbanTask } from '@/components/kanban/kanban-column';
+import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
 import { SavedViewBar } from '@/components/governance/saved-view-bar';
 import { ShortcutDialog } from '@/components/governance/shortcut-dialog';
 import { Button } from '@/components/ui/button';
@@ -43,15 +44,11 @@ export default function KanbanPage() {
 
   const { data: projects, isLoading: projectsLoading } = useProjects({ page: 1, limit: 100 });
   const projectList = projects?.data || [];
-  const effectiveProjectId = projectList.some((project) => project.id === selectedProjectId)
-    ? selectedProjectId
-    : (projectList[0]?.id ?? '');
+  const effectiveProjectId = projectList.some((project) => project.id === selectedProjectId) ? selectedProjectId : (projectList[0]?.id ?? '');
 
   const { data: parts, isLoading: partsLoading } = useProjectParts(effectiveProjectId);
   const partList = parts || [];
-  const effectivePartId = partList.some((part) => part.id === selectedPartId)
-    ? selectedPartId
-    : (partList[0]?.id ?? '');
+  const effectivePartId = partList.some((part) => part.id === selectedPartId) ? selectedPartId : (partList[0]?.id ?? '');
   const selectedPartName = partList.find((part) => part.id === effectivePartId)?.ten || '';
 
   const { data: tasksResponse, isLoading: tasksLoading, error } = useTasks({
@@ -59,10 +56,7 @@ export default function KanbanPage() {
     limit: itemsPerPage,
     duAnId: effectiveProjectId || undefined,
     phanDuAnId: effectivePartId || undefined,
-    riskLevel:
-      riskFilter === 'low' || riskFilter === 'medium' || riskFilter === 'high'
-        ? riskFilter
-        : undefined,
+    riskLevel: riskFilter === 'low' || riskFilter === 'medium' || riskFilter === 'high' ? riskFilter : undefined,
     isStale: riskFilter === 'stale',
   });
 
@@ -74,6 +68,12 @@ export default function KanbanPage() {
     }),
     [riskFilter, selectedPartId, selectedProjectId]
   );
+
+  const tasks = tasksResponse?.data || [];
+  const pagination = tasksResponse?.pagination;
+  const highRiskCount = tasks.filter((task) => task.risk_level === 'high' || (task.risk_score || 0) >= 70).length;
+  const inProgressCount = tasks.filter((task) => task.trang_thai === 'in-progress').length;
+  const staleCount = tasks.filter((task) => task.is_stale).length;
 
   useHotkeys([
     {
@@ -126,21 +126,14 @@ export default function KanbanPage() {
   };
 
   const isLoading = projectsLoading || tasksLoading;
-  const tasks = tasksResponse?.data || [];
-  const pagination = tasksResponse?.pagination;
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="flex gap-6">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="min-w-[320px]">
-              <Skeleton className="mb-4 h-12" />
-              <Skeleton className="mb-3 h-40" />
-              <Skeleton className="mb-3 h-40" />
-              <Skeleton className="h-40" />
-            </div>
-          ))}
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <Skeleton className="h-[220px] rounded-[38px]" />
+        <div className="mt-6 space-y-4">
+          <Skeleton className="h-[120px] rounded-[30px]" />
+          <Skeleton className="h-[440px] rounded-[30px]" />
         </div>
       </div>
     );
@@ -148,153 +141,207 @@ export default function KanbanPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-          <h3 className="font-semibold">Lỗi tải task</h3>
-          <p className="mt-1 text-sm">Vui lòng thử lại sau.</p>
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <div className="rounded-[28px] border border-[#f0ddd1] bg-[#fff3ed] p-6 text-[#a05735]">
+          <h3 className="font-semibold">Không thể tải bảng Kanban</h3>
+          <p className="mt-2 text-sm">Vui lòng thử lại sau hoặc chuyển sang một dự án khác.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-2 text-2xl font-bold">Bảng Kanban</h1>
-          <p className="text-gray-600">Quản lý task theo trạng thái, rủi ro và phần dự án đang chạy.</p>
-        </div>
-        <Button variant="outline" onClick={() => setShortcutOpen(true)}>
-          <Keyboard className="mr-2 h-4 w-4" />
-          Phím tắt
-        </Button>
-      </div>
-
-      <div className="mb-6">
-        <SavedViewBar
-          title="Góc nhìn đã lưu"
-          description="Lưu nhanh bộ lọc Kanban hiện tại để quay lại đúng ngữ cảnh đang theo dõi."
-          views={savedViews.views}
-          onApply={(view) => {
-            setSelectedProjectId(view.projectId);
-            setSelectedPartId(view.partId);
-            setRiskFilter(view.riskFilter);
-            setCurrentPage(1);
-          }}
-          onSave={(name) => savedViews.saveView(name, currentView)}
-          onDelete={savedViews.removeView}
-          disabled={!savedViews.isReady}
-          saving={savedViews.isSaving}
-        />
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-4">
-        <div className="min-w-[250px]">
-          <Label className="mb-1 block text-sm text-gray-600">Dự án</Label>
-          <Select
-            value={effectiveProjectId}
-            onValueChange={(value) => {
-              setSelectedProjectId(value);
-              setSelectedPartId('');
-              setCurrentPage(1);
+    <DashboardPageShell
+      badge={
+        <>
+          <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
+          Execution board
+        </>
+      }
+      title="Bảng Kanban được làm sáng lại để việc điều phối nhìn nhanh và đỡ nặng mắt hơn."
+      description="Giữ cùng logic xử lý task, nhưng bộ lọc, góc nhìn lưu sẵn và vùng thao tác nay cùng một nhịp thị giác với Planning."
+      actions={
+        <>
+          <Button
+            className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+            onClick={() => {
+              if (!effectivePartId) {
+                toast.error('Vui lòng chọn phần dự án trước khi tạo task');
+                return;
+              }
+              setInitialStatus('todo');
+              setCreateTaskOpen(true);
             }}
           >
-            <SelectTrigger aria-label="Chọn dự án">
-              <SelectValue placeholder="Chọn dự án" />
-            </SelectTrigger>
-            <SelectContent>
-              {projectList.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.ten}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Tạo task
+          </Button>
+          <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={() => setShortcutOpen(true)}>
+            <Keyboard className="mr-2 h-4 w-4" />
+            Phím tắt
+          </Button>
+        </>
+      }
+      metrics={[
+        {
+          label: 'Task đang mở',
+          value: tasks.length.toString(),
+          note: 'Trong bộ lọc hiện tại',
+          icon: <Layers3 className="h-4 w-4 text-[#2f6052]" />,
+          surfaceClassName: 'bg-[#eef6f0] border-[#d9eadf]',
+          valueClassName: 'text-[#2f6052]',
+        },
+        {
+          label: 'Đang triển khai',
+          value: inProgressCount.toString(),
+          note: 'Task ở giữa guồng chạy',
+          icon: <Filter className="h-4 w-4 text-[#39638d]" />,
+          surfaceClassName: 'bg-[#edf5ff] border-[#d8e6f7]',
+          valueClassName: 'text-[#39638d]',
+        },
+        {
+          label: 'Rủi ro cao',
+          value: highRiskCount.toString(),
+          note: 'Cần theo dõi kỹ hơn',
+          icon: <TriangleAlert className="h-4 w-4 text-[#b66944]" />,
+          surfaceClassName: 'bg-[#fff1e8] border-[#f0ddd1]',
+          valueClassName: 'text-[#b66944]',
+        },
+        {
+          label: 'Chậm cập nhật',
+          value: staleCount.toString(),
+          note: 'Task có dấu hiệu bị quên',
+          icon: <AlertCircle className="h-4 w-4 text-[#985c21]" />,
+          surfaceClassName: 'bg-[#fff6df] border-[#eee1bb]',
+          valueClassName: 'text-[#985c21]',
+        },
+      ]}
+    >
+      <SavedViewBar
+        title="Góc nhìn đã lưu"
+        description="Lưu nhanh bộ lọc Kanban hiện tại để quay lại đúng ngữ cảnh đang theo dõi."
+        views={savedViews.views}
+        onApply={(view) => {
+          setSelectedProjectId(view.projectId);
+          setSelectedPartId(view.partId);
+          setRiskFilter(view.riskFilter);
+          setCurrentPage(1);
+        }}
+        onSave={(name) => savedViews.saveView(name, currentView)}
+        onDelete={savedViews.removeView}
+        disabled={!savedViews.isReady}
+        saving={savedViews.isSaving}
+      />
 
-        <div className="min-w-[250px]">
-          <Label className="mb-1 block text-sm text-gray-600">Phần dự án</Label>
-          <Select
-            value={effectivePartId}
-            onValueChange={(value) => {
-              setSelectedPartId(value);
-              setCurrentPage(1);
-            }}
-            disabled={!effectiveProjectId || partsLoading}
-          >
-            <SelectTrigger aria-label="Chọn phần dự án">
-              <SelectValue
-                placeholder={
-                  !effectiveProjectId
-                    ? 'Chọn dự án trước'
-                    : partsLoading
-                      ? 'Đang tải...'
-                      : partList.length === 0
-                        ? 'Chưa có phần dự án'
-                        : 'Chọn phần dự án'
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {partList.map((part: ProjectPart) => (
-                <SelectItem key={part.id} value={part.id}>
-                  {part.ten}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <DashboardSection title="Bộ lọc Kanban" description="Chọn đúng dự án, phần việc và mức rủi ro để bảng phản ánh sát tình hình đang cần xử lý.">
+        <div className="flex flex-wrap gap-4">
+          <div className="min-w-[250px]">
+            <Label className="mb-1 block text-sm text-[#67745f]">Dự án</Label>
+            <Select
+              value={effectiveProjectId}
+              onValueChange={(value) => {
+                setSelectedProjectId(value);
+                setSelectedPartId('');
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Chọn dự án">
+                <SelectValue placeholder="Chọn dự án" />
+              </SelectTrigger>
+              <SelectContent>
+                {projectList.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.ten}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="min-w-[220px]">
-          <Label className="mb-1 block text-sm text-gray-600">Lọc theo rủi ro</Label>
-          <Select value={riskFilter} onValueChange={(value) => {
-            setRiskFilter(value as RiskFilter);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger aria-label="Lọc theo rủi ro">
-              <SelectValue placeholder="Tất cả" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-gray-500" />
-                  <span>Tất cả</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="low">Rủi ro thấp</SelectItem>
-              <SelectItem value="medium">Rủi ro trung bình</SelectItem>
-              <SelectItem value="high">Rủi ro cao</SelectItem>
-              <SelectItem value="stale">Không cập nhật</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="min-w-[250px]">
+            <Label className="mb-1 block text-sm text-[#67745f]">Phần dự án</Label>
+            <Select
+              value={effectivePartId}
+              onValueChange={(value) => {
+                setSelectedPartId(value);
+                setCurrentPage(1);
+              }}
+              disabled={!effectiveProjectId || partsLoading}
+            >
+              <SelectTrigger className="border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Chọn phần dự án">
+                <SelectValue
+                  placeholder={
+                    !effectiveProjectId
+                      ? 'Chọn dự án trước'
+                      : partsLoading
+                        ? 'Đang tải...'
+                        : partList.length === 0
+                          ? 'Chưa có phần dự án'
+                          : 'Chọn phần dự án'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {partList.map((part: ProjectPart) => (
+                  <SelectItem key={part.id} value={part.id}>
+                    {part.ten}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[220px]">
+            <Label className="mb-1 block text-sm text-[#67745f]">Lọc theo rủi ro</Label>
+            <Select
+              value={riskFilter}
+              onValueChange={(value) => {
+                setRiskFilter(value as RiskFilter);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Lọc theo rủi ro">
+                <SelectValue placeholder="Tất cả" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="low">Rủi ro thấp</SelectItem>
+                <SelectItem value="medium">Rủi ro trung bình</SelectItem>
+                <SelectItem value="high">Rủi ro cao</SelectItem>
+                <SelectItem value="stale">Chậm cập nhật</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
+      </DashboardSection>
 
       {!effectivePartId && effectiveProjectId && partList.length === 0 ? (
-        <div className="mb-6 flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
-          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-          <div>
-            <h3 className="font-semibold">Chưa có phần dự án</h3>
-            <p className="mt-1 text-sm">
-              Dự án này chưa có phần dự án nào. Vui lòng tạo phần dự án trước để có thể thêm task.
-            </p>
+        <div className="rounded-[24px] border border-[#efe5bf] bg-[#fff9e8] p-4 text-[#8f7443]">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold">Dự án này chưa có phần việc</h3>
+              <p className="mt-1 text-sm">Hãy tạo phần dự án trước để có thể mở bảng Kanban và thêm task mới.</p>
+            </div>
           </div>
         </div>
       ) : null}
 
-      <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onAddTask={handleAddTask} />
+      <DashboardSection title="Bảng thực thi" description="Board giữ nguyên cơ chế thao tác hiện tại để tránh ảnh hưởng flow tạo task, kéo thả và xem chi tiết.">
+        <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onAddTask={handleAddTask} />
 
-      {pagination && pagination.totalPages > 1 ? (
-        <div className="mt-6">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={pagination.totalPages}
-            totalItems={pagination.total}
-            itemsPerPage={pagination.limit}
-            onPageChange={setCurrentPage}
-          />
-        </div>
-      ) : null}
+        {pagination && pagination.totalPages > 1 ? (
+          <div className="mt-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.total}
+              itemsPerPage={pagination.limit}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        ) : null}
+      </DashboardSection>
 
       <CreateTaskModal
         open={createTaskOpen}
@@ -318,6 +365,6 @@ export default function KanbanPage() {
           { keyLabel: '?', description: 'Mở bảng phím tắt' },
         ]}
       />
-    </div>
+    </DashboardPageShell>
   );
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { addDays, endOfWeek, format, startOfWeek } from 'date-fns';
 import { Bricolage_Grotesque, JetBrains_Mono } from 'next/font/google';
-import { CalendarDays, Flame, Keyboard, Layers3, Radar, Route, Users } from 'lucide-react';
+import { CalendarDays, Flame, Keyboard, Layers3, Radar, Route, Sparkles, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { RebalancePanel } from '@/components/ai/rebalance-panel';
 import { SavedViewBar } from '@/components/governance/saved-view-bar';
@@ -80,10 +80,38 @@ export default function PlanningPage() {
 
   const overviewCards = useMemo(
     () => [
-      { label: 'Task đang mở', value: workloadQuery.data?.summary.totalActiveTasks || 0, accent: 'text-[#b9ff66]', icon: Layers3 },
-      { label: 'Điểm nóng quá tải', value: workloadQuery.data?.summary.overloadedMembers || 0, accent: 'text-[#ffab87]', icon: Flame },
-      { label: 'Rủi ro cao trong tuần', value: calendarQuery.data?.summary.highRiskTasks || 0, accent: 'text-[#ffcf6c]', icon: Radar },
-      { label: 'Thành viên đang theo dõi', value: workloadQuery.data?.summary.totalMembers || 0, accent: 'text-[#8dc9ff]', icon: Users },
+      {
+        label: 'Task đang mở',
+        value: workloadQuery.data?.summary.totalActiveTasks || 0,
+        note: 'Khối việc đang chạy',
+        icon: Layers3,
+        accentClass: 'text-[#2f6052]',
+        surfaceClass: 'bg-[#eef6f0] border-[#d9eadf]',
+      },
+      {
+        label: 'Điểm nóng quá tải',
+        value: workloadQuery.data?.summary.overloadedMembers || 0,
+        note: 'Người cần giảm tải',
+        icon: Flame,
+        accentClass: 'text-[#b66944]',
+        surfaceClass: 'bg-[#fff1e8] border-[#f0ddd1]',
+      },
+      {
+        label: 'Rủi ro cao trong tuần',
+        value: calendarQuery.data?.summary.highRiskTasks || 0,
+        note: 'Task cần giữ sát',
+        icon: Radar,
+        accentClass: 'text-[#985c21]',
+        surfaceClass: 'bg-[#fff6df] border-[#eee1bb]',
+      },
+      {
+        label: 'Thành viên đang theo dõi',
+        value: workloadQuery.data?.summary.totalMembers || 0,
+        note: 'Nhịp phối hợp hiện tại',
+        icon: Users,
+        accentClass: 'text-[#39638d]',
+        surfaceClass: 'bg-[#edf5ff] border-[#d8e6f7]',
+      },
     ],
     [calendarQuery.data?.summary.highRiskTasks, workloadQuery.data?.summary]
   );
@@ -102,35 +130,56 @@ export default function PlanningPage() {
   };
 
   const isLoading = projectsLoading || workloadQuery.isLoading || calendarQuery.isLoading;
+  const tabOptions = [
+    { key: 'calendar', label: 'Lịch tuần', icon: CalendarDays },
+    { key: 'timeline', label: 'Timeline', icon: Route },
+    { key: 'workload', label: 'Tải công việc', icon: Users },
+  ] as const;
 
   return (
-    <div className={`min-h-[calc(100vh-4rem)] bg-[#eef1e7] ${bricolage.className}`}>
+    <div className={`min-h-[calc(100vh-4rem)] bg-[linear-gradient(180deg,#fbfaf4_0%,#f4f6ef_44%,#edf2ea_100%)] ${bricolage.className}`}>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <section className="relative overflow-hidden rounded-[36px] bg-[#191a23] px-6 py-8 text-white md:px-8 md:py-10">
-          <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top,_rgba(185,255,102,0.18),_transparent_58%)]" />
-          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.6fr_1fr] lg:items-end">
+        <section className="relative overflow-hidden rounded-[38px] border border-[#e3e7d8] bg-[linear-gradient(135deg,#fffdf7_0%,#f5f8ef_55%,#f0f5ee_100%)] px-6 py-7 shadow-[0_28px_80px_-48px_rgba(94,114,88,0.28)] md:px-8 md:py-8">
+          <div className="absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top_left,_rgba(210,227,189,0.6),_transparent_60%)]" />
+          <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[radial-gradient(circle,_rgba(250,229,213,0.72),_transparent_68%)]" />
+
+          <div className="relative z-10 grid gap-8 lg:grid-cols-[1.25fr_0.95fr] lg:items-start">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.24em] text-[#b9ff66]">
-                <Route className="h-3.5 w-3.5" />
-                Planning room
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#dde6cf] bg-white/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[#61705f]">
+                <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
+                Planning studio
               </div>
-              <h1 className="max-w-3xl text-4xl font-extrabold leading-tight md:text-5xl">
-                Cân lịch, dàn tải và nhìn trước điểm nghẽn trước khi task bắt đầu trễ.
+
+              <h1 className="mt-5 max-w-3xl text-[clamp(2.5rem,4vw,4rem)] font-extrabold leading-[1.02] text-[#1f2b1f]">
+                Dàn lịch, cân tải và chốt điểm nghẽn trước khi deadline bắt đầu chồng lớp.
               </h1>
-              <p className="mt-4 max-w-2xl text-base text-white/68">
-                Màn hình này gom ba lớp nhìn quan trọng nhất cho đội triển khai: lịch deadline, timeline theo nhịp tuần và heatmap năng lực của từng người.
+
+              <p className="mt-4 max-w-2xl text-[15px] leading-7 text-[#61705f]">
+                Một không gian planning sáng, gọn và đủ sâu để team nhìn cùng lúc ba lớp quan trọng nhất:
+                deadline theo tuần, chuyển động timeline và sức chứa thực tế của từng người.
               </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-[#5e6b58]">
+                <div className="rounded-full border border-[#dbe4cf] bg-white/80 px-3 py-1.5">
+                  Khung thời gian <span className={`${jetbrains.className} font-semibold text-[#223021]`}>{format(range.start, 'dd/MM')}</span> đến{' '}
+                  <span className={`${jetbrains.className} font-semibold text-[#223021]`}>{format(range.end, 'dd/MM')}</span>
+                </div>
+                <div className="rounded-full border border-[#eadfce] bg-[#fff7ef] px-3 py-1.5 text-[#8f684b]">
+                  Kéo thả task để dời lịch ngay trên màn
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               {overviewCards.map((card) => (
-                <div key={card.label} className="rounded-[24px] border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center justify-between text-white/55">
-                    <span className="text-xs uppercase tracking-[0.2em]">{card.label}</span>
-                    <card.icon className="h-4 w-4" />
+                <article key={card.label} className={`rounded-[24px] border p-4 shadow-[0_18px_40px_-32px_rgba(100,116,93,0.35)] ${card.surfaceClass}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6a7762]">{card.label}</span>
+                    <card.icon className={`h-4 w-4 ${card.accentClass}`} />
                   </div>
-                  <div className={`mt-3 text-3xl font-semibold ${card.accent} ${jetbrains.className}`}>{card.value}</div>
-                </div>
+                  <div className={`mt-4 text-3xl font-semibold ${card.accentClass} ${jetbrains.className}`}>{card.value}</div>
+                  <p className="mt-2 text-sm text-[#697564]">{card.note}</p>
+                </article>
               ))}
             </div>
           </div>
@@ -146,22 +195,24 @@ export default function PlanningPage() {
               setSelectedAssigneeId(view.assigneeId);
               setActiveTab(view.activeTab);
             }}
-            onSave={(name) => savedViews.saveView(name, {
-              projectId: selectedProjectId,
-              assigneeId: selectedAssigneeId,
-              activeTab,
-            })}
+            onSave={(name) =>
+              savedViews.saveView(name, {
+                projectId: selectedProjectId,
+                assigneeId: selectedAssigneeId,
+                activeTab,
+              })
+            }
             onDelete={savedViews.removeView}
             disabled={!savedViews.isReady}
             saving={savedViews.isSaving}
           />
         </div>
 
-        <section className="mt-6 rounded-[30px] border border-[#d7dfcf] bg-white px-5 py-5">
+        <section className="mt-6 rounded-[30px] border border-[#dfe5d6] bg-white/90 px-5 py-5 shadow-[0_22px_65px_-48px_rgba(89,109,84,0.35)] backdrop-blur-sm">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-3">
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="min-w-[220px]" aria-label="Chọn dự án cho planning">
+                <SelectTrigger className="min-w-[220px] border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Chọn dự án cho planning">
                   <SelectValue placeholder="Chọn dự án" />
                 </SelectTrigger>
                 <SelectContent>
@@ -175,7 +226,7 @@ export default function PlanningPage() {
               </Select>
 
               <Select value={effectiveAssigneeId} onValueChange={setSelectedAssigneeId}>
-                <SelectTrigger className="min-w-[240px]" aria-label="Chọn thành viên cho planning">
+                <SelectTrigger className="min-w-[240px] border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Chọn thành viên cho planning">
                   <SelectValue placeholder="Tất cả thành viên" />
                 </SelectTrigger>
                 <SelectContent>
@@ -190,31 +241,35 @@ export default function PlanningPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {([
-                { key: 'calendar', label: 'Calendar', icon: CalendarDays },
-                { key: 'timeline', label: 'Timeline', icon: Route },
-                { key: 'workload', label: 'Workload', icon: Users },
-              ] as const).map((tab) => (
+              {tabOptions.map((tab) => (
                 <Button
                   key={tab.key}
                   type="button"
-                  variant={activeTab === tab.key ? 'default' : 'outline'}
-                  className={activeTab === tab.key ? 'bg-[#191a23] text-white hover:bg-[#2a2b35]' : ''}
+                  variant="outline"
+                  className={
+                    activeTab === tab.key
+                      ? 'border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e5f0d6]'
+                      : 'border-[#e2e7da] bg-white text-[#5d6958] hover:bg-[#f6f8f1]'
+                  }
                   onClick={() => setActiveTab(tab.key)}
                 >
                   <tab.icon className="mr-2 h-4 w-4" />
                   {tab.label}
                 </Button>
               ))}
-              <Button variant="outline" onClick={() => setShortcutOpen(true)}>
+
+              <Button variant="outline" className="border-[#e2e7da] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={() => setShortcutOpen(true)}>
                 <Keyboard className="mr-2 h-4 w-4" />
                 Phím tắt
               </Button>
             </div>
           </div>
 
-          <div className="mt-4 text-sm text-[#62705d]">
-            Khung thời gian: <strong>{format(range.start, 'dd/MM/yyyy')}</strong> đến <strong>{format(range.end, 'dd/MM/yyyy')}</strong>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-[#62705d]">
+            <div className="rounded-full bg-[#f5f7f1] px-3 py-1.5">Khung thời gian hiện tại</div>
+            <div>
+              <strong>{format(range.start, 'dd/MM/yyyy')}</strong> đến <strong>{format(range.end, 'dd/MM/yyyy')}</strong>
+            </div>
           </div>
         </section>
 
@@ -253,7 +308,7 @@ export default function PlanningPage() {
           onOpenChange={setShortcutOpen}
           title="Phím tắt Planning"
           items={[
-            { keyLabel: '1 / 2 / 3', description: 'Chuyển nhanh giữa Calendar, Timeline và Workload' },
+            { keyLabel: '1 / 2 / 3', description: 'Chuyển nhanh giữa Lịch tuần, Timeline và Tải công việc' },
             { keyLabel: '[ / ]', description: 'Lùi hoặc tiến thêm một tuần trên lịch planning' },
             { keyLabel: '?', description: 'Mở bảng phím tắt' },
           ]}

@@ -28,7 +28,7 @@ export function RebalancePanel({
   }, [result?.reference_id]);
 
   return (
-    <div className={`rounded-[24px] border border-[#d8e0ce] bg-white ${compact ? 'p-4' : 'p-5'}`}>
+    <div className={`rounded-[24px] border border-[#d8e0ce] bg-white ${compact ? 'p-4' : 'p-5'} shadow-[0_22px_55px_-42px_rgba(92,109,84,0.32)]`}>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e0ce] bg-[#f7f8f2] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[#61705f]">
@@ -43,7 +43,7 @@ export function RebalancePanel({
 
         <Button
           type="button"
-          className="bg-[#191a23] text-white hover:bg-[#2a2b35]"
+          className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
           onClick={() => rebalanceMutation.mutate({ projectId })}
           disabled={rebalanceMutation.isPending}
         >
@@ -82,13 +82,9 @@ export function RebalancePanel({
                       <p className="mt-2 text-sm text-[#191a23]">
                         <span className="text-[#61705f]">Đề xuất chuyển:</span> {item.from_user_name} → {item.to_user_name}
                       </p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[#8abe4b]">
-                        {item.impact}
-                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[#8abe4b]">{item.impact}</p>
                     </div>
-                    <Badge className="w-fit border-[#d8e0ce] bg-white text-[#191a23]">
-                      {item.confidence}%
-                    </Badge>
+                    <Badge className="w-fit border-[#d8e0ce] bg-white text-[#191a23]">{item.confidence}%</Badge>
                   </div>
                 </div>
               ))}
