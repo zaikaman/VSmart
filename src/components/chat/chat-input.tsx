@@ -93,7 +93,9 @@ interface SuggestedQuestionsProps {
 
 export function SuggestedQuestions({ onSelect, disabled }: SuggestedQuestionsProps) {
   return (
-    <div className="flex flex-wrap justify-center gap-2">
+    <div className="w-full">
+      <p className="mb-3 text-center text-xs font-medium uppercase tracking-[0.16em] text-[#8a9684]">Gợi ý nhanh</p>
+      <div className="flex flex-wrap justify-center gap-2">
       {SUGGESTED_QUESTIONS.map((question, index) => (
         <button
           key={index}
@@ -108,6 +110,7 @@ export function SuggestedQuestions({ onSelect, disabled }: SuggestedQuestionsPro
           {question}
         </button>
       ))}
+      </div>
     </div>
   );
 }

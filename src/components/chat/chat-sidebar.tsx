@@ -431,10 +431,19 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {showMeetingTool ? (
             <div className="mb-4 rounded-[24px] border border-[#e1e7d8] bg-white p-4 shadow-[0_16px_35px_-30px_rgba(97,120,85,0.16)]">
+              <div className="mb-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-[#223021]">
+                  <FileText className="h-4 w-4 text-[#719254]" />
+                  Tóm tắt nhanh cuộc họp
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#7d8978]">
+                  Dán notes hoặc transcript để rút ra quyết định, blocker và việc cần làm tiếp.
+                </p>
+              </div>
               <textarea
                 value={meetingNotes}
                 onChange={(event) => setMeetingNotes(event.target.value)}
-                placeholder="Dán nội dung họp..."
+                placeholder="Ví dụ: Hôm nay team chốt scope sprint, API auth còn kẹt vì mapping role..."
                 className="min-h-[120px] w-full rounded-[20px] border border-[#e4e9de] bg-[#fbfcf8] px-3 py-3 text-sm text-[#223021] outline-none placeholder:text-[#95a08f]"
               />
               <div className="mt-3 flex items-center gap-2">
@@ -444,7 +453,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                   className="inline-flex items-center gap-2 rounded-2xl border border-[#d5e1c7] bg-[#edf6df] px-4 py-2 text-sm font-medium text-[#42533d] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {meetingSummaryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                  Tóm tắt
+                  Tóm tắt ngay
                 </button>
                 <button
                   onClick={() => {
@@ -491,6 +500,28 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[24px] border border-[#dbe4cf] bg-[#eef6df] text-[#719254]">
                 <MessageSquare className="h-6 w-6" />
               </div>
+              <h3 className="mb-2 text-lg font-semibold text-[#223021]">Xin chào, tôi là VSmart AI</h3>
+              <p className="mb-2 max-w-[300px] text-center text-sm leading-6 text-[#6e7a69]">
+                Tôi có thể giúp bạn theo dõi tiến độ, tìm task rủi ro, gợi ý người phù hợp và chia nhỏ công việc.
+              </p>
+              {agentMode ? (
+                <div className="mb-4 inline-flex items-center gap-2 rounded-2xl border border-[#d7e3c8] bg-[#edf6df] px-3 py-2 text-xs font-medium text-[#42533d]">
+                  <Zap className="h-3.5 w-3.5" />
+                  Chế độ Agent đang bật
+                </div>
+              ) : null}
+              <button
+                onClick={() =>
+                  handleSendMessage(
+                    'Tạo checklist bằng AI cho task sau. Hãy trả về checklist ngắn gọn, thực thi được: '
+                  )
+                }
+                disabled={isLoading}
+                className="mb-5 inline-flex items-center gap-2 rounded-2xl border border-[#d5e1c7] bg-[#edf6df] px-4 py-2 text-sm font-medium text-[#42533d] hover:bg-[#e4efd3] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Wand2 className="h-4 w-4" />
+                Tạo checklist bằng AI
+              </button>
               <SuggestedQuestions onSelect={handleSendMessage} disabled={isLoading} />
             </div>
           ) : (
@@ -515,7 +546,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
               {executingTools ? (
                 <div className="rounded-[24px] border border-[#d7e3c8] bg-[#edf6df] px-4 py-3 text-sm text-[#42533d]">
-                  Đang thực hiện...
+                  Đang thực hiện các hành động...
                 </div>
               ) : null}
 
