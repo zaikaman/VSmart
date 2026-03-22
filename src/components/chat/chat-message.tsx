@@ -1,11 +1,8 @@
 'use client';
 
+import { Bot, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { User, Bot } from 'lucide-react';
 
-/**
- * Interface cho một tin nhắn chat
- */
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -20,112 +17,85 @@ interface ChatMessageProps {
   isStreaming?: boolean;
 }
 
-/**
- * Component hiển thị một tin nhắn trong chat
- * Hỗ trợ cả user và assistant messages với styling khác nhau
- */
 export function ChatMessage({ message, isStreaming }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   return (
-    <div
-      className={cn(
-        'flex gap-3 p-4 rounded-lg',
-        isUser ? 'bg-[#2a2b35]/50 flex-row-reverse' : 'bg-[#191a23]'
-      )}
-    >
-      {/* Avatar */}
-      <div
-        className={cn(
-          'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-          isUser ? 'bg-[#b9ff66] text-[#191a23]' : 'bg-[#2a2b35] text-[#b9ff66]'
-        )}
-      >
-        {isUser ? (
-          <User className="w-4 h-4" />
-        ) : (
-          <Bot className="w-4 h-4" />
-        )}
-      </div>
+    <div className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}>
+      {!isUser ? (
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-[#dbe4cf] bg-[#eef6df] text-[#719254]">
+          <Bot className="h-4 w-4" />
+        </div>
+      ) : null}
 
-      {/* Nội dung tin nhắn */}
-      <div className={cn('flex-1 min-w-0', isUser && 'text-right')}>
+      <div className={cn('max-w-[85%]', isUser ? 'items-end' : 'items-start')}>
         <div
           className={cn(
-            'text-sm font-medium mb-1',
-            isUser ? 'text-[#b9ff66]' : 'text-white/90'
+            'rounded-[24px] border px-4 py-3 shadow-[0_16px_35px_-30px_rgba(97,120,85,0.22)]',
+            isUser
+              ? 'border-[#d7e3c8] bg-[#edf6df] text-[#30412d]'
+              : 'border-[#e4e9de] bg-white text-[#223021]'
           )}
         >
-          {isUser ? 'Bạn' : 'VSmart AI'}
+          <MessageContent content={message.content} isStreaming={isStreaming} isUser={isUser} />
         </div>
-        <div
-          className={cn(
-            'text-sm text-white/80 break-words whitespace-pre-wrap',
-            isUser && 'inline-block text-left bg-[#2a2b35] px-3 py-2 rounded-lg'
-          )}
-        >
-          <MessageContent content={message.content} isStreaming={isStreaming} />
-        </div>
-        <div className="text-xs text-white/40 mt-1">
+        <div className={cn('mt-1 px-1 text-xs text-[#8a9684]', isUser ? 'text-right' : 'text-left')}>
           {message.timestamp.toLocaleTimeString('vi-VN', {
             hour: '2-digit',
             minute: '2-digit',
           })}
         </div>
       </div>
+
+      {isUser ? (
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-[#e4e9de] bg-white text-[#5f6b58]">
+          <User className="h-4 w-4" />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-/**
- * Component render nội dung tin nhắn với markdown đơn giản
- */
 function MessageContent({
   content,
   isStreaming,
+  isUser,
 }: {
   content: string;
   isStreaming?: boolean;
+  isUser: boolean;
 }) {
-  // Xử lý markdown đơn giản: bold, italic, code, links
+  const strongClass = isUser ? 'font-semibold text-[#223021]' : 'font-semibold text-[#1f2b1f]';
+  const codeClass = isUser
+    ? 'bg-white/70 px-1 py-0.5 rounded text-[#42533d] text-xs'
+    : 'bg-[#f5f7f1] px-1 py-0.5 rounded text-[#4f614b] text-xs';
+
   const processedContent = content
-    // Bold: **text**
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>')
-    // Italic: *text* hoặc _text_
+    .replace(/\*\*(.+?)\*\*/g, `<strong class="${strongClass}">$1</strong>`)
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/_(.+?)_/g, '<em>$1</em>')
-    // Inline code: `code`
-    .replace(/`(.+?)`/g, '<code class="bg-[#2a2b35] px-1 py-0.5 rounded text-[#b9ff66] text-xs">$1</code>')
-    // Emoji risk levels
-    .replace(/🔴/g, '<span class="text-red-400">🔴</span>')
-    .replace(/🟡/g, '<span class="text-yellow-400">🟡</span>')
-    .replace(/🟢/g, '<span class="text-green-400">🟢</span>');
+    .replace(/`(.+?)`/g, `<code class="${codeClass}">$1</code>`);
 
   return (
-    <span className="relative">
-      <span 
-        dangerouslySetInnerHTML={{ __html: processedContent }}
-      />
-      {isStreaming && (
-        <span className="inline-block w-2 h-4 bg-[#b9ff66] ml-0.5 animate-pulse" />
-      )}
+    <span className="relative text-sm break-words whitespace-pre-wrap leading-6">
+      <span dangerouslySetInnerHTML={{ __html: processedContent }} />
+      {isStreaming ? <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-[#8abe4b]" /> : null}
     </span>
   );
 }
 
-/**
- * Component hiển thị trạng thái đang typing
- */
 export function TypingIndicator() {
   return (
-    <div className="flex gap-3 p-4 rounded-lg bg-[#191a23]">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#2a2b35] flex items-center justify-center text-[#b9ff66]">
-        <Bot className="w-4 h-4" />
+    <div className="flex items-center gap-3">
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-[#dbe4cf] bg-[#eef6df] text-[#719254]">
+        <Bot className="h-4 w-4" />
       </div>
-      <div className="flex items-center gap-1">
-        <div className="w-2 h-2 bg-[#b9ff66] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-        <div className="w-2 h-2 bg-[#b9ff66] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-        <div className="w-2 h-2 bg-[#b9ff66] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+      <div className="rounded-[24px] border border-[#e4e9de] bg-white px-4 py-3 shadow-[0_16px_35px_-30px_rgba(97,120,85,0.22)]">
+        <div className="flex items-center gap-1">
+          <div className="h-2 w-2 animate-bounce rounded-full bg-[#8abe4b]" style={{ animationDelay: '0ms' }} />
+          <div className="h-2 w-2 animate-bounce rounded-full bg-[#8abe4b]" style={{ animationDelay: '150ms' }} />
+          <div className="h-2 w-2 animate-bounce rounded-full bg-[#8abe4b]" style={{ animationDelay: '300ms' }} />
+        </div>
       </div>
     </div>
   );

@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, MessageSquare, Trash2, RefreshCw, Zap, Wand2, FileText, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FileText, Loader2, MessageSquare, RefreshCw, Trash2, Wand2, X, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ChatMessage, Message, TypingIndicator } from './chat-message';
 import { ChatInput, SuggestedQuestions } from './chat-input';
+import { ChatMessage, Message, TypingIndicator } from './chat-message';
 import { useMeetingSummary } from '@/lib/hooks/use-ai-insights';
 
-// Key cho localStorage
 const CHAT_HISTORY_KEY = 'vsmart-chat-history';
 const MAX_HISTORY_MESSAGES = 50;
 const AGENT_MODE_KEY = 'vsmart-agent-mode';
@@ -46,9 +45,6 @@ interface ToolExecutionResponse {
   results: ToolExecutionResult[];
 }
 
-/**
- * Lưu chat history vào localStorage
- */
 function saveChatHistory(messages: Message[]) {
   try {
     const historyToSave = messages.slice(-MAX_HISTORY_MESSAGES);
@@ -58,9 +54,6 @@ function saveChatHistory(messages: Message[]) {
   }
 }
 
-/**
- * Tải chat history từ localStorage
- */
 function loadChatHistory(): Message[] {
   try {
     const saved = localStorage.getItem(CHAT_HISTORY_KEY);
@@ -77,9 +70,6 @@ function loadChatHistory(): Message[] {
   return [];
 }
 
-/**
- * Xóa chat history
- */
 function clearChatHistory() {
   try {
     localStorage.removeItem(CHAT_HISTORY_KEY);
@@ -88,339 +78,282 @@ function clearChatHistory() {
   }
 }
 
-/**
- * Tạo unique ID cho message
- */
 function generateMessageId(): string {
-  return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-/**
- * Chat Sidebar Component
- * Hiển thị giao diện chat với AI assistant
- */
 export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const [agentMode, setAgentMode] = useState(false); // AI Agent mode
-  const [executingTools, setExecutingTools] = useState(false); // Đang thực thi tools
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [agentMode, setAgentMode] = useState(false);
+  const [executingTools, setExecutingTools] = useState(false);
   const [showMeetingTool, setShowMeetingTool] = useState(false);
   const [meetingNotes, setMeetingNotes] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const meetingSummaryMutation = useMeetingSummary();
 
-  // Load history và agent mode on mount
   useEffect(() => {
     const history = loadChatHistory();
     if (history.length > 0) {
       setMessages(history);
     }
-    
-    // Load agent mode preference
+
     const savedAgentMode = localStorage.getItem(AGENT_MODE_KEY);
     if (savedAgentMode === 'true') {
       setAgentMode(true);
     }
   }, []);
 
-  // Save agent mode preference
   useEffect(() => {
     localStorage.setItem(AGENT_MODE_KEY, agentMode.toString());
   }, [agentMode]);
 
-  // Save history when messages change
   useEffect(() => {
     if (messages.length > 0) {
       saveChatHistory(messages);
     }
   }, [messages]);
 
-  // Scroll to bottom when new messages
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, streamingContent]);
 
-  /**
-   * Gửi tin nhắn và nhận streaming response với AI Agent support
-   */
-  const handleSendMessage = useCallback(async (content: string) => {
-    // Thêm user message
-    const userMessage: Message = {
-      id: generateMessageId(),
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    };
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      const userMessage: Message = {
+        id: generateMessageId(),
+        role: 'user',
+        content,
+        timestamp: new Date(),
+      };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-    setStreamingContent('');
+      setMessages((prev) => [...prev, userMessage]);
+      setIsLoading(true);
+      setStreamingContent('');
+      abortControllerRef.current = new AbortController();
 
-    // Tạo abort controller để có thể cancel request
-    abortControllerRef.current = new AbortController();
+      try {
+        const messagesToSend = [...messages, userMessage]
+          .filter((m) => !m.tool_call_id)
+          .map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
 
-    try {
-      // Gửi request với toàn bộ conversation history
-      // QUAN TRỌNG: Loại bỏ tool_calls và tool messages từ history cũ
-      const messagesToSend = [...messages, userMessage]
-        .filter((m) => !m.tool_call_id) // Loại tool messages
-        .map((m) => ({
-          role: m.role,
-          content: m.content,
-          // Không include tool_calls và tool-related fields
-        }));
-
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          messages: messagesToSend,
-          enableAgent: agentMode, // Bật AI Agent mode
-        }),
-        signal: abortControllerRef.current.signal,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Lỗi kết nối với AI');
-      }
-
-      // Đọc streaming response
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('Không thể đọc response');
-      }
-
-      const decoder = new TextDecoder();
-      let fullContent = '';
-      let toolCalls: ToolCall[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              break;
-            }
-            try {
-              const parsed = JSON.parse(data) as StreamChunk;
-              
-              // Xử lý text content
-              if (parsed.type === 'content' && parsed.content) {
-                fullContent += parsed.content;
-                setStreamingContent(fullContent);
-              }
-              
-              // Xử lý tool calls
-              if (parsed.type === 'tool_calls' && parsed.tool_calls) {
-                toolCalls = parsed.tool_calls;
-              }
-              
-              if (parsed.type === 'error' && parsed.error) {
-                throw new Error(parsed.error);
-              }
-            } catch {
-              // Ignore parse errors for incomplete JSON
-            }
-          }
-        }
-      }
-
-      // Nếu có tool calls, thực thi chúng
-      if (toolCalls.length > 0 && agentMode) {
-        // Thêm assistant message với tool calls
-        const assistantMessageWithTools: Message = {
-          id: generateMessageId(),
-          role: 'assistant',
-          content: fullContent || 'Đang thực hiện các hành động...',
-          timestamp: new Date(),
-          tool_calls: toolCalls,
-        };
-        
-        setMessages((prev) => [...prev, assistantMessageWithTools]);
-        setStreamingContent('');
-        setExecutingTools(true);
-
-        // Gọi API để execute tools
-        const toolResponse = await fetch('/api/ai/execute-tools', {
+        const response = await fetch('/api/ai/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ tool_calls: toolCalls }),
-        });
-
-        if (!toolResponse.ok) {
-          throw new Error('Lỗi khi thực thi tools');
-        }
-
-        const toolResults = (await toolResponse.json()) as ToolExecutionResponse;
-        setExecutingTools(false);
-
-        // Gọi lại AI với tool results để tổng hợp
-        // Build messages array đúng format: [...history, assistant_with_tools, ...tool_results]
-        const summaryMessages = [
-          ...messagesToSend, // History đã clean (không có tool_calls)
-          {
-            role: 'assistant',
-            content: fullContent || '',
-            tool_calls: toolCalls, // Assistant message với tool_calls
-          },
-          ...toolResults.results.map((result) => ({
-            role: 'tool',
-            content: JSON.stringify({
-              success: result.success,
-              data: result.data,
-              error: result.error,
-            }),
-            tool_call_id: result.tool_call_id,
-          })),
-          // Thêm user message yêu cầu tổng hợp rõ ràng
-          {
-            role: 'user',
-            content: 'Hãy tổng hợp kết quả các hành động trên thành 1-2 câu ngắn gọn, rõ ràng. Sử dụng ✅ nếu thành công, ❌ nếu có lỗi.',
-          },
-        ];
-
-        console.log('[Chat] Calling AI for summary with messages:', summaryMessages.length);
-
-        const summaryResponse = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            messages: summaryMessages,
-            enableAgent: false, // TẮT agent mode cho summary để tránh loop
+          body: JSON.stringify({
+            messages: messagesToSend,
+            enableAgent: agentMode,
           }),
+          signal: abortControllerRef.current.signal,
         });
 
-        if (!summaryResponse.ok) {
-          const errorText = await summaryResponse.text();
-          console.error('[Chat] Summary response error:', errorText);
-          throw new Error('Lỗi khi tổng hợp kết quả');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Lỗi kết nối với AI');
         }
 
-        // Đọc summary response
-        const summaryReader = summaryResponse.body?.getReader();
-        if (!summaryReader) {
-          throw new Error('Không thể đọc summary response');
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('Không thể đọc phản hồi');
         }
 
-        let summaryContent = '';
-        let hasContent = false;
+        const decoder = new TextDecoder();
+        let fullContent = '';
+        let toolCalls: ToolCall[] = [];
+
         while (true) {
-          const { done, value } = await summaryReader.read();
+          const { done, value } = await reader.read();
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
           const lines = chunk.split('\n');
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') break;
-              try {
-                const parsed = JSON.parse(data) as StreamChunk;
-                console.log('[Chat] Summary chunk:', parsed);
-                if (parsed.type === 'content' && parsed.content) {
-                  summaryContent += parsed.content;
-                  setStreamingContent(summaryContent);
-                  hasContent = true;
-                }
-              } catch {}
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6);
+            if (data === '[DONE]') break;
+
+            try {
+              const parsed = JSON.parse(data) as StreamChunk;
+
+              if (parsed.type === 'content' && parsed.content) {
+                fullContent += parsed.content;
+                setStreamingContent(fullContent);
+              }
+
+              if (parsed.type === 'tool_calls' && parsed.tool_calls) {
+                toolCalls = parsed.tool_calls;
+              }
+
+              if (parsed.type === 'error' && parsed.error) {
+                throw new Error(parsed.error);
+              }
+            } catch {
+              // Ignore incomplete chunks
             }
           }
         }
 
-        console.log('[Chat] Summary complete. Has content:', hasContent, 'Length:', summaryContent.length);
-
-        // Thêm summary message hoặc fallback
-        if (summaryContent) {
-          const summaryMessage: Message = {
+        if (toolCalls.length > 0 && agentMode) {
+          const assistantMessageWithTools: Message = {
             id: generateMessageId(),
             role: 'assistant',
-            content: summaryContent,
+            content: fullContent || 'Đang thực hiện...',
             timestamp: new Date(),
+            tool_calls: toolCalls,
           };
-          setMessages((prev) => [...prev, summaryMessage]);
-        } else {
-          // Nếu AI không trả lời, tự tạo summary từ tool results
-          const resultsText = toolResults.results
-            .map((r) => {
-              if (r.success) {
-                return `✅ ${r.data?.message || 'Thành công'}`;
-              } else {
-                return `❌ Lỗi: ${r.error}`;
+
+          setMessages((prev) => [...prev, assistantMessageWithTools]);
+          setStreamingContent('');
+          setExecutingTools(true);
+
+          const toolResponse = await fetch('/api/ai/execute-tools', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ tool_calls: toolCalls }),
+          });
+
+          if (!toolResponse.ok) {
+            throw new Error('Lỗi khi thực thi tools');
+          }
+
+          const toolResults = (await toolResponse.json()) as ToolExecutionResponse;
+          setExecutingTools(false);
+
+          const summaryMessages = [
+            ...messagesToSend,
+            {
+              role: 'assistant',
+              content: fullContent || '',
+              tool_calls: toolCalls,
+            },
+            ...toolResults.results.map((result) => ({
+              role: 'tool',
+              content: JSON.stringify({
+                success: result.success,
+                data: result.data,
+                error: result.error,
+              }),
+              tool_call_id: result.tool_call_id,
+            })),
+            {
+              role: 'user',
+              content: 'Tóm tắt ngắn gọn kết quả ở trên thành 1-2 câu rõ ràng.',
+            },
+          ];
+
+          const summaryResponse = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messages: summaryMessages,
+              enableAgent: false,
+            }),
+          });
+
+          if (!summaryResponse.ok) {
+            throw new Error('Lỗi khi tổng hợp kết quả');
+          }
+
+          const summaryReader = summaryResponse.body?.getReader();
+          if (!summaryReader) {
+            throw new Error('Không thể đọc phản hồi tổng hợp');
+          }
+
+          let summaryContent = '';
+          while (true) {
+            const { done, value } = await summaryReader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const data = line.slice(6);
+              if (data === '[DONE]') break;
+              try {
+                const parsed = JSON.parse(data) as StreamChunk;
+                if (parsed.type === 'content' && parsed.content) {
+                  summaryContent += parsed.content;
+                  setStreamingContent(summaryContent);
+                }
+              } catch {
+                // Ignore incomplete chunks
               }
-            })
-            .join('\n');
+            }
+          }
 
-          const fallbackMessage: Message = {
+          if (summaryContent) {
+            const summaryMessage: Message = {
+              id: generateMessageId(),
+              role: 'assistant',
+              content: summaryContent,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, summaryMessage]);
+          } else {
+            const resultsText = toolResults.results
+              .map((r) => (r.success ? `Thành công: ${r.data?.message || 'OK'}` : `Lỗi: ${r.error}`))
+              .join('\n');
+
+            const fallbackMessage: Message = {
+              id: generateMessageId(),
+              role: 'assistant',
+              content: resultsText,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, fallbackMessage]);
+          }
+        } else if (fullContent) {
+          const assistantMessage: Message = {
             id: generateMessageId(),
             role: 'assistant',
-            content: `Đã thực hiện xong các hành động:\n\n${resultsText}`,
+            content: fullContent,
             timestamp: new Date(),
           };
-          setMessages((prev) => [...prev, fallbackMessage]);
+          setMessages((prev) => [...prev, assistantMessage]);
         }
-      } else if (fullContent) {
-        // Không có tool calls, thêm assistant message bình thường
-        const assistantMessage: Message = {
-          id: generateMessageId(),
-          role: 'assistant',
-          content: fullContent,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          const errorMessage: Message = {
+            id: generateMessageId(),
+            role: 'assistant',
+            content: `Đã xảy ra lỗi: ${(error as Error).message}`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        }
+      } finally {
+        setIsLoading(false);
+        setStreamingContent('');
+        setExecutingTools(false);
+        abortControllerRef.current = null;
       }
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        console.log('Request bị hủy');
-      } else {
-        console.error('Lỗi chat:', error);
-        // Thêm error message
-        const errorMessage: Message = {
-          id: generateMessageId(),
-          role: 'assistant',
-          content: `Xin lỗi, đã xảy ra lỗi: ${(error as Error).message}. Vui lòng thử lại.`,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      }
-    } finally {
-      setIsLoading(false);
-      setStreamingContent('');
-      setExecutingTools(false);
-      abortControllerRef.current = null;
-    }
-  }, [messages, agentMode]);
+    },
+    [messages, agentMode]
+  );
 
-  /**
-   * Xóa lịch sử chat
-   */
   const handleClearHistory = useCallback(() => {
-    if (window.confirm('Bạn có chắc muốn xóa toàn bộ lịch sử chat?')) {
+    if (window.confirm('Xóa toàn bộ lịch sử chat?')) {
       setMessages([]);
       clearChatHistory();
     }
   }, []);
 
-  /**
-   * Hủy request đang chạy
-   */
   const handleCancelRequest = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -429,222 +362,144 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
   return (
     <>
-      {/* Overlay khi mở trên mobile */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={onClose}
-        />
-      )}
+      {isOpen ? <div className="fixed inset-0 z-40 bg-black/25 md:hidden" onClick={onClose} /> : null}
 
-      {/* Chat Sidebar */}
       <div
         className={cn(
-          'fixed right-0 top-0 h-full w-full md:w-[400px] bg-[#191a23] z-50',
-          'flex flex-col shadow-2xl transition-transform duration-300 ease-in-out',
+          'fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l border-[#e1e7d8] bg-[linear-gradient(180deg,#fdfcf7_0%,#f4f7ef_48%,#eef3ea_100%)] shadow-[0_24px_80px_-40px_rgba(89,109,84,0.35)] transition-transform duration-300 ease-in-out md:w-[420px]',
           isOpen ? 'translate-x-0' : 'translate-x-full'
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#2a2b35]">
+        <div className="flex items-center justify-between border-b border-[#e1e7d8] bg-white/80 px-4 py-4 backdrop-blur-sm">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-[#b9ff66]" />
-            <h2 className="text-lg font-semibold text-white">VSmart AI</h2>
-            {agentMode && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-[#b9ff66]/10 rounded-full">
-                <Zap className="w-3 h-3 text-[#b9ff66]" />
-                <span className="text-xs text-[#b9ff66] font-medium">Agent</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-[#dbe4cf] bg-[#eef6df] text-[#719254]">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <span className="text-sm font-semibold text-[#223021]">Chat AI</span>
+            {agentMode ? (
+              <div className="inline-flex items-center gap-1 rounded-full border border-[#d7e3c8] bg-[#edf6df] px-2 py-1 text-[11px] font-medium text-[#42533d]">
+                <Zap className="h-3 w-3" />
+                Agent
               </div>
-            )}
+            ) : null}
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setShowMeetingTool((value) => !value)}
               className={cn(
-                'p-2 rounded-lg transition-colors',
+                'rounded-2xl border p-2 transition-colors',
                 showMeetingTool
-                  ? 'text-[#b9ff66] bg-[#b9ff66]/10 hover:bg-[#b9ff66]/20'
-                  : 'text-white/50 hover:text-white hover:bg-[#2a2b35]'
+                  ? 'border-[#d7e3c8] bg-[#edf6df] text-[#42533d]'
+                  : 'border-transparent text-[#7b8775] hover:border-[#e2e8d9] hover:bg-white hover:text-[#223021]'
               )}
-              title="Tóm tắt nhanh ghi chú cuộc họp"
+              title="Tóm tắt họp"
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="h-4 w-4" />
             </button>
-            {/* Agent Mode Toggle */}
             <button
               onClick={() => setAgentMode(!agentMode)}
               className={cn(
-                'p-2 rounded-lg transition-colors',
-                agentMode 
-                  ? 'text-[#b9ff66] bg-[#b9ff66]/10 hover:bg-[#b9ff66]/20' 
-                  : 'text-white/50 hover:text-white hover:bg-[#2a2b35]'
+                'rounded-2xl border p-2 transition-colors',
+                agentMode
+                  ? 'border-[#d7e3c8] bg-[#edf6df] text-[#42533d]'
+                  : 'border-transparent text-[#7b8775] hover:border-[#e2e8d9] hover:bg-white hover:text-[#223021]'
               )}
-              title={agentMode ? 'Tắt AI Agent (chỉ trả lời)' : 'Bật AI Agent (có thể thực hiện hành động)'}
+              title="Bật hoặc tắt Agent"
             >
-              <Zap className="w-4 h-4" />
+              <Zap className="h-4 w-4" />
             </button>
-            {messages.length > 0 && (
+            {messages.length > 0 ? (
               <button
                 onClick={handleClearHistory}
-                className="p-2 text-white/50 hover:text-white hover:bg-[#2a2b35] rounded-lg transition-colors"
-                title="Xóa lịch sử chat"
+                className="rounded-2xl border border-transparent p-2 text-[#7b8775] transition-colors hover:border-[#e2e8d9] hover:bg-white hover:text-[#223021]"
+                title="Xóa lịch sử"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
               </button>
-            )}
+            ) : null}
             <button
               onClick={onClose}
-              className="p-2 text-white/50 hover:text-white hover:bg-[#2a2b35] rounded-lg transition-colors"
+              className="rounded-2xl border border-transparent p-2 text-[#7b8775] transition-colors hover:border-[#e2e8d9] hover:bg-white hover:text-[#223021]"
               title="Đóng"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#2a2b35] scrollbar-track-transparent">
-          {showMeetingTool && (
-            <div className="border-b border-[#2a2b35] bg-[#14151d] p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-white">
-                <FileText className="h-4 w-4 text-[#b9ff66]" />
-                Tóm tắt nhanh cuộc họp
-              </div>
-              <p className="mt-1 text-xs text-white/55">
-                Dán notes hoặc transcript ngắn để rút ra quyết định, blocker và việc cần làm tiếp.
-              </p>
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          {showMeetingTool ? (
+            <div className="mb-4 rounded-[24px] border border-[#e1e7d8] bg-white p-4 shadow-[0_16px_35px_-30px_rgba(97,120,85,0.16)]">
               <textarea
                 value={meetingNotes}
                 onChange={(event) => setMeetingNotes(event.target.value)}
-                placeholder="Ví dụ: Hôm nay team chốt scope sprint, API auth còn kẹt vì mapping role..."
-                className="mt-3 min-h-[120px] w-full rounded-xl border border-[#2a2b35] bg-[#191a23] px-3 py-3 text-sm text-white outline-none placeholder:text-white/30"
+                placeholder="Dán nội dung họp..."
+                className="min-h-[120px] w-full rounded-[20px] border border-[#e4e9de] bg-[#fbfcf8] px-3 py-3 text-sm text-[#223021] outline-none placeholder:text-[#95a08f]"
               />
               <div className="mt-3 flex items-center gap-2">
                 <button
-                  onClick={() =>
-                    meetingSummaryMutation.mutate({
-                      notes: meetingNotes,
-                    })
-                  }
+                  onClick={() => meetingSummaryMutation.mutate({ notes: meetingNotes })}
                   disabled={meetingSummaryMutation.isPending || meetingNotes.trim().length < 20}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#b9ff66] px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[#d5e1c7] bg-[#edf6df] px-4 py-2 text-sm font-medium text-[#42533d] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {meetingSummaryMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Wand2 className="h-4 w-4" />
-                  )}
-                  Tóm tắt ngay
+                  {meetingSummaryMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  Tóm tắt
                 </button>
                 <button
                   onClick={() => {
                     setMeetingNotes('');
                     meetingSummaryMutation.reset();
                   }}
-                  className="rounded-lg border border-[#2a2b35] px-3 py-2 text-sm text-white/70 hover:text-white"
+                  className="rounded-2xl border border-[#e1e7d8] bg-white px-3 py-2 text-sm text-[#5f6b58]"
                 >
-                  Xoá nhanh
+                  Xóa
                 </button>
               </div>
 
               {meetingSummaryMutation.data?.result ? (
-                <div className="mt-4 space-y-3 rounded-2xl border border-[#2a2b35] bg-[#191a23] p-4">
-                  <p className="text-sm text-white/80">{meetingSummaryMutation.data.result.summary}</p>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-[20px] border border-[#e4e9de] bg-[#fbfcf8] p-3 text-sm text-[#223021]">
+                    {meetingSummaryMutation.data.result.summary}
+                  </div>
 
-                  {meetingSummaryMutation.data.result.decisions.length > 0 ? (
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-[#b9ff66]">Quyết định</p>
-                      <div className="mt-2 space-y-2">
-                        {meetingSummaryMutation.data.result.decisions.map((item) => (
-                          <div key={item} className="rounded-xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/78">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
+                  {meetingSummaryMutation.data.result.decisions.map((item) => (
+                    <div key={item} className="rounded-[20px] border border-[#e4e9de] bg-white px-3 py-2 text-sm text-[#223021]">
+                      {item}
                     </div>
-                  ) : null}
+                  ))}
 
-                  {meetingSummaryMutation.data.result.blockers.length > 0 ? (
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-[#ffb28c]">Blocker</p>
-                      <div className="mt-2 space-y-2">
-                        {meetingSummaryMutation.data.result.blockers.map((item) => (
-                          <div key={item} className="rounded-xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/78">
-                            {item}
-                          </div>
-                        ))}
-                      </div>
+                  {meetingSummaryMutation.data.result.blockers.map((item) => (
+                    <div key={item} className="rounded-[20px] border border-[#f0ddd1] bg-[#fff7f2] px-3 py-2 text-sm text-[#8f5a3e]">
+                      {item}
                     </div>
-                  ) : null}
+                  ))}
 
-                  {meetingSummaryMutation.data.result.action_items.length > 0 ? (
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-[#8dc9ff]">Việc cần làm tiếp</p>
-                      <div className="mt-2 space-y-2">
-                        {meetingSummaryMutation.data.result.action_items.map((item) => (
-                          <div key={`${item.title}-${item.owner || 'no-owner'}`} className="rounded-xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/78">
-                            <div>{item.title}</div>
-                            {item.owner || item.due_hint ? (
-                              <div className="mt-1 text-xs text-white/45">
-                                {[item.owner, item.due_hint].filter(Boolean).join(' · ')}
-                              </div>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
+                  {meetingSummaryMutation.data.result.action_items.map((item) => (
+                    <div key={`${item.title}-${item.owner || 'no-owner'}`} className="rounded-[20px] border border-[#e4e9de] bg-white px-3 py-2 text-sm text-[#223021]">
+                      <div>{item.title}</div>
+                      {item.owner || item.due_hint ? <div className="mt-1 text-xs text-[#8a9684]">{[item.owner, item.due_hint].filter(Boolean).join(' · ')}</div> : null}
                     </div>
-                  ) : null}
+                  ))}
                 </div>
               ) : null}
             </div>
-          )}
+          ) : null}
 
           {messages.length === 0 && !streamingContent ? (
-            // Welcome state
-            <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-              <div className="w-16 h-16 rounded-full bg-[#2a2b35] flex items-center justify-center mb-4">
-                <MessageSquare className="w-8 h-8 text-[#b9ff66]" />
+            <div className="flex h-full min-h-[320px] flex-col items-center justify-center">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[24px] border border-[#dbe4cf] bg-[#eef6df] text-[#719254]">
+                <MessageSquare className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Xin chào! Tôi là VSmart AI 👋
-              </h3>
-              <p className="text-sm text-white/60 mb-2 max-w-[280px]">
-                Tôi có thể giúp bạn quản lý tasks, phân tích rủi ro, gợi ý phân công và nhiều hơn nữa.
-              </p>
-              {agentMode && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-[#b9ff66]/10 rounded-lg mb-4">
-                  <Zap className="w-4 h-4 text-[#b9ff66]" />
-                  <p className="text-xs text-[#b9ff66]">
-                    Chế độ Agent đang BẬT - Tôi có thể tạo dự án, tasks, mời thành viên,...
-                  </p>
-                </div>
-              )}
-              <button
-                onClick={() =>
-                  handleSendMessage(
-                    'Tạo checklist bằng AI cho task sau. Hãy trả về checklist ngắn gọn, thực thi được: '
-                  )
-                }
-                disabled={isLoading}
-                className="mb-4 inline-flex items-center gap-2 rounded-lg border border-[#b9ff66]/30 bg-[#b9ff66]/10 px-4 py-2 text-sm text-[#b9ff66] hover:bg-[#b9ff66]/20 disabled:opacity-50"
-              >
-                <Wand2 className="w-4 h-4" />
-                Tạo checklist bằng AI
-              </button>
-              <SuggestedQuestions
-                onSelect={handleSendMessage}
-                disabled={isLoading}
-              />
+              <SuggestedQuestions onSelect={handleSendMessage} disabled={isLoading} />
             </div>
           ) : (
-            // Messages list
-            <div className="flex flex-col gap-2 p-4">
+            <div className="flex flex-col gap-3">
               {messages.map((message) => (
                 <ChatMessage key={message.id} message={message} />
               ))}
 
-              {/* Streaming message */}
-              {streamingContent && (
+              {streamingContent ? (
                 <ChatMessage
                   message={{
                     id: 'streaming',
@@ -654,46 +509,34 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
                   }}
                   isStreaming
                 />
-              )}
+              ) : null}
 
-              {/* Typing indicator */}
-              {isLoading && !streamingContent && !executingTools && <TypingIndicator />}
-              
-              {/* Tool execution indicator */}
-              {executingTools && (
-                <div className="flex items-center gap-2 p-3 bg-[#2a2b35] rounded-lg">
-                  <div className="animate-spin">
-                    <Zap className="w-4 h-4 text-[#b9ff66]" />
-                  </div>
-                  <span className="text-sm text-white/70">Đang thực hiện các hành động...</span>
+              {isLoading && !streamingContent && !executingTools ? <TypingIndicator /> : null}
+
+              {executingTools ? (
+                <div className="rounded-[24px] border border-[#d7e3c8] bg-[#edf6df] px-4 py-3 text-sm text-[#42533d]">
+                  Đang thực hiện...
                 </div>
-              )}
+              ) : null}
 
               <div ref={messagesEndRef} />
             </div>
           )}
         </div>
 
-        {/* Cancel button when loading */}
-        {isLoading && (
-          <div className="flex justify-center py-2 border-t border-[#2a2b35]">
+        {isLoading ? (
+          <div className="border-t border-[#e4e9de] bg-[#fbfcf8] px-4 py-2">
             <button
               onClick={handleCancelRequest}
-              className="flex items-center gap-2 px-4 py-2 text-sm text-white/70 hover:text-white bg-[#2a2b35] hover:bg-[#3a3b45] rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 rounded-2xl border border-[#e1e7d8] bg-white px-4 py-2 text-sm text-[#5f6b58]"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" />
               Hủy
             </button>
           </div>
-        )}
+        ) : null}
 
-        {/* Input Area */}
-        <ChatInput
-          onSend={handleSendMessage}
-          isLoading={isLoading}
-          placeholder="Hỏi gì đó về tasks, dự án..."
-          disabled={isLoading}
-        />
+        <ChatInput onSend={handleSendMessage} isLoading={isLoading} placeholder="Nhập câu hỏi..." disabled={isLoading} />
       </div>
     </>
   );

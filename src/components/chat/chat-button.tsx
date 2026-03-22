@@ -8,9 +8,6 @@ interface ChatButtonProps {
   className?: string;
 }
 
-/**
- * Nút mở Chat AI Sidebar
- */
 export function ChatButton({ className }: ChatButtonProps) {
   const { toggleChat, isOpen } = useChat();
 
@@ -18,17 +15,15 @@ export function ChatButton({ className }: ChatButtonProps) {
     <button
       onClick={toggleChat}
       className={cn(
-        'flex items-center space-x-3 w-full rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        'flex w-full items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all',
         isOpen
-          ? 'bg-[#2a2b35] text-[#b9ff66]'
-          : 'text-white/70 hover:bg-[#2a2b35]/50 hover:text-white',
+          ? 'border border-[#d7e3c8] bg-[#edf6df] text-[#42533d] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]'
+          : 'border border-transparent text-[#62705d] hover:border-[#e2e8d9] hover:bg-white/80 hover:text-[#223021]',
         className
       )}
       title="Mở Chat AI"
     >
-      <MessageSquare
-        className={cn('h-4 w-4', isOpen ? 'text-[#b9ff66]' : 'text-white/70')}
-      />
+      <MessageSquare className={cn('mr-3 h-4 w-4', isOpen ? 'text-[#719254]' : 'text-[#7b8775]')} />
       <span>Chat AI</span>
     </button>
   );
