@@ -89,22 +89,7 @@ function SidebarSectionLabel({ children }: { children: string }) {
 
 function SidebarNavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
   if (item.isChatTrigger) {
-    return (
-      <div
-        className={cn(
-          "rounded-[26px] border px-2 py-2 transition-all",
-          isActive
-            ? "border-[#d7e3c8] bg-[#edf6df] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]"
-            : "border-[#e4eadc] bg-white/70 hover:border-[#dbe4d1] hover:bg-white"
-        )}
-      >
-        <div className="flex items-center gap-3 px-2 pb-2 pt-1 text-sm font-medium text-[#5f6e5b]">
-          <item.icon className={cn("h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
-          <span>{item.name}</span>
-        </div>
-        <ChatButton />
-      </div>
-    );
+    return <ChatButton />;
   }
 
   return (
