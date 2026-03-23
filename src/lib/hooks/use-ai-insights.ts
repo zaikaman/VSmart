@@ -90,12 +90,13 @@ export interface MeetingSummaryData {
   error?: string;
 }
 
-export function useDailySummary(projectId?: string, enabled = true) {
+export function useDailySummary(projectId?: string, enabled = true, refreshToken = 0) {
   return useQuery({
-    queryKey: ['ai-daily-summary', projectId],
+    queryKey: ['ai-daily-summary', projectId, refreshToken],
     queryFn: async () => {
       const response = await fetch('/api/ai/daily-summary', {
         method: 'POST',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId }),
       });
@@ -112,12 +113,13 @@ export function useDailySummary(projectId?: string, enabled = true) {
   });
 }
 
-export function useWeeklySummary(projectId?: string, enabled = true) {
+export function useWeeklySummary(projectId?: string, enabled = true, refreshToken = 0) {
   return useQuery({
-    queryKey: ['ai-weekly-summary', projectId],
+    queryKey: ['ai-weekly-summary', projectId, refreshToken],
     queryFn: async () => {
       const response = await fetch('/api/ai/weekly-summary', {
         method: 'POST',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId }),
       });
@@ -203,7 +205,13 @@ export function useMeetingSummary() {
 export function useInsightFeedback() {
   return useMutation({
     mutationFn: async (payload: {
-      insight_type: 'daily_summary' | 'weekly_summary' | 'rebalance' | 'deadline_review' | 'meeting_summary' | 'team_digest';
+      insight_type:
+        | 'daily_summary'
+        | 'weekly_summary'
+        | 'rebalance'
+        | 'deadline_review'
+        | 'meeting_summary'
+        | 'team_digest';
       event_type: 'viewed' | 'accepted' | 'dismissed' | 'helpful' | 'not_helpful';
       reference_id?: string;
       metadata?: Record<string, unknown>;
