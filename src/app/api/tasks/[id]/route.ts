@@ -147,6 +147,7 @@ export async function PATCH(
         progress_mode,
         review_status,
         submitted_for_review_at,
+        review_request_comment,
         reviewed_by,
         reviewed_at,
         review_comment,
@@ -238,6 +239,7 @@ export async function PATCH(
       Object.assign(normalizedPayload, {
         review_status: 'draft',
         submitted_for_review_at: null,
+        review_request_comment: null,
         reviewed_by: null,
         reviewed_at: null,
         review_comment: null,

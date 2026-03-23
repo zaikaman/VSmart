@@ -54,6 +54,11 @@ interface BaseTask {
   risk_score?: number | null;
   reviewStatus?: 'draft' | 'pending_review' | 'approved' | 'changes_requested' | null;
   review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested' | null;
+  submitted_for_review_at?: string | null;
+  reviewRequestComment?: string | null;
+  review_request_comment?: string | null;
+  reviewComment?: string | null;
+  review_comment?: string | null;
 }
 
 interface Comment {
@@ -112,6 +117,9 @@ function normalizeTask(task: BaseTask | null, details?: HookTask | null): HookTa
     progress_mode: task.progressMode ?? task.progress_mode ?? 'manual',
     risk_score: task.riskScore ?? task.risk_score ?? 0,
     review_status: task.reviewStatus ?? task.review_status ?? 'draft',
+    submitted_for_review_at: task.submitted_for_review_at ?? null,
+    review_request_comment: task.reviewRequestComment ?? task.review_request_comment ?? null,
+    review_comment: task.reviewComment ?? task.review_comment ?? null,
     risk_level: 'low',
     risk_updated_at: null,
     is_stale: false,
@@ -126,7 +134,8 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
-  const [reviewComment, setReviewComment] = useState('');
+  const [reviewRequestDraft, setReviewRequestDraft] = useState('');
+  const [reviewDecisionDraft, setReviewDecisionDraft] = useState('');
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const taskId = task?.id || '';
@@ -162,6 +171,12 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   useEffect(() => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    setReviewRequestDraft('');
+    setReviewDecisionDraft('');
+  }, [open, taskId]);
 
   const addCommentMutation = useMutation({
     mutationFn: async (noi_dung: string) => {
@@ -219,9 +234,19 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
     status: resolvedTask.trang_thai,
     reviewStatus,
   });
-  const canShowSubmitReview = canSubmitReview && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'pending_review' });
+  const isChecklistTask = resolvedTask.progress_mode === 'checklist';
+  const isReadyForReview = isChecklistTask
+    ? effectiveProgress >= 100
+    : resolvedTask.trang_thai === 'done' || effectiveProgress >= 100;
+  const canRequestReview = canSubmitReview && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'pending_review' });
+  const canShowSubmitReview = canRequestReview && isReadyForReview;
   const canShowApprove = canApprove && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'approved' });
   const canShowReject = canReject && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'changes_requested' });
+  const reviewRequestComment = resolvedTask.review_request_comment ?? null;
+  const reviewerComment = resolvedTask.review_comment ?? null;
+  const reviewReadyHint = isChecklistTask
+    ? 'Hoàn tất toàn bộ checklist rồi mới gửi duyệt.'
+    : 'Đưa task sang Hoàn thành rồi mới gửi duyệt.';
 
   const submitComment = (event: React.FormEvent) => {
     event.preventDefault();
@@ -231,15 +256,18 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   const submitReview = async (mode: 'submit' | 'approve' | 'reject') => {
     try {
       if (mode === 'submit') {
-        await submitReviewMutation.mutateAsync({ taskId, review_comment: reviewComment || undefined });
+        await submitReviewMutation.mutateAsync({ taskId, comment: reviewRequestDraft || undefined });
+        setReviewRequestDraft('');
         toast.success('Task đã được gửi duyệt');
       }
       if (mode === 'approve') {
-        await approveTaskMutation.mutateAsync({ taskId, review_comment: reviewComment || undefined });
+        await approveTaskMutation.mutateAsync({ taskId, comment: reviewDecisionDraft || undefined });
+        setReviewDecisionDraft('');
         toast.success('Task đã được duyệt');
       }
       if (mode === 'reject') {
-        await rejectTaskMutation.mutateAsync({ taskId, review_comment: reviewComment });
+        await rejectTaskMutation.mutateAsync({ taskId, comment: reviewDecisionDraft });
+        setReviewDecisionDraft('');
         toast.success('Đã trả task về để chỉnh sửa');
       }
     } catch (error) {
@@ -352,20 +380,50 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h4 className="font-semibold text-slate-900">Luồng duyệt task</h4>
-                  <p className="mt-1 text-sm text-slate-500">Nhận xét sẽ được lưu cùng activity log để quản lý dễ theo dõi.</p>
+                  <p className="mt-1 text-sm text-slate-500">Tách rõ ghi chú bàn giao và nhận xét duyệt để dễ theo dõi từng vòng xử lý.</p>
                 </div>
-                {resolvedTask.review_comment ? (
+                {resolvedTask.submitted_for_review_at ? (
+                  <div className="rounded-2xl border border-[#eef1e7] bg-[#fbfbf8] px-3 py-2 text-sm text-slate-600">
+                    Gửi lúc {new Date(resolvedTask.submitted_for_review_at).toLocaleString('vi-VN')}
+                  </div>
+                ) : null}
+                {reviewerComment ? (
                   <div className="max-w-[280px] rounded-2xl border border-[#eef1e7] bg-[#fbfbf8] px-3 py-2 text-sm text-slate-600">
-                    {resolvedTask.review_comment}
+                    {reviewerComment}
                   </div>
                 ) : null}
               </div>
-              <Textarea
-                value={reviewComment}
-                onChange={(event) => setReviewComment(event.target.value)}
-                className="mt-4 min-h-[100px]"
-                placeholder="Ghi rõ nhận xét duyệt hoặc những điểm cần chỉnh sửa..."
-              />
+              {reviewRequestComment ? (
+                <div className="mt-4 rounded-2xl border border-[#e7ebdf] bg-[#fbfbf8] p-3">
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Ghi chú khi gửi duyệt</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{reviewRequestComment}</p>
+                </div>
+              ) : null}
+              {canRequestReview ? (
+                <div className="mt-4">
+                  <label className="text-sm font-medium text-slate-700">Ghi chú cho người duyệt</label>
+                  <Textarea
+                    value={reviewRequestDraft}
+                    onChange={(event) => setReviewRequestDraft(event.target.value)}
+                    className="mt-2 min-h-[96px]"
+                    placeholder="Nêu nhanh kết quả đã làm xong, điểm cần reviewer lưu ý hoặc file cần kiểm tra."
+                  />
+                  {!canShowSubmitReview ? (
+                    <p className="mt-2 text-sm text-slate-500">{reviewReadyHint}</p>
+                  ) : null}
+                </div>
+              ) : null}
+              {canShowApprove || canShowReject ? (
+                <div className="mt-4">
+                  <label className="text-sm font-medium text-slate-700">Nhận xét của người duyệt</label>
+                  <Textarea
+                    value={reviewDecisionDraft}
+                    onChange={(event) => setReviewDecisionDraft(event.target.value)}
+                    className="mt-2 min-h-[96px]"
+                    placeholder="Ghi rõ lý do duyệt hoặc điểm cần chỉnh sửa để người thực hiện xử lý nhanh hơn."
+                  />
+                </div>
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 {canShowSubmitReview ? <Button variant="outline" onClick={() => submitReview('submit')} disabled={submitReviewMutation.isPending}>Gửi duyệt</Button> : null}
                 {canShowApprove ? <Button className="bg-[#191a23] text-white hover:bg-[#2a2b35]" onClick={() => submitReview('approve')} disabled={approveTaskMutation.isPending}>Duyệt task</Button> : null}

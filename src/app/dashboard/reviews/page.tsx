@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useHotkeys } from '@/lib/hooks/use-hotkeys';
 import { useApproveTask, useRejectTask, useReviewQueue } from '@/lib/hooks/use-governance';
 import { isLeadershipRole } from '@/lib/auth/permissions';
+import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task-progress';
 
 export default function ReviewsPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -41,18 +42,45 @@ export default function ReviewsPage() {
   ]);
 
   const isManagerView = isLeadershipRole(currentUser?.vai_tro);
+  const sortedReviewTasks = useMemo(() => {
+    const priorityRank = {
+      urgent: 0,
+      high: 1,
+      medium: 2,
+      low: 3,
+    } as const;
+
+    return [...(reviewTasks || [])].sort((left, right) => {
+      const leftOverdue = new Date(left.deadline).getTime() < Date.now() ? 1 : 0;
+      const rightOverdue = new Date(right.deadline).getTime() < Date.now() ? 1 : 0;
+      if (leftOverdue !== rightOverdue) {
+        return rightOverdue - leftOverdue;
+      }
+
+      const leftPriority = priorityRank[left.priority];
+      const rightPriority = priorityRank[right.priority];
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+
+      const leftSubmittedAt = left.submitted_for_review_at ? new Date(left.submitted_for_review_at).getTime() : 0;
+      const rightSubmittedAt = right.submitted_for_review_at ? new Date(right.submitted_for_review_at).getTime() : 0;
+      return leftSubmittedAt - rightSubmittedAt;
+    });
+  }, [reviewTasks]);
+
   const queueStats = useMemo(() => {
-    const items = reviewTasks || [];
+    const items = sortedReviewTasks;
     return {
       total: items.length,
       highPriority: items.filter((item) => item.priority === 'high' || item.priority === 'urgent').length,
       overdue: items.filter((item) => new Date(item.deadline).getTime() < Date.now()).length,
     };
-  }, [reviewTasks]);
+  }, [sortedReviewTasks]);
 
   const handleApprove = async (taskId: string) => {
     try {
-      await approveTask.mutateAsync({ taskId, review_comment: notes[taskId] || undefined });
+      await approveTask.mutateAsync({ taskId, comment: notes[taskId] || undefined });
       toast.success('Task đã được duyệt');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Không thể duyệt task');
@@ -61,7 +89,7 @@ export default function ReviewsPage() {
 
   const handleReject = async (taskId: string) => {
     try {
-      await rejectTask.mutateAsync({ taskId, review_comment: notes[taskId] || '' });
+      await rejectTask.mutateAsync({ taskId, comment: notes[taskId] || '' });
       toast.success('Đã trả task về để chỉnh sửa');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Không thể trả task');
@@ -111,7 +139,7 @@ export default function ReviewsPage() {
 
       {isLoading ? (
         <div className="grid gap-4 lg:grid-cols-2">{[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-[260px] rounded-[28px]" />)}</div>
-      ) : !reviewTasks || reviewTasks.length === 0 ? (
+      ) : sortedReviewTasks.length === 0 ? (
         <Card className="border-dashed border-[#dbe4ce] bg-[#f8fbf3]">
           <CardContent className="py-14 text-center">
             <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
@@ -121,7 +149,20 @@ export default function ReviewsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {reviewTasks.map((task) => (
+          {sortedReviewTasks.map((task) => {
+            const effectiveProgress = getEffectiveTaskProgress({
+              progress: task.progress,
+              progressMode: task.progress_mode,
+              status: task.trang_thai,
+              reviewStatus: task.review_status,
+            });
+            const progressLabel = getTaskProgressLabel({
+              progressMode: task.progress_mode,
+              status: task.trang_thai,
+              reviewStatus: task.review_status,
+            });
+
+            return (
             <Card key={task.id} className="overflow-hidden rounded-[28px] border-[#e7ebdf]">
               <CardHeader className="border-b border-[#eef1e7] bg-[#fbfbf8]">
                 <div className="flex items-start justify-between gap-4">
@@ -138,11 +179,26 @@ export default function ReviewsPage() {
               <CardContent className="space-y-4 p-5">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl bg-slate-50 p-3"><p className="text-xs uppercase tracking-[0.18em] text-slate-500">Người phụ trách</p><p className="mt-2 text-sm font-medium text-slate-900">{task.nguoi_dung?.ten || 'Chưa phân công'}</p></div>
-                  <div className="rounded-2xl bg-slate-50 p-3"><p className="text-xs uppercase tracking-[0.18em] text-slate-500">Tiến độ</p><p className="mt-2 text-sm font-medium text-slate-900">{task.progress}%</p></div>
+                  <div className="rounded-2xl bg-slate-50 p-3"><p className="text-xs uppercase tracking-[0.18em] text-slate-500">Tiến độ</p><p className="mt-2 text-sm font-medium text-slate-900">{task.progress_mode === 'checklist' ? `${effectiveProgress}%` : progressLabel}</p></div>
                   <div className="rounded-2xl bg-slate-50 p-3"><p className="text-xs uppercase tracking-[0.18em] text-slate-500">Mức ưu tiên</p><p className="mt-2 text-sm font-medium text-slate-900">{task.priority}</p></div>
                 </div>
 
                 {task.mo_ta ? <p className="line-clamp-3 text-sm text-slate-600">{task.mo_ta}</p> : <p className="text-sm text-slate-400">Task này chưa có mô tả chi tiết.</p>}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-[#e7ebdf] bg-[#fbfbf8] p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Gửi duyệt lúc</p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">
+                      {task.submitted_for_review_at ? new Date(task.submitted_for_review_at).toLocaleString('vi-VN') : 'Chưa rõ thời điểm'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[#e7ebdf] bg-[#fbfbf8] p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Ghi chú bàn giao</p>
+                    <p className="mt-2 line-clamp-3 text-sm text-slate-700">
+                      {task.review_request_comment?.trim() || 'Không có ghi chú kèm theo.'}
+                    </p>
+                  </div>
+                </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Nhận xét cho vòng duyệt</label>
@@ -166,7 +222,7 @@ export default function ReviewsPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       )}
 

@@ -76,7 +76,7 @@ export async function updatePhanDuAnProgress(phanDuAnId: string) {
 export async function syncTaskProgressFromChecklist(taskId: string) {
   const { data: task, error: taskError } = await supabaseAdmin
     .from('task')
-    .select('id, progress_mode, phan_du_an_id, trang_thai')
+    .select('id, progress_mode, phan_du_an_id, trang_thai, review_status')
     .eq('id', taskId)
     .is('deleted_at', null)
     .single();
@@ -102,7 +102,11 @@ export async function syncTaskProgressFromChecklist(taskId: string) {
     const done = completedItems || 0;
     const progress = total > 0 ? Math.round((done / total) * 100) : 0;
     const trangThai =
-      progress >= 100 ? 'done' : progress > 0 ? 'in-progress' : 'todo';
+      task.review_status === 'approved' && progress >= 100
+        ? 'done'
+        : progress > 0
+          ? 'in-progress'
+          : 'todo';
 
     await supabaseAdmin
       .from('task')

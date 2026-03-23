@@ -80,7 +80,7 @@ function calculateTaskStateFromChecklist(items: ChecklistItem[]) {
 
   return {
     progress,
-    trang_thai: progress >= 100 ? 'done' : progress > 0 ? 'in-progress' : 'todo',
+    trang_thai: progress > 0 ? 'in-progress' : 'todo',
   } as const;
 }
 

@@ -198,6 +198,7 @@ CREATE TABLE public.task (
   reviewed_by uuid,
   reviewed_at timestamp with time zone,
   review_comment text,
+  review_request_comment text,
   CONSTRAINT task_pkey PRIMARY KEY (id),
   CONSTRAINT task_phan_du_an_id_fkey FOREIGN KEY (phan_du_an_id) REFERENCES public.phan_du_an(id),
   CONSTRAINT task_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES public.nguoi_dung(id),

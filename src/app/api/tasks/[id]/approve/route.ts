@@ -51,7 +51,9 @@ export async function POST(
       .from('task')
       .update({
         review_status: 'approved',
-        ...(task.progress_mode === 'checklist' ? {} : { progress: 100 }),
+        ...(task.progress_mode === 'checklist'
+          ? { trang_thai: 'done', progress: 100 }
+          : { progress: 100 }),
         reviewed_by: auth.dbUser.id,
         reviewed_at: now,
         review_comment: reviewComment,

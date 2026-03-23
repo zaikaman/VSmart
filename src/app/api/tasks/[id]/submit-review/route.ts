@@ -11,6 +11,14 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const body = await request.json().catch(() => ({}));
+    const reviewRequestComment =
+      typeof body.review_request_comment === 'string' && body.review_request_comment.trim().length > 0
+        ? body.review_request_comment.trim()
+        : typeof body.review_comment === 'string' && body.review_comment.trim().length > 0
+          ? body.review_comment.trim()
+          : null;
+
     const auth = await getTaskAccessContext(id);
     const canSubmit = hasPermission(
       {
@@ -40,9 +48,18 @@ export async function POST(
       return NextResponse.json({ error: 'Task hiện chưa thể chuyển sang chờ duyệt' }, { status: 400 });
     }
 
-    if (task.trang_thai !== 'done' && task.progress < 100) {
+    const isChecklistTask = task.progress_mode === 'checklist';
+    const isReadyForReview = isChecklistTask
+      ? task.progress >= 100
+      : task.trang_thai === 'done' || task.progress >= 100;
+
+    if (!isReadyForReview) {
       return NextResponse.json(
-        { error: 'Chỉ có thể gửi duyệt khi task đã hoàn thành hoặc đạt 100%' },
+        {
+          error: isChecklistTask
+            ? 'Task checklist chỉ có thể gửi duyệt khi đã hoàn tất toàn bộ checklist'
+            : 'Task chỉ có thể gửi duyệt khi đã chuyển sang Hoàn thành',
+        },
         { status: 400 }
       );
     }
@@ -54,6 +71,7 @@ export async function POST(
         review_status: 'pending_review',
         progress: task.progress_mode === 'checklist' ? task.progress : 90,
         submitted_for_review_at: now,
+        review_request_comment: reviewRequestComment,
         reviewed_by: null,
         reviewed_at: null,
         review_comment: null,
@@ -103,11 +121,13 @@ export async function POST(
       nextValue: {
         review_status: 'pending_review',
         submitted_for_review_at: now,
+        review_request_comment: reviewRequestComment,
       },
       metadata: {
         projectId: auth.projectId,
         partId: task.phan_du_an_id,
         taskName: task.ten,
+        reviewRequestComment: reviewRequestComment,
       },
     });
 

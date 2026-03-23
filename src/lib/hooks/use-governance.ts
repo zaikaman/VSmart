@@ -93,21 +93,24 @@ export function useReviewQueue(enabled = true) {
   });
 }
 
-function useReviewMutation(endpoint: 'submit-review' | 'approve' | 'reject') {
+function useReviewMutation(
+  endpoint: 'submit-review' | 'approve' | 'reject',
+  commentField: 'review_comment' | 'review_request_comment' = 'review_comment'
+) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
       taskId,
-      review_comment,
+      comment,
     }: {
       taskId: string;
-      review_comment?: string;
+      comment?: string;
     }) => {
       const response = await fetch(`/api/tasks/${taskId}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_comment }),
+        body: JSON.stringify({ [commentField]: comment }),
       });
 
       if (!response.ok) {
@@ -128,7 +131,7 @@ function useReviewMutation(endpoint: 'submit-review' | 'approve' | 'reject') {
 }
 
 export function useSubmitTaskForReview() {
-  return useReviewMutation('submit-review');
+  return useReviewMutation('submit-review', 'review_request_comment');
 }
 
 export function useApproveTask() {

@@ -56,7 +56,9 @@ export async function POST(
       .update({
         review_status: 'changes_requested',
         ...(task.progress_mode === 'checklist'
-          ? {}
+          ? {
+              trang_thai: 'in-progress',
+            }
           : {
               trang_thai: 'in-progress',
               progress: 50,

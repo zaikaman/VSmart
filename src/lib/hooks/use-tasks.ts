@@ -28,6 +28,7 @@ export interface Task {
   recurring_rule_id?: string | null;
   review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested';
   submitted_for_review_at?: string | null;
+  review_request_comment?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
   review_comment?: string | null;
