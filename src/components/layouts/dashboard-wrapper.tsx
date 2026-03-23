@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { ChatProvider } from '@/lib/providers/chat-provider';
+import { PresenceProvider } from '@/lib/providers/presence-provider';
 
 interface DashboardWrapperProps {
   children: ReactNode;
@@ -12,5 +13,9 @@ interface DashboardWrapperProps {
  * Bao gồm ChatProvider để enable Chat AI từ mọi nơi
  */
 export function DashboardWrapper({ children }: DashboardWrapperProps) {
-  return <ChatProvider>{children}</ChatProvider>;
+  return (
+    <PresenceProvider>
+      <ChatProvider>{children}</ChatProvider>
+    </PresenceProvider>
+  );
 }

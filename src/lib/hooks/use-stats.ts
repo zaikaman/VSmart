@@ -42,7 +42,7 @@ export interface DashboardStats {
 }
 
 // Fetch thống kê dashboard
-export function useStats() {
+export function useStats(options?: { enabled?: boolean }) {
     return useQuery({
         queryKey: ['stats'],
         queryFn: async () => {
@@ -51,6 +51,7 @@ export function useStats() {
             const result = await response.json();
             return result.data as DashboardStats;
         },
+        enabled: options?.enabled ?? true,
         staleTime: 2 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     });

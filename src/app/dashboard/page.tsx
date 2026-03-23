@@ -3,33 +3,53 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { CheckCircle2, LayoutDashboard, Plus, Settings2, Sparkles, TrendingUp, Users } from 'lucide-react';
+import {
+  Building2,
+  CheckCircle2,
+  LayoutDashboard,
+  Plus,
+  Settings2,
+  Sparkles,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { ExecutiveSummaryWidget } from '@/components/ai/executive-summary-widget';
 import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
-import { Button } from '@/components/ui/button';
+import { CreateOrganizationModal } from '@/components/organizations/create-organization-modal';
 import { CreateProjectModal } from '@/components/projects/create-project-modal';
 import { ProjectCard } from '@/components/projects/project-card';
 import ProjectInvitations from '@/components/projects/project-invitations';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isLeadershipRole } from '@/lib/auth/permissions';
+import { useOrganization } from '@/lib/hooks/use-organizations';
 import { useProjects, type Project } from '@/lib/hooks/use-projects';
 import { useStats } from '@/lib/hooks/use-stats';
-import { useSearchParams } from 'next/navigation';
+import { usePresence } from '@/lib/providers/presence-provider';
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
-  const [createProjectOpen, setCreateProjectOpen] = useState(false);
-  const { data: projectsData, isLoading: projectsLoading } = useProjects();
-  const { data: stats, isLoading: statsLoading } = useStats();
   const searchParams = useSearchParams();
   const digestReference = searchParams.get('digest');
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createOrganizationOpen, setCreateOrganizationOpen] = useState(false);
+  const { data: organization, isLoading: organizationLoading } = useOrganization();
+  const { data: projectsData, isLoading: projectsLoading } = useProjects();
+  const { data: stats, isLoading: statsLoading } = useStats({ enabled: Boolean(organization) });
+  const { onlineCount, ready: presenceReady } = usePresence();
   const { data: currentUser } = useQuery({
     queryKey: ['dashboard-current-user'],
     queryFn: async () => {
       const response = await fetch('/api/users/me');
       if (!response.ok) throw new Error('Không thể tải thông tin người dùng');
-      return response.json() as Promise<{ vai_tro?: string; onboarding_completed?: boolean; ten?: string }>;
+
+      return response.json() as Promise<{
+        vai_tro?: string;
+        onboarding_completed?: boolean;
+        ten?: string;
+      }>;
     },
   });
 
@@ -57,8 +77,8 @@ export default function DashboardPage() {
     },
   });
 
-  const isLoading = projectsLoading || statsLoading;
-  const shouldShowExecutiveSummary = isLeadershipRole(currentUser?.vai_tro);
+  const isLoading = projectsLoading || organizationLoading || (Boolean(organization) && statsLoading);
+  const shouldShowExecutiveSummary = Boolean(organization) && isLeadershipRole(currentUser?.vai_tro);
   const projects = projectsData?.data || [];
   const onboardingSteps = [
     {
@@ -98,30 +118,8 @@ export default function DashboardPage() {
     );
   }
 
-  return (
-    <DashboardPageShell
-      badge={
-        <>
-          <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Tổng quan
-        </>
-      }
-      title={currentUser?.ten ? `Chào ${currentUser.ten}` : 'Tổng quan'}
-      description="Theo dõi tiến độ chung, deadline sắp tới và các điểm cần chú ý."
-      actions={
-        <>
-          <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Dự án mới
-          </Button>
-          <Link href="/dashboard/projects">
-            <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-              Xem toàn bộ dự án
-            </Button>
-          </Link>
-        </>
-      }
-      metrics={[
+  const shellMetrics = organization
+    ? [
         {
           label: 'Tổng số dự án',
           value: stats?.totalProjects?.toString() || '0',
@@ -139,9 +137,9 @@ export default function DashboardPage() {
           valueClassName: 'text-[#b66944]',
         },
         {
-          label: 'Thành viên hoạt động',
-          value: stats?.totalUsers?.toString() || '0',
-          note: 'Người dùng đang tham gia',
+          label: 'Đang online',
+          value: presenceReady ? onlineCount.toString() : '...',
+          note: 'Người đang mở VSmart lúc này',
           icon: <Users className="h-4 w-4 text-[#39638d]" />,
           surfaceClassName: 'bg-[#edf5ff] border-[#d8e6f7]',
           valueClassName: 'text-[#39638d]',
@@ -154,9 +152,129 @@ export default function DashboardPage() {
           surfaceClassName: 'bg-[#fff6df] border-[#eee1bb]',
           valueClassName: 'text-[#985c21]',
         },
-      ]}
+      ]
+    : [
+        {
+          label: 'Hồ sơ cá nhân',
+          value: currentUser?.ten ? 'Sẵn sàng' : 'Cần bổ sung',
+          note: 'Bạn đang ở chế độ làm việc cá nhân',
+          icon: <CheckCircle2 className="h-4 w-4 text-[#2f6052]" />,
+          surfaceClassName: 'bg-[#eef6f0] border-[#d9eadf]',
+          valueClassName: 'text-xl text-[#2f6052]',
+        },
+        {
+          label: 'Không gian làm việc',
+          value: 'Chưa tạo',
+          note: 'Tạo khi cần mở dự án và mời team',
+          icon: <Building2 className="h-4 w-4 text-[#39638d]" />,
+          surfaceClassName: 'bg-[#edf5ff] border-[#d8e6f7]',
+          valueClassName: 'text-xl text-[#39638d]',
+        },
+        {
+          label: 'Dự án hiện có',
+          value: projects.length.toString(),
+          note: 'Bạn chỉ có thể tạo dự án mới sau khi có tổ chức',
+          icon: <LayoutDashboard className="h-4 w-4 text-[#985c21]" />,
+          surfaceClassName: 'bg-[#fff6df] border-[#eee1bb]',
+          valueClassName: 'text-[#985c21]',
+        },
+      ];
+
+  return (
+    <DashboardPageShell
+      badge={
+        <>
+          <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
+          Tổng quan
+        </>
+      }
+      title={currentUser?.ten ? `Chào ${currentUser.ten}` : 'Tổng quan'}
+      description={
+        organization
+          ? 'Theo dõi tiến độ chung, deadline sắp tới và các điểm cần chú ý.'
+          : 'Bạn đang ở chế độ hồ sơ cá nhân. Tạo tổ chức khi cần mở dự án, mời thành viên và phân quyền cho team.'
+      }
+      actions={
+        organization ? (
+          <>
+            <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Dự án mới
+            </Button>
+            <Link href="/dashboard/projects">
+              <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
+                Xem toàn bộ dự án
+              </Button>
+            </Link>
+          </>
+        ) : (
+          <>
+            <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
+              <Building2 className="mr-2 h-4 w-4" />
+              Tạo tổ chức
+            </Button>
+            <Link href="/dashboard/settings">
+              <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
+                Mở cài đặt
+              </Button>
+            </Link>
+          </>
+        )
+      }
+      metrics={shellMetrics}
     >
-      {!currentUser?.onboarding_completed ? (
+      {!organization ? (
+        <DashboardSection
+          title="Bắt đầu từ hồ sơ cá nhân"
+          description="Tên hiển thị, phòng ban và kỹ năng của bạn được tách riêng với dữ liệu chung của team."
+        >
+          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
+              <div className="inline-flex rounded-full border border-[#d6e3c9] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
+                Workspace tách biệt
+              </div>
+              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Chỉ tạo tổ chức khi bạn thực sự cần mở dự án cho team.</h3>
+              <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
+                Cách này giúp tên công ty không bị lưu nhầm như dữ liệu cá nhân, đồng thời quyền <strong>owner</strong> chỉ xuất hiện khi có
+                một tổ chức thật được tạo ra.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Tạo tổ chức ngay
+                </Button>
+                <Link href="/dashboard/profile">
+                  <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
+                    Cập nhật hồ sơ
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                ['1', 'Hồ sơ cá nhân', 'Lưu họ tên, phòng ban, avatar và kỹ năng của riêng bạn.'],
+                ['2', 'Tạo tổ chức', 'Sinh một workspace chung để quản lý dự án, thành viên và quyền.'],
+                ['3', 'Mở dự án đầu tiên', 'Người tạo tổ chức sẽ được gán owner và có thể bắt đầu tạo dự án ngay.'],
+              ].map(([index, title, description]) => (
+                <div key={index} className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d9e4cd] bg-[#f4faea] text-sm font-semibold text-[#587041]">
+                      {index}
+                    </div>
+                    <div>
+                      <p className="font-medium text-[#223021]">{title}</p>
+                      <p className="mt-1 text-sm leading-6 text-[#65725f]">{description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DashboardSection>
+      ) : null}
+
+      {organization && !currentUser?.onboarding_completed ? (
         <DashboardSection title="Bắt đầu nhanh" description="Hoàn thành vài bước cơ bản để bắt đầu làm việc thuận hơn.">
           <div className="mb-4 inline-flex rounded-full border border-[#d7e1cb] bg-[#f7fbef] px-3 py-1 text-sm font-medium text-[#50614f]">
             {completedOnboardingSteps}/3 đã xong
@@ -169,7 +287,7 @@ export default function DashboardPage() {
                     <p className="font-medium text-[#223021]">{step.title}</p>
                     <p className="mt-2 text-sm leading-6 text-[#65725f]">{step.description}</p>
                   </div>
-                  <CheckCircle2 className={`h-5 w-5 flex-shrink-0 ${step.completed ? 'text-emerald-600' : 'text-slate-300'}`} />
+                  <CheckCircle2 className={`h-5 w-5 shrink-0 ${step.completed ? 'text-emerald-600' : 'text-slate-300'}`} />
                 </div>
 
                 {step.href ? (
@@ -219,77 +337,138 @@ export default function DashboardPage() {
         </DashboardSection>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <DashboardSection title="Deadline và tải tuần này" description="Các mốc gần nhất và nơi có dấu hiệu dồn việc.">
-          <div className="space-y-3">
-            {(stats?.upcomingDeadlines || []).length === 0 ? (
-              <div className="rounded-[22px] border border-dashed border-[#dce4d3] bg-[#f8faf4] py-8 text-center text-sm text-[#72806c]">
-                Chưa có deadline nổi bật trong 2 tuần tới.
-              </div>
-            ) : (
-              (stats?.upcomingDeadlines || []).map((item) => (
-                <div key={item.id} className="flex items-start justify-between gap-3 rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
+      {organization ? (
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <DashboardSection title="Deadline và tải tuần này" description="Các mốc gần nhất và nơi có dấu hiệu dồn việc.">
+            <div className="space-y-3">
+              {(stats?.upcomingDeadlines || []).length === 0 ? (
+                <div className="rounded-[22px] border border-dashed border-[#dce4d3] bg-[#f8faf4] py-8 text-center text-sm text-[#72806c]">
+                  Chưa có deadline nổi bật trong 2 tuần tới.
+                </div>
+              ) : (
+                (stats?.upcomingDeadlines || []).map((item) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
+                    <div>
+                      <p className="font-medium text-[#223021]">{item.ten}</p>
+                      <p className="mt-1 text-sm text-[#65725f]">
+                        {item.projectName} · {item.assigneeName}
+                      </p>
+                    </div>
+                    <div className="rounded-full border border-[#e0e6d7] bg-white px-3 py-1 text-xs font-medium text-[#5f6b58]">
+                      {new Date(item.deadline).toLocaleDateString('vi-VN')}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </DashboardSection>
+
+          <DashboardSection title="Dự án và thành viên cần chú ý" description="Những chỗ nên xem lại sớm để tránh trễ việc.">
+            <div className="space-y-3">
+              {(stats?.riskyProjects || []).slice(0, 2).map((project) => (
+                <div key={project.id} className="rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
+                  <div className="mb-1 flex items-center justify-between gap-3">
+                    <p className="font-medium text-[#223021]">{project.ten}</p>
+                    <span className="text-sm font-semibold text-[#b66944]">{project.slipProbability}%</span>
+                  </div>
+                  <p className="text-sm text-[#65725f]">{project.forecastStatus === 'slipping' ? 'Nguy cơ trễ cao' : 'Cần theo dõi sát'}</p>
+                </div>
+              ))}
+
+              {(stats?.overloadedMembers || []).slice(0, 3).map((member) => (
+                <div key={member.userId} className="flex items-center justify-between rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
                   <div>
-                    <p className="font-medium text-[#223021]">{item.ten}</p>
-                    <p className="mt-1 text-sm text-[#65725f]">
-                      {item.projectName} · {item.assigneeName}
-                    </p>
+                    <p className="font-medium text-[#223021]">{member.ten}</p>
+                    <p className="mt-1 text-sm text-[#65725f]">{member.activeTasks} task đang mở</p>
                   </div>
-                  <div className="rounded-full border border-[#e0e6d7] bg-white px-3 py-1 text-xs font-medium text-[#5f6b58]">
-                    {new Date(item.deadline).toLocaleDateString('vi-VN')}
-                  </div>
+                  <span className="text-sm font-semibold text-[#b16442]">{Math.round(member.loadRatio * 100)}%</span>
                 </div>
-              ))
-            )}
-          </div>
-        </DashboardSection>
+              ))}
+            </div>
+          </DashboardSection>
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <DashboardSection title="Tổ chức dùng để làm gì" description="Workspace là nơi hệ thống gắn đúng quyền và dữ liệu chung của team.">
+            <div className="space-y-3">
+              {[
+                ['Role cấp tổ chức', 'Owner, admin, manager và member được quản lý ở một nơi riêng thay vì lẫn vào role dự án.'],
+                ['Dự án và thành viên', 'Mỗi dự án mới đều được tạo trong phạm vi tổ chức để mời người và phân quyền rõ ràng.'],
+                ['Cài đặt chung', 'Thông báo, cộng tác liên tổ chức và danh sách thành viên sẽ đi theo workspace thay vì hồ sơ cá nhân.'],
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
+                  <p className="font-medium text-[#223021]">{title}</p>
+                  <p className="mt-2 text-sm leading-6 text-[#65725f]">{description}</p>
+                </div>
+              ))}
+            </div>
+          </DashboardSection>
 
-        <DashboardSection title="Dự án và thành viên cần chú ý" description="Những chỗ nên xem lại sớm để tránh trễ việc.">
-          <div className="space-y-3">
-            {(stats?.riskyProjects || []).slice(0, 2).map((project) => (
-              <div key={project.id} className="rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
-                <div className="mb-1 flex items-center justify-between gap-3">
-                  <p className="font-medium text-[#223021]">{project.ten}</p>
-                  <span className="text-sm font-semibold text-[#b66944]">{project.slipProbability}%</span>
-                </div>
-                <p className="text-sm text-[#65725f]">{project.forecastStatus === 'slipping' ? 'Nguy cơ trễ cao' : 'Cần theo dõi sát'}</p>
+          <DashboardSection title="Sẵn sàng tạo workspace" description="Ngay sau khi tạo tổ chức, tài khoản của bạn sẽ trở thành owner của workspace đó.">
+            <div className="rounded-[24px] border border-[#e4ebdd] bg-[#fbfcf8] p-5">
+              <p className="text-sm leading-7 text-[#5d6b58]">
+                Đây là điểm tách ranh giới rõ nhất giữa hồ sơ cá nhân và dữ liệu dùng chung của team. Từ lúc đó trở đi, tên tổ chức,
+                danh sách thành viên và cài đặt vận hành sẽ không còn đi qua hồ sơ cá nhân nữa.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Tạo tổ chức
+                </Button>
+                <Link href="/dashboard/settings">
+                  <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
+                    Xem cài đặt
+                  </Button>
+                </Link>
               </div>
-            ))}
+            </div>
+          </DashboardSection>
+        </div>
+      )}
 
-            {(stats?.overloadedMembers || []).slice(0, 3).map((member) => (
-              <div key={member.userId} className="flex items-center justify-between rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
-                <div>
-                  <p className="font-medium text-[#223021]">{member.ten}</p>
-                  <p className="mt-1 text-sm text-[#65725f]">{member.activeTasks} task đang mở</p>
-                </div>
-                <span className="text-sm font-semibold text-[#b16442]">{Math.round(member.loadRatio * 100)}%</span>
-              </div>
-            ))}
-          </div>
+      {organization ? (
+        <DashboardSection title="Lời mời dự án" description="Các lời mời đang chờ bạn xác nhận.">
+          <ProjectInvitations />
         </DashboardSection>
-      </div>
-
-      <DashboardSection title="Lời mời dự án" description="Các lời mời đang chờ bạn xác nhận.">
-        <ProjectInvitations />
-      </DashboardSection>
+      ) : null}
 
       <DashboardSection
-        title="Dự án gần đây"
-        description="Các dự án bạn vừa làm việc hoặc mới được cập nhật."
+        title={organization ? 'Dự án gần đây' : 'Dự án'}
+        description={
+          organization
+            ? 'Các dự án bạn vừa làm việc hoặc mới được cập nhật.'
+            : 'Dự án chỉ được tạo sau khi bạn có một tổ chức để hệ thống gắn đúng quyền và phạm vi cộng tác.'
+        }
         actions={
-          <Link href="/dashboard/projects">
-            <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-              Xem tất cả
-            </Button>
-          </Link>
+          organization ? (
+            <Link href="/dashboard/projects">
+              <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
+                Xem tất cả
+              </Button>
+            </Link>
+          ) : null
         }
       >
         {projects.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-[#dce4d3] bg-[#f8faf4] py-12 text-center">
-            <p className="mb-4 text-[#72806c]">Chưa có dự án nào.</p>
-            <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Tạo dự án đầu tiên
+            <p className="mb-4 text-[#72806c]">
+              {organization ? 'Chưa có dự án nào.' : 'Bạn chưa có workspace để mở dự án mới.'}
+            </p>
+            <Button
+              className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+              onClick={() => (organization ? setCreateProjectOpen(true) : setCreateOrganizationOpen(true))}
+            >
+              {organization ? (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Tạo dự án đầu tiên
+                </>
+              ) : (
+                <>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Tạo tổ chức trước
+                </>
+              )}
             </Button>
           </div>
         ) : (
@@ -302,6 +481,7 @@ export default function DashboardPage() {
       </DashboardSection>
 
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
+      <CreateOrganizationModal open={createOrganizationOpen} onOpenChange={setCreateOrganizationOpen} />
     </DashboardPageShell>
   );
 }

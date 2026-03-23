@@ -1,221 +1,317 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, Loader2, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { useCreateOrganization } from '@/lib/hooks/use-organizations';
+
+type WorkspaceChoice = 'create' | 'later';
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Step 1: Thông tin cá nhân
+  const [workspaceChoice, setWorkspaceChoice] = useState<WorkspaceChoice>('create');
   const [hoTen, setHoTen] = useState('');
-  
-  // Step 2: Thông tin công ty
-  const [tenCongTy, setTenCongTy] = useState('');
   const [tenPhongBan, setTenPhongBan] = useState('');
-  const [moTaCongTy, setMoTaCongTy] = useState('');
+  const [tenToChuc, setTenToChuc] = useState('');
+  const [moTaToChuc, setMoTaToChuc] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const createOrganization = useCreateOrganization();
+  const { data: currentUser, isLoading: isLoadingUser } = useQuery({
+    queryKey: ['onboarding-user'],
+    queryFn: async () => {
+      const response = await fetch('/api/users/me');
+      if (!response.ok) {
+        throw new Error('Không thể tải thông tin người dùng');
+      }
 
-  const handleStep1Next = () => {
-    if (!hoTen.trim()) {
-      setError('Vui lòng nhập họ tên');
+      return response.json() as Promise<{
+        ten?: string | null;
+        ten_phong_ban?: string | null;
+        to_chuc?: { ten?: string | null } | null;
+      }>;
+    },
+  });
+
+  useEffect(() => {
+    if (!currentUser) {
       return;
     }
+
+    setHoTen((currentValue) => currentValue || currentUser.ten || '');
+    setTenPhongBan((currentValue) => currentValue || currentUser.ten_phong_ban || '');
+    setTenToChuc((currentValue) => currentValue || currentUser.to_chuc?.ten || '');
+
+    if (currentUser.to_chuc) {
+      setWorkspaceChoice('later');
+    }
+  }, [currentUser]);
+
+  const shouldShowOrganizationForm = workspaceChoice === 'create' && !currentUser?.to_chuc;
+  const progressLabel = useMemo(() => `${step}/2`, [step]);
+
+  const handleNext = () => {
+    if (!hoTen.trim()) {
+      setError('Vui lòng nhập họ và tên để tiếp tục');
+      return;
+    }
+
     setError('');
     setStep(2);
   };
 
   const handleComplete = async () => {
-    if (!tenCongTy.trim() || !tenPhongBan.trim()) {
-      setError('Vui lòng nhập đầy đủ thông tin công ty và phòng ban');
+    if (shouldShowOrganizationForm && !tenToChuc.trim()) {
+      setError('Vui lòng nhập tên tổ chức để tạo không gian làm việc');
       return;
     }
 
-    setLoading(true);
     setError('');
+    setIsSubmitting(true);
 
     try {
-      // Tạo organization
-      const orgResponse = await fetch('/api/organizations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ten: tenCongTy,
-          mo_ta: moTaCongTy,
-        }),
-      });
-
-      if (!orgResponse.ok) {
-        const errorData = await orgResponse.json();
-        throw new Error(errorData.error || 'Không thể tạo tổ chức');
+      if (shouldShowOrganizationForm) {
+        await createOrganization.mutateAsync({
+          ten: tenToChuc.trim(),
+          mo_ta: moTaToChuc.trim() || undefined,
+        });
       }
 
-      // Cập nhật thông tin người dùng
       const userResponse = await fetch('/api/users/me', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ten: hoTen,
-          ten_cong_ty: tenCongTy,
-          ten_phong_ban: tenPhongBan,
+          ten: hoTen.trim(),
+          ten_phong_ban: tenPhongBan.trim() || null,
           onboarding_completed: true,
         }),
       });
 
       if (!userResponse.ok) {
-        const errorData = await userResponse.json();
-        throw new Error(errorData.error || 'Không thể cập nhật thông tin người dùng');
+        const errorData = await userResponse.json().catch(() => null);
+        throw new Error(errorData?.error || 'Không thể hoàn tất thiết lập hồ sơ');
       }
 
-      // Chuyển đến dashboard
       router.push('/dashboard');
       router.refresh();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Onboarding error:', err);
-      setError(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
-      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  if (isLoadingUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#fbfaf4_0%,#f4f6ef_44%,#edf2ea_100%)]">
+        <div className="rounded-[28px] border border-[#dfe5d6] bg-white/90 px-8 py-6 text-sm text-[#5d6c57] shadow-[0_22px_65px_-48px_rgba(89,109,84,0.35)]">
+          Đang chuẩn bị không gian bắt đầu...
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-      <Card className="w-full max-w-2xl border-slate-200 shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl">Chào mừng đến với VSmart! 🎉</CardTitle>
-          <CardDescription>
-            Hãy cho chúng tôi biết một chút về bạn và tổ chức của bạn
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Progress indicator */}
-          <div className="flex items-center justify-center space-x-2 mb-8">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-              step >= 1 ? 'bg-[#b9ff66] text-black' : 'bg-gray-200 text-gray-500'
-            }`}>
-              1
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#f6f9ee_0%,#fbfaf4_38%,#eef4eb_100%)]">
+      <div className="mx-auto flex min-h-screen max-w-6xl items-center px-6 py-10">
+        <div className="grid w-full gap-8 lg:grid-cols-[0.92fr_1.08fr]">
+          <section className="rounded-[34px] border border-[#dfe5d6] bg-[linear-gradient(160deg,#223123_0%,#314532_40%,#4d6a46_100%)] p-8 text-[#f4f7ee] shadow-[0_28px_70px_-48px_rgba(34,49,35,0.7)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/78">
+              Thiết lập ban đầu
             </div>
-            <div className={`w-16 h-1 ${step >= 2 ? 'bg-[#b9ff66]' : 'bg-gray-200'}`} />
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-              step >= 2 ? 'bg-[#b9ff66] text-black' : 'bg-gray-200 text-gray-500'
-            }`}>
-              2
-            </div>
-          </div>
+            <h1 className="mt-5 text-[clamp(2rem,4vw,3.4rem)] font-semibold leading-tight">
+              Vào việc nhanh, nhưng không trộn hồ sơ cá nhân với dữ liệu của team.
+            </h1>
+            <p className="mt-4 max-w-xl text-sm leading-7 text-white/76">
+              Hồ sơ của bạn là dữ liệu cá nhân. Không gian làm việc là nơi chứa dự án, thành viên và quyền chung. Từ đây về sau hai
+              phần đó sẽ đi theo hai luồng tách biệt.
+            </p>
 
-          {/* Step 1: Thông tin cá nhân */}
-          {step === 1 && (
-            <div className="space-y-4">
+            <div className="mt-8 grid gap-3">
+              {[
+                ['1', 'Hoàn thiện hồ sơ', 'Tên hiển thị và phòng ban được lưu cho riêng bạn.'],
+                ['2', 'Chọn cách bắt đầu', 'Bạn có thể tạo không gian làm việc mới ngay hoặc hoàn thiện hồ sơ trước.'],
+              ].map(([index, title, description]) => (
+                <div key={index} className="rounded-[24px] border border-white/12 bg-white/8 px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-sm font-semibold">
+                      {index}
+                    </div>
+                    <div>
+                      <p className="font-medium">{title}</p>
+                      <p className="mt-1 text-sm text-white/72">{description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 rounded-[24px] border border-white/12 bg-white/8 px-4 py-4 text-sm text-white/76">
+              Tiến độ hiện tại: <strong className="font-semibold text-white">{progressLabel}</strong>
+            </div>
+          </section>
+
+          <section className="rounded-[34px] border border-[#dfe5d6] bg-white/92 p-7 shadow-[0_28px_70px_-54px_rgba(89,109,84,0.42)]">
+            <div className="mb-6 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Thông tin cá nhân</h3>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="hoTen">Họ và tên *</Label>
-                    <Input
-                      id="hoTen"
-                      type="text"
-                      placeholder="Nguyễn Văn A"
-                      value={hoTen}
-                      onChange={(e) => setHoTen(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7d8a76]">Bước {progressLabel}</p>
+                <h2 className="mt-2 text-2xl font-semibold text-[#223021]">
+                  {step === 1 ? 'Thông tin cá nhân' : 'Thiết lập không gian làm việc'}
+                </h2>
               </div>
-
-              {error && (
-                <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <Button onClick={handleStep1Next} className="bg-black hover:bg-gray-800 text-white">
-                  Tiếp theo
-                </Button>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#d9e4cd] bg-[#f5f8ef] px-3 py-1 text-xs font-medium text-[#5f6f59]">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#7f9d5b]" />
+                Thiết lập một lần
               </div>
             </div>
-          )}
 
-          {/* Step 2: Thông tin công ty */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Thông tin công ty</h3>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="tenCongTy">Tên công ty *</Label>
-                    <Input
-                      id="tenCongTy"
-                      type="text"
-                      placeholder="Công ty TNHH ABC"
-                      value={tenCongTy}
-                      onChange={(e) => setTenCongTy(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+            {step === 1 ? (
+              <div className="space-y-5">
+                <div>
+                  <Label htmlFor="hoTen">Họ và tên</Label>
+                  <Input
+                    id="hoTen"
+                    placeholder="Ví dụ: Nguyễn Minh Anh"
+                    value={hoTen}
+                    onChange={(event) => setHoTen(event.target.value)}
+                    className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
+                  />
+                </div>
 
-                  <div>
-                    <Label htmlFor="tenPhongBan">Phòng ban của bạn *</Label>
-                    <Input
-                      id="tenPhongBan"
-                      type="text"
-                      placeholder="Phòng Công nghệ thông tin"
-                      value={tenPhongBan}
-                      onChange={(e) => setTenPhongBan(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="tenPhongBan">Phòng ban</Label>
+                  <Input
+                    id="tenPhongBan"
+                    placeholder="Ví dụ: Sản phẩm, Kỹ thuật, Vận hành"
+                    value={tenPhongBan}
+                    onChange={(event) => setTenPhongBan(event.target.value)}
+                    className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
+                  />
+                  <p className="mt-2 text-sm text-[#6f7c69]">Thông tin này thuộc hồ sơ cá nhân của bạn và có thể chỉnh lại sau.</p>
+                </div>
 
-                  <div>
-                    <Label htmlFor="moTaCongTy">Mô tả công ty (không bắt buộc)</Label>
-                    <Input
-                      id="moTaCongTy"
-                      type="text"
-                      placeholder="Công ty chuyên về phát triển phần mềm"
-                      value={moTaCongTy}
-                      onChange={(e) => setMoTaCongTy(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
+                {error ? <div className="rounded-[20px] border border-[#f0ddd1] bg-[#fff5ef] px-4 py-3 text-sm text-[#a05735]">{error}</div> : null}
+
+                <div className="flex justify-end">
+                  <Button onClick={handleNext} className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]">
+                    Tiếp tục
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
                 </div>
               </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceChoice('create')}
+                    disabled={Boolean(currentUser?.to_chuc)}
+                    className={`rounded-[26px] border px-4 py-5 text-left transition-all ${
+                      workspaceChoice === 'create'
+                        ? 'border-[#d3e3bf] bg-[#f4faea] shadow-[0_18px_36px_-30px_rgba(109,141,73,0.35)]'
+                        : 'border-[#e3e9db] bg-[#fbfcf8] hover:border-[#d6dfcc]'
+                    } ${currentUser?.to_chuc ? 'cursor-not-allowed opacity-60' : ''}`}
+                  >
+                    <div className="flex items-center gap-2 text-[#223021]">
+                      <Building2 className="h-4 w-4 text-[#739055]" />
+                      <span className="font-medium">Tạo không gian làm việc mới</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[#647260]">
+                      Tạo tổ chức ngay bây giờ để bắt đầu dự án, mời thành viên và thiết lập quyền vận hành.
+                    </p>
+                  </button>
 
-              {error && (
-                <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
-                  {error}
+                  <button
+                    type="button"
+                    onClick={() => setWorkspaceChoice('later')}
+                    className={`rounded-[26px] border px-4 py-5 text-left transition-all ${
+                      workspaceChoice === 'later'
+                        ? 'border-[#d6e2ea] bg-[#f1f8fc] shadow-[0_18px_36px_-30px_rgba(75,112,145,0.22)]'
+                        : 'border-[#e3e9db] bg-[#fbfcf8] hover:border-[#d6dfcc]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-[#223021]">
+                      <UserRound className="h-4 w-4 text-[#56799b]" />
+                      <span className="font-medium">Hoàn thiện hồ sơ trước</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-[#647260]">
+                      Vào dashboard với hồ sơ cá nhân trước. Bạn vẫn có thể tạo tổ chức sau từ tổng quan hoặc cài đặt.
+                    </p>
+                  </button>
                 </div>
-              )}
 
-              <div className="flex justify-between">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep(1)}
-                  disabled={loading}
-                  className="border-slate-300 hover:bg-slate-100"
-                >
-                  Quay lại
-                </Button>
-                <Button
-                  onClick={handleComplete}
-                  disabled={loading}
-                  className="bg-black hover:bg-gray-800 text-white disabled:opacity-50"
-                >
-                  {loading ? 'Đang xử lý...' : 'Hoàn tất'}
-                </Button>
+                {shouldShowOrganizationForm ? (
+                  <div className="space-y-4 rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
+                    <div>
+                      <Label htmlFor="tenToChuc">Tên tổ chức</Label>
+                      <Input
+                        id="tenToChuc"
+                        placeholder="Ví dụ: VSmart Studio"
+                        value={tenToChuc}
+                        onChange={(event) => setTenToChuc(event.target.value)}
+                        className="mt-1.5 border-[#dfe5d6] bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="moTaToChuc">Mô tả ngắn</Label>
+                      <Textarea
+                        id="moTaToChuc"
+                        placeholder="Mô tả ngắn về team hoặc không gian làm việc này."
+                        value={moTaToChuc}
+                        onChange={(event) => setMoTaToChuc(event.target.value)}
+                        className="mt-1.5 min-h-[110px] border-[#dfe5d6] bg-white"
+                      />
+                    </div>
+
+                    <div className="rounded-[20px] border border-[#dce5d2] bg-white/80 px-4 py-3 text-sm leading-6 text-[#52614f]">
+                      Người tạo đầu tiên sẽ giữ vai trò <strong>owner</strong> để quản lý cài đặt tổ chức và phân quyền vận hành cho team.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-[28px] border border-[#dce5d2] bg-[#f6f9f1] px-5 py-5 text-sm leading-6 text-[#52614f]">
+                    {currentUser?.to_chuc
+                      ? 'Tài khoản của bạn đã thuộc một tổ chức. Bạn có thể hoàn tất hồ sơ cá nhân rồi vào làm việc ngay với quyền hiện có.'
+                      : 'Bạn sẽ vào sản phẩm với hồ sơ cá nhân đã hoàn thiện. Khi cần mở dự án cho team, hãy tạo tổ chức từ dashboard hoặc cài đặt để hệ thống gắn quyền owner đúng chỗ.'}
+                  </div>
+                )}
+
+                {error ? <div className="rounded-[20px] border border-[#f0ddd1] bg-[#fff5ef] px-4 py-3 text-sm text-[#a05735]">{error}</div> : null}
+
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" onClick={() => setStep(1)} className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Quay lại
+                  </Button>
+                  <Button
+                    onClick={handleComplete}
+                    disabled={isSubmitting}
+                    className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Đang hoàn tất...
+                      </>
+                    ) : (
+                      'Vào dashboard'
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

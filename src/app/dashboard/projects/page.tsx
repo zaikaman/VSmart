@@ -1,14 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { FolderKanban, ListFilter, Plus, Sparkles } from 'lucide-react';
+import { Building2, FolderKanban, ListFilter, Plus, Sparkles } from 'lucide-react';
+import { CreateOrganizationModal } from '@/components/organizations/create-organization-modal';
 import { CreateProjectModal } from '@/components/projects/create-project-modal';
 import { ProjectList } from '@/components/projects/project-list';
 import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
 import { Button } from '@/components/ui/button';
+import { useOrganization } from '@/lib/hooks/use-organizations';
 
 export default function ProjectsPage() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createOrganizationOpen, setCreateOrganizationOpen] = useState(false);
+  const { data: organization } = useOrganization();
 
   return (
     <DashboardPageShell
@@ -19,37 +23,87 @@ export default function ProjectsPage() {
         </>
       }
       title="Dự án"
-      description="Xem toàn bộ dự án và mở nhanh phần đang cần làm."
+      description={
+        organization
+          ? 'Xem toàn bộ dự án và mở nhanh phần đang cần làm.'
+          : 'Tạo tổ chức trước để hệ thống gắn đúng phạm vi dự án, thành viên và quyền cộng tác.'
+      }
       actions={
-        <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Tạo dự án
+        <Button
+          className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+          onClick={() => (organization ? setCreateProjectOpen(true) : setCreateOrganizationOpen(true))}
+        >
+          {organization ? (
+            <>
+              <Plus className="mr-2 h-4 w-4" />
+              Tạo dự án
+            </>
+          ) : (
+            <>
+              <Building2 className="mr-2 h-4 w-4" />
+              Tạo tổ chức
+            </>
+          )}
         </Button>
       }
       metrics={[
         {
           label: 'Không gian dự án',
-          value: 'Sáng hơn',
-          note: 'Tập trung vào những gì đang chạy',
+          value: organization ? 'Sáng hơn' : 'Đang chờ',
+          note: organization ? 'Tập trung vào những gì đang chạy' : 'Cần một workspace trước khi mở dự án',
           icon: <FolderKanban className="h-4 w-4 text-[#2f6052]" />,
           surfaceClassName: 'bg-[#eef6f0] border-[#d9eadf]',
           valueClassName: 'text-xl text-[#2f6052]',
         },
         {
           label: 'Nhịp quản lý',
-          value: 'Liền mạch',
-          note: 'Đi từ danh sách sang planning dễ hơn',
+          value: organization ? 'Liền mạch' : 'Tách tầng quyền',
+          note: organization ? 'Đi từ danh sách sang planning dễ hơn' : 'Role tổ chức và role dự án được tách riêng',
           icon: <ListFilter className="h-4 w-4 text-[#985c21]" />,
           surfaceClassName: 'bg-[#fff6df] border-[#eee1bb]',
           valueClassName: 'text-xl text-[#985c21]',
         },
       ]}
     >
-      <DashboardSection title="Tất cả dự án" description="Danh sách dự án hiện có của bạn.">
-        <ProjectList />
-      </DashboardSection>
+      {organization ? (
+        <DashboardSection title="Tất cả dự án" description="Danh sách dự án hiện có của bạn.">
+          <ProjectList />
+        </DashboardSection>
+      ) : (
+        <DashboardSection title="Tạo workspace trước khi mở dự án" description="Dự án là dữ liệu dùng chung của team nên cần nằm trong một tổ chức thật.">
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
+              <h3 className="text-xl font-semibold text-[#223021]">Khi có tổ chức, dự án mới sẽ tự đi kèm owner, member và quyền cộng tác rõ ràng.</h3>
+              <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
+                Đây là cách tránh nhầm lẫn giữa thông tin cá nhân và dữ liệu vận hành của team. Người tạo tổ chức sẽ trở thành owner để bắt đầu mở
+                dự án, mời người và thiết lập quyền ngay trong cùng một flow.
+              </p>
+              <div className="mt-5">
+                <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Tạo tổ chức
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                ['Owner của tổ chức', 'Được sinh ra khi workspace được tạo thật, không còn gán ngầm từ một ô tên công ty.'],
+                ['Owner của dự án', 'Được gán khi bạn mở dự án đầu tiên trong tổ chức đó.'],
+                ['Thành viên dự án', 'Chỉ được mời vào đúng phạm vi dự án, không ảnh hưởng role cấp tổ chức.'],
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
+                  <p className="font-medium text-[#223021]">{title}</p>
+                  <p className="mt-2 text-sm leading-6 text-[#65725f]">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DashboardSection>
+      )}
 
       <CreateProjectModal open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
+      <CreateOrganizationModal open={createOrganizationOpen} onOpenChange={setCreateOrganizationOpen} />
     </DashboardPageShell>
   );
 }

@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { BellRing, Loader2, LogOut, Palette, ShieldAlert, Sparkles, Trash2 } from 'lucide-react';
+import { BellRing, Building2, Loader2, LogOut, Palette, ShieldAlert, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
+import { CreateOrganizationModal } from '@/components/organizations/create-organization-modal';
 import { OrganizationMembersPanel } from '@/components/settings/organization-members-panel';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ import { defaultSettings, useUpdateUserSettings, useUserSettings } from '@/lib/h
 export default function SettingsPage() {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [createOrganizationOpen, setCreateOrganizationOpen] = useState(false);
   const { data: settingsResponse, isLoading } = useUserSettings();
   const { data: organization, isLoading: isOrganizationLoading } = useOrganization();
   const updateSettings = useUpdateUserSettings();
@@ -35,9 +37,7 @@ export default function SettingsPage() {
       return response.json() as Promise<{ vai_tro?: AppRole; ten?: string }>;
     },
   });
-  const canEditOrganization = currentUser?.vai_tro
-    ? canManageOrganizationSettings(currentUser.vai_tro)
-    : false;
+  const canEditOrganization = currentUser?.vai_tro ? canManageOrganizationSettings(currentUser.vai_tro) : false;
 
   const logoutOthersMutation = useMutation({
     mutationFn: async () => {
@@ -273,7 +273,41 @@ export default function SettingsPage() {
             </div>
           </div>
         </DashboardSection>
-      ) : null}
+      ) : (
+        <DashboardSection title="Tạo tổ chức khi sẵn sàng làm việc cùng team" description="Thông tin tổ chức không còn đi qua hồ sơ cá nhân. Bạn có thể tạo workspace rõ ràng ngay từ đây.">
+          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
+              <div className="inline-flex rounded-full border border-[#d6e3c9] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
+                Workspace riêng
+              </div>
+              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Khi tạo tổ chức, hệ thống sẽ gán đúng vai trò owner cho người tạo đầu tiên.</h3>
+              <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
+                Đây là điểm bắt đầu đúng để mở dự án, quản lý thành viên và cài đặt cộng tác. Hồ sơ cá nhân của bạn vẫn được giữ riêng để tránh trộn
+                dữ liệu công ty vào phần thông tin cá nhân.
+              </p>
+              <div className="mt-5">
+                <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Tạo tổ chức
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                ['Tên công ty sẽ thành dữ liệu tổ chức', 'Từ lúc có workspace, tên tổ chức được lấy từ bảng tổ chức thay vì lưu như một ô hồ sơ cá nhân.'],
+                ['Role cấp tổ chức có chỗ set riêng', 'Owner và admin sẽ đổi role ở màn quản trị tổ chức, không đi qua login callback hay form hồ sơ.'],
+                ['Role dự án vẫn tách riêng', 'Owner, admin, member, viewer của dự án chỉ áp dụng trong từng project cụ thể.'],
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
+                  <p className="font-medium text-[#223021]">{title}</p>
+                  <p className="mt-2 text-sm leading-6 text-[#65725f]">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DashboardSection>
+      )}
 
       {organization ? (
         <DashboardSection title="Thành viên và role" description="Quản lý role tổ chức ở đúng nơi, tách biệt khỏi role dự án để tránh nhầm quyền.">
@@ -347,6 +381,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </DashboardSection>
+
+      <CreateOrganizationModal open={createOrganizationOpen} onOpenChange={setCreateOrganizationOpen} />
     </DashboardPageShell>
   );
 }

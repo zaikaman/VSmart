@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import type { ProjectMember } from '@/app/api/project-members/route';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,9 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { ProjectMember } from '@/app/api/project-members/route';
 import { useOrganization } from '@/lib/hooks/use-organizations';
 import { usePlanningWorkload } from '@/lib/hooks/use-planning';
+import { usePresence } from '@/lib/providers/presence-provider';
 import { getCapacityBadgeConfig } from '@/lib/utils/workload-utils';
 
 interface ProjectMembersManagerProps {
@@ -27,6 +28,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
   const queryClient = useQueryClient();
   const { data: organization } = useOrganization();
   const { data: workloadResponse } = usePlanningWorkload({ projectId, enabled: !!projectId });
+  const { isUserOnline, ready: presenceReady } = usePresence();
   const allowExternalProjectInvites = organization?.settings.allow_external_project_invites ?? false;
 
   const { data: members = [], isLoading } = useQuery({
@@ -50,6 +52,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
         const error = await response.json();
         throw new Error(error.error || 'Không thể mời thành viên');
       }
+
       return response.json();
     },
     onSuccess: () => {
@@ -65,10 +68,12 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
   const removeMutation = useMutation({
     mutationFn: async (memberId: string) => {
       const response = await fetch(`/api/project-members?memberId=${memberId}`, { method: 'DELETE' });
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Không thể xóa thành viên');
       }
+
       return response.json();
     },
     onSuccess: () => {
@@ -82,11 +87,11 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
 
   const roleLabel = (value: string) =>
     ({ owner: 'Chủ sở hữu', admin: 'Quản trị viên', member: 'Thành viên', viewer: 'Người xem' }[value] || value);
-  const statusLabel = (value: string) =>
-    ({ active: 'Đang hoạt động', pending: 'Chờ xác nhận', declined: 'Đã từ chối' }[value] || value);
+  const membershipStatusLabel = (value: string) =>
+    ({ active: 'Đã tham gia', pending: 'Chờ xác nhận', declined: 'Đã từ chối' }[value] || value);
   const roleClass = (value: string) =>
     ({ owner: 'bg-purple-100 text-purple-800', admin: 'bg-blue-100 text-blue-800', member: 'bg-green-100 text-green-800', viewer: 'bg-gray-100 text-gray-800' }[value] || 'bg-gray-100 text-gray-800');
-  const statusClass = (value: string) =>
+  const membershipStatusClass = (value: string) =>
     ({ active: 'bg-green-100 text-green-800', pending: 'bg-yellow-100 text-yellow-800', declined: 'bg-red-100 text-red-800' }[value] || 'bg-gray-100 text-gray-800');
 
   return (
@@ -100,9 +105,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Mời thành viên mới</DialogTitle>
-              <DialogDescription>
-                Nhập email và chọn vai trò phù hợp cho người được mời.
-              </DialogDescription>
+              <DialogDescription>Nhập email và chọn vai trò phù hợp cho người được mời.</DialogDescription>
             </DialogHeader>
 
             <div className="rounded-2xl border border-[#e7ebdf] bg-[#f7faf2] px-4 py-3 text-sm text-[#60705b]">
@@ -148,6 +151,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
                       toast.error('Vui lòng nhập email');
                       return;
                     }
+
                     inviteMutation.mutate({ email, role });
                   }}
                   disabled={inviteMutation.isPending}
@@ -177,6 +181,8 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
           {members.map((member) => {
             const workload = member.nguoi_dung?.id ? workloadMap.get(member.nguoi_dung.id) : undefined;
             const capacity = workload ? getCapacityBadgeConfig(workload.loadStatus) : null;
+            const isOnline = member.nguoi_dung?.id ? isUserOnline(member.nguoi_dung.id) : false;
+            const showPresence = Boolean(member.nguoi_dung?.id) && member.trang_thai === 'active';
 
             return (
               <div key={member.id} className="flex items-center justify-between rounded-2xl border border-[#e7ebdf] p-3 hover:bg-slate-50">
@@ -193,7 +199,12 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <Badge className={roleClass(member.vai_tro)}>{roleLabel(member.vai_tro)}</Badge>
-                  <Badge className={statusClass(member.trang_thai)}>{statusLabel(member.trang_thai)}</Badge>
+                  <Badge className={membershipStatusClass(member.trang_thai)}>{membershipStatusLabel(member.trang_thai)}</Badge>
+                  {showPresence ? (
+                    <Badge className={isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}>
+                      {presenceReady ? (isOnline ? 'Đang online' : 'Đang offline') : 'Đang kiểm tra'}
+                    </Badge>
+                  ) : null}
                   {workload && capacity ? <Badge className={capacity.className}>{capacity.label} · {workload.activeTasks}</Badge> : null}
                   {member.vai_tro !== 'owner' && canManage ? (
                     <Button variant="ghost" size="sm" onClick={() => removeMutation.mutate(member.id)} disabled={removeMutation.isPending}>
