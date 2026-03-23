@@ -5,6 +5,7 @@ import { vi } from 'date-fns/locale';
 import { 
   AlertCircle, 
   AlertTriangle, 
+  Building2,
   UserPlus, 
   Clock, 
   Check,
@@ -17,7 +18,7 @@ import { cn } from '@/lib/utils';
 export interface Notification {
   id: string;
   nguoi_dung_id: string;
-  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload' | 'project_invitation';
+  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload' | 'project_invitation' | 'organization_join_request';
   noi_dung: string;
   task_lien_quan_id?: string | null;
   du_an_lien_quan_id?: string | null;
@@ -69,6 +70,12 @@ const notificationConfig = {
     iconColor: 'text-purple-500',
     bgColor: 'bg-purple-50',
     borderColor: 'border-l-purple-500',
+  },
+  organization_join_request: {
+    icon: Building2,
+    iconColor: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-l-emerald-500',
   },
 };
 
@@ -137,6 +144,17 @@ export function NotificationItem({ notification, onMarkAsRead, onClose }: Notifi
                   className="text-xs text-purple-600 hover:underline flex items-center gap-1"
                 >
                   Xem lời mời
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              )}
+
+              {notification.loai === 'organization_join_request' && (
+                <Link
+                  href="/dashboard/settings"
+                  onClick={handleViewTask}
+                  className="text-xs text-emerald-700 hover:underline flex items-center gap-1"
+                >
+                  Mở cài đặt
                   <ExternalLink className="w-3 h-3" />
                 </Link>
               )}

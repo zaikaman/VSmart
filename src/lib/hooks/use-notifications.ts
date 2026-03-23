@@ -11,7 +11,7 @@ import {
 export interface Notification {
   id: string;
   nguoi_dung_id: string;
-  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload' | 'project_invitation';
+  loai: 'risk_alert' | 'stale_task' | 'assignment' | 'overload' | 'project_invitation' | 'organization_join_request';
   noi_dung: string;
   task_lien_quan_id?: string | null;
   da_doc: boolean;

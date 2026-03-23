@@ -84,6 +84,21 @@ CREATE TABLE public.lich_su_task (
   CONSTRAINT lich_su_task_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.task(id),
   CONSTRAINT lich_su_task_nguoi_thuc_hien_id_fkey FOREIGN KEY (nguoi_thuc_hien_id) REFERENCES public.nguoi_dung(id)
 );
+CREATE TABLE public.loi_moi_to_chuc (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  to_chuc_id uuid NOT NULL,
+  nguoi_dung_id uuid,
+  email character varying NOT NULL,
+  vai_tro character varying NOT NULL DEFAULT 'member'::character varying CHECK (vai_tro::text = ANY (ARRAY['admin'::character varying::text, 'manager'::character varying::text, 'member'::character varying::text])),
+  trang_thai character varying NOT NULL DEFAULT 'pending'::character varying CHECK (trang_thai::text = ANY (ARRAY['pending'::character varying::text, 'accepted'::character varying::text, 'declined'::character varying::text, 'cancelled'::character varying::text])),
+  nguoi_moi_id uuid NOT NULL,
+  ngay_moi timestamp with time zone NOT NULL DEFAULT now(),
+  ngay_phan_hoi timestamp with time zone,
+  CONSTRAINT loi_moi_to_chuc_pkey PRIMARY KEY (id),
+  CONSTRAINT loi_moi_to_chuc_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id),
+  CONSTRAINT loi_moi_to_chuc_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id),
+  CONSTRAINT loi_moi_to_chuc_nguoi_moi_id_fkey FOREIGN KEY (nguoi_moi_id) REFERENCES public.nguoi_dung(id)
+);
 CREATE TABLE public.nguoi_dung (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   ten character varying NOT NULL,
@@ -241,7 +256,7 @@ CREATE TABLE public.thanh_vien_du_an (
 CREATE TABLE public.thong_bao (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   nguoi_dung_id uuid NOT NULL,
-  loai character varying NOT NULL CHECK (loai::text = ANY (ARRAY['risk_alert'::character varying::text, 'stale_task'::character varying::text, 'assignment'::character varying::text, 'overload'::character varying::text, 'project_invitation'::character varying::text])),
+  loai character varying NOT NULL CHECK (loai::text = ANY (ARRAY['risk_alert'::character varying::text, 'stale_task'::character varying::text, 'assignment'::character varying::text, 'overload'::character varying::text, 'project_invitation'::character varying::text, 'organization_join_request'::character varying::text])),
   noi_dung text NOT NULL,
   task_lien_quan_id uuid,
   da_doc boolean DEFAULT false,
@@ -263,4 +278,18 @@ CREATE TABLE public.to_chuc (
   ngay_tao timestamp with time zone DEFAULT now(),
   cap_nhat_cuoi timestamp with time zone DEFAULT now(),
   CONSTRAINT to_chuc_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.yeu_cau_gia_nhap_to_chuc (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  to_chuc_id uuid NOT NULL,
+  nguoi_dung_id uuid NOT NULL,
+  email character varying NOT NULL,
+  trang_thai character varying NOT NULL DEFAULT 'pending'::character varying CHECK (trang_thai::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'cancelled'::character varying::text])),
+  nguoi_duyet_id uuid,
+  ngay_gui timestamp with time zone NOT NULL DEFAULT now(),
+  ngay_phan_hoi timestamp with time zone,
+  CONSTRAINT yeu_cau_gia_nhap_to_chuc_pkey PRIMARY KEY (id),
+  CONSTRAINT yeu_cau_gia_nhap_to_chuc_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id),
+  CONSTRAINT yeu_cau_gia_nhap_to_chuc_nguoi_dung_id_fkey FOREIGN KEY (nguoi_dung_id) REFERENCES public.nguoi_dung(id),
+  CONSTRAINT yeu_cau_gia_nhap_to_chuc_nguoi_duyet_id_fkey FOREIGN KEY (nguoi_duyet_id) REFERENCES public.nguoi_dung(id)
 );

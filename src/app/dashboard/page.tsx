@@ -18,13 +18,15 @@ import { toast } from 'sonner';
 import { ExecutiveSummaryWidget } from '@/components/ai/executive-summary-widget';
 import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
 import { CreateOrganizationModal } from '@/components/organizations/create-organization-modal';
+import { OrganizationInvitationsList } from '@/components/organizations/organization-invitations-list';
+import { OrganizationJoinDiscoveryPanel } from '@/components/organizations/organization-join-discovery-panel';
 import { CreateProjectModal } from '@/components/projects/create-project-modal';
 import { ProjectCard } from '@/components/projects/project-card';
 import ProjectInvitations from '@/components/projects/project-invitations';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isLeadershipRole } from '@/lib/auth/permissions';
-import { useOrganization } from '@/lib/hooks/use-organizations';
+import { useMyOrganizationInvitations, useOrganization } from '@/lib/hooks/use-organizations';
 import { useProjects, type Project } from '@/lib/hooks/use-projects';
 import { useStats } from '@/lib/hooks/use-stats';
 import { usePresence } from '@/lib/providers/presence-provider';
@@ -36,6 +38,7 @@ export default function DashboardPage() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createOrganizationOpen, setCreateOrganizationOpen] = useState(false);
   const { data: organization, isLoading: organizationLoading } = useOrganization();
+  const { data: organizationInvitations, isLoading: invitationsLoading } = useMyOrganizationInvitations();
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: stats, isLoading: statsLoading } = useStats({ enabled: Boolean(organization) });
   const { onlineCount, ready: presenceReady } = usePresence();
@@ -77,7 +80,7 @@ export default function DashboardPage() {
     },
   });
 
-  const isLoading = projectsLoading || organizationLoading || (Boolean(organization) && statsLoading);
+  const isLoading = projectsLoading || organizationLoading || invitationsLoading || (Boolean(organization) && statsLoading);
   const shouldShowExecutiveSummary = Boolean(organization) && isLeadershipRole(currentUser?.vai_tro);
   const projects = projectsData?.data || [];
   const onboardingSteps = [
@@ -270,6 +273,18 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+        </DashboardSection>
+      ) : null}
+
+      {!organization && (organizationInvitations?.length || 0) > 0 ? (
+        <DashboardSection title="Lời mời đang chờ" description="Nếu có ai đó đã mời bạn vào một tổ chức, bạn có thể phản hồi ngay tại đây.">
+          <OrganizationInvitationsList />
+        </DashboardSection>
+      ) : null}
+
+      {!organization ? (
+        <DashboardSection title="Tìm tổ chức để tham gia" description="Nếu team của bạn đã có workspace sẵn, bạn có thể gửi yêu cầu gia nhập tại đây.">
+          <OrganizationJoinDiscoveryPanel />
         </DashboardSection>
       ) : null}
 

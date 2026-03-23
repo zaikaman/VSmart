@@ -10,6 +10,7 @@ export interface Organization {
   logo_url: string | null;
   settings: {
     allow_external_project_invites: boolean;
+    allow_join_requests: boolean;
   };
   nguoi_tao_id: string;
   ngay_tao: string;
@@ -18,6 +19,7 @@ export interface Organization {
 
 const defaultOrganizationSettings: Organization['settings'] = {
   allow_external_project_invites: false,
+  allow_join_requests: false,
 };
 
 function normalizeOrganization<T extends Partial<Organization> & { settings?: Partial<Organization['settings']> | null }>(

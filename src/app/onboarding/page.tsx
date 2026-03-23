@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2, Loader2, UserRound } from 'lucide-react';
+import { OrganizationJoinDiscoveryPanel } from '@/components/organizations/organization-join-discovery-panel';
+import { OrganizationInvitationsList } from '@/components/organizations/organization-invitations-list';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateOrganization } from '@/lib/hooks/use-organizations';
+import { useCreateOrganization, useMyOrganizationInvitations } from '@/lib/hooks/use-organizations';
 
 type WorkspaceChoice = 'create' | 'later';
 
@@ -23,6 +25,7 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const createOrganization = useCreateOrganization();
+  const { data: organizationInvitations, isLoading: isLoadingInvitations } = useMyOrganizationInvitations();
   const { data: currentUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['onboarding-user'],
     queryFn: async () => {
@@ -207,6 +210,24 @@ export default function OnboardingPage() {
               </div>
             ) : (
               <div className="space-y-5">
+                {!currentUser?.to_chuc && (isLoadingInvitations || (organizationInvitations?.length || 0) > 0) ? (
+                  <div className="rounded-[28px] border border-[#dce5d2] bg-[#f6f9f1] p-5">
+                    <p className="text-sm font-medium text-[#223021]">Nếu bạn đã được mời vào một tổ chức, hãy phản hồi lời mời trước khi tạo mới.</p>
+                    <div className="mt-4">
+                      <OrganizationInvitationsList compact />
+                    </div>
+                  </div>
+                ) : null}
+
+                {!currentUser?.to_chuc ? (
+                  <div className="rounded-[28px] border border-[#dce5d2] bg-[#f6f9f1] p-5">
+                    <p className="text-sm font-medium text-[#223021]">Chưa có lời mời? Bạn vẫn có thể tìm tổ chức đang mở nhận yêu cầu gia nhập.</p>
+                    <div className="mt-4">
+                      <OrganizationJoinDiscoveryPanel />
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-3 md:grid-cols-2">
                   <button
                     type="button"

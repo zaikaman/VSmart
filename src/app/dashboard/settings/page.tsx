@@ -7,6 +7,9 @@ import { BellRing, Building2, Loader2, LogOut, Palette, ShieldAlert, Sparkles, T
 import { toast } from 'sonner';
 import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
 import { CreateOrganizationModal } from '@/components/organizations/create-organization-modal';
+import { OrganizationJoinDiscoveryPanel } from '@/components/organizations/organization-join-discovery-panel';
+import { OrganizationInvitationsPanel } from '@/components/settings/organization-invitations-panel';
+import { OrganizationJoinRequestsPanel } from '@/components/settings/organization-join-requests-panel';
 import { OrganizationMembersPanel } from '@/components/settings/organization-members-panel';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -95,10 +98,10 @@ export default function SettingsPage() {
     });
   };
 
-  const handleOrganizationSettingChange = (value: boolean) => {
+  const handleOrganizationSettingChange = (key: 'allow_external_project_invites' | 'allow_join_requests', value: boolean) => {
     updateOrganization.mutate({
       settings: {
-        allow_external_project_invites: value,
+        [key]: value,
       },
     });
   };
@@ -256,7 +259,20 @@ export default function SettingsPage() {
               </div>
               <Switch
                 checked={organization.settings.allow_external_project_invites}
-                onCheckedChange={handleOrganizationSettingChange}
+                onCheckedChange={(value) => handleOrganizationSettingChange('allow_external_project_invites', value)}
+                disabled={!canEditOrganization || updateOrganization.isPending}
+              />
+            </div>
+            <div className="mt-5 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <Label className="text-base text-[#223021]">Cho phép gửi yêu cầu gia nhập</Label>
+                <p className="text-sm text-[#67745f]">
+                  Khi bật, người chưa thuộc tổ chức nào có thể tìm thấy workspace này và gửi yêu cầu gia nhập để owner hoặc admin duyệt.
+                </p>
+              </div>
+              <Switch
+                checked={organization.settings.allow_join_requests}
+                onCheckedChange={(value) => handleOrganizationSettingChange('allow_join_requests', value)}
                 disabled={!canEditOrganization || updateOrganization.isPending}
               />
             </div>
@@ -264,6 +280,11 @@ export default function SettingsPage() {
               {organization.settings.allow_external_project_invites
                 ? 'Cộng tác liên tổ chức đang bật. Quản trị dự án có thể mời cả email ngoài tổ chức.'
                 : 'Cộng tác liên tổ chức đang tắt. Mọi lời mời mới sẽ bị giới hạn trong cùng tổ chức.'}
+            </div>
+            <div className="mt-4 rounded-[20px] border border-[#e4ebdd] bg-white/80 px-4 py-3 text-sm text-[#52614f]">
+              {organization.settings.allow_join_requests
+                ? 'Tổ chức đang nhận yêu cầu gia nhập. Owner hoặc admin có thể duyệt từng yêu cầu trước khi thêm người vào team.'
+                : 'Tổ chức hiện không nhận yêu cầu gia nhập mới. Thành viên mới chỉ có thể vào bằng lời mời trực tiếp.'}
             </div>
             <div className="mt-4 rounded-[20px] border border-[#dce5d2] bg-white/75 px-4 py-3 text-sm text-[#52614f]">
               {currentUser?.vai_tro
@@ -307,6 +328,22 @@ export default function SettingsPage() {
           </div>
         </DashboardSection>
       )}
+
+      {organization ? (
+        <DashboardSection title="Yêu cầu gia nhập" description="Những người muốn tham gia tổ chức sẽ chờ duyệt ở đây trước khi được thêm vào team.">
+          <OrganizationJoinRequestsPanel />
+        </DashboardSection>
+      ) : (
+        <DashboardSection title="Tìm tổ chức để tham gia" description="Nếu team của bạn đã có sẵn workspace, bạn có thể gửi yêu cầu gia nhập từ đây.">
+          <OrganizationJoinDiscoveryPanel />
+        </DashboardSection>
+      )}
+
+      {organization ? (
+        <DashboardSection title="Lời mời tổ chức" description="Mời thành viên mới vào cùng không gian làm việc và theo dõi các lời mời đang chờ phản hồi.">
+          <OrganizationInvitationsPanel />
+        </DashboardSection>
+      ) : null}
 
       {organization ? (
         <DashboardSection title="Thành viên và role" description="Quản lý role tổ chức ở đúng nơi, tách biệt khỏi role dự án để tránh nhầm quyền.">
