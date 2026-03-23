@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 export interface ProjectPermissions {
   canManageProject: boolean;
+  canDeleteProject: boolean;
   canManageMembers: boolean;
   canViewAnalytics: boolean;
 }
@@ -67,7 +68,7 @@ interface ProjectsParams {
 }
 
 async function getApiErrorMessage(response: Response, fallback: string) {
-  const error = await response.json().catch(() => ({} as { error?: unknown }));
+  const error = await response.json().catch(() => ({}) as { error?: unknown });
 
   if (typeof error.error === 'string' && error.error.trim()) {
     return error.error;

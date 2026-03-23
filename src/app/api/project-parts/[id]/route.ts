@@ -23,10 +23,7 @@ function canManagePart(auth: Awaited<ReturnType<typeof getPartAccessContext>>) {
   );
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     await getPartAccessContext(id);
@@ -51,16 +48,16 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const auth = await getPartAccessContext(id);
 
     if (!canManagePart(auth)) {
-      return NextResponse.json({ error: 'Bạn không có quyền cập nhật phần dự án này' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Bạn không có quyền cập nhật phần dự án này' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -130,6 +127,12 @@ export async function DELETE(
       .update({ deleted_at: deletedAt })
       .eq('phan_du_an_id', id)
       .is('deleted_at', null);
+
+    await supabaseAdmin
+      .from('recurring_task_rule')
+      .update({ is_active: false })
+      .eq('phan_du_an_id', id)
+      .eq('is_active', true);
 
     await logActivity({
       entityType: 'project_part',

@@ -19,18 +19,19 @@ function buildProjectPermissions(auth: Awaited<ReturnType<typeof getProjectAcces
     projectRole: auth.membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
   };
 
+  const canManageProject = hasPermission(context, 'manageProjects');
+  const canDeleteProject = canManageProject && ['owner', 'admin'].includes(auth.membership.vai_tro);
+
   return {
-    canManageProject: hasPermission(context, 'manageProjects'),
+    canManageProject,
+    canDeleteProject,
     canManageMembers: hasPermission(context, 'manageMembers'),
     canAssignTasks: hasPermission(context, 'assignTask'),
     canViewAnalytics: hasPermission(context, 'viewAnalytics'),
   };
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const auth = await getProjectAccessContext(id);
@@ -65,10 +66,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const auth = await getProjectAccessContext(id);
@@ -126,7 +124,7 @@ export async function DELETE(
     const auth = await getProjectAccessContext(id);
     const permissions = buildProjectPermissions(auth);
 
-    if (!permissions.canManageProject) {
+    if (!permissions.canDeleteProject) {
       return NextResponse.json({ error: 'Bạn không có quyền xóa dự án này' }, { status: 403 });
     }
 
@@ -149,6 +147,26 @@ export async function DELETE(
       .update({ deleted_at: deletedAt })
       .eq('du_an_id', id)
       .is('deleted_at', null);
+
+    const { data: projectParts } = await supabaseAdmin
+      .from('phan_du_an')
+      .select('id')
+      .eq('du_an_id', id);
+    const projectPartIds = (projectParts || []).map(part => part.id);
+
+    if (projectPartIds.length > 0) {
+      await supabaseAdmin
+        .from('task')
+        .update({ deleted_at: deletedAt })
+        .in('phan_du_an_id', projectPartIds)
+        .is('deleted_at', null);
+
+      await supabaseAdmin
+        .from('recurring_task_rule')
+        .update({ is_active: false })
+        .in('phan_du_an_id', projectPartIds)
+        .eq('is_active', true);
+    }
 
     await logActivity({
       entityType: 'project',

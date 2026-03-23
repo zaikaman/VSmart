@@ -30,10 +30,36 @@ async function runRecurringGeneration() {
 
   for (const rule of rules || []) {
     try {
+      const { data: partData } = await supabase
+        .from('phan_du_an')
+        .select('id, deleted_at, du_an:du_an_id (id, deleted_at)')
+        .eq('id', rule.phan_du_an_id)
+        .single();
+
+      const projectRelation = Array.isArray(partData?.du_an) ? partData.du_an[0] : partData?.du_an;
+      const isProjectScopeDeleted = Boolean(partData?.deleted_at || projectRelation?.deleted_at);
+
+      if (isProjectScopeDeleted) {
+        const { error: deactivateError } = await supabase
+          .from('recurring_task_rule')
+          .update({ is_active: false })
+          .eq('id', rule.id);
+
+        if (deactivateError) {
+          throw deactivateError;
+        }
+
+        stats.updatedRules += 1;
+        continue;
+      }
+
       await createTaskWithRelations({
         ten: rule.title,
         mo_ta: rule.description || '',
-        deadline: getNextRunFromCronExpression(rule.cron_expression, new Date(nowIso)).toISOString(),
+        deadline: getNextRunFromCronExpression(
+          rule.cron_expression,
+          new Date(nowIso)
+        ).toISOString(),
         phan_du_an_id: rule.phan_du_an_id,
         assignee_id: rule.assignee_id,
         priority: rule.priority,
