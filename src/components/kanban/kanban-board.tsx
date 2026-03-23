@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  closestCorners,
   DndContext,
   DragEndEvent,
   DragOverlay,
@@ -12,7 +13,7 @@ import {
 } from '@dnd-kit/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { KanbanCard } from './kanban-card';
+import { KanbanCardPreview } from './kanban-card';
 import { KanbanColumn, Task } from './kanban-column';
 import { useUpdateTask } from '@/lib/hooks/use-tasks';
 
@@ -174,7 +175,12 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
   };
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <div className="flex gap-6 overflow-x-auto pb-4">
         {columns.map((column) => (
           <KanbanColumn
@@ -191,7 +197,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
         ))}
       </div>
 
-      <DragOverlay>{activeTask ? <KanbanCard task={activeTask} /> : null}</DragOverlay>
+      <DragOverlay>{activeTask ? <KanbanCardPreview task={activeTask} /> : null}</DragOverlay>
     </DndContext>
   );
 }

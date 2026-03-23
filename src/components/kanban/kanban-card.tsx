@@ -1,6 +1,9 @@
 'use client';
 
+import type { CSSProperties } from 'react';
+import type { DraggableAttributes } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
+import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, AlertCircle } from 'lucide-react';
@@ -12,6 +15,15 @@ import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task
 interface KanbanCardProps {
   task: Task;
   onTaskClick?: (task: Task) => void;
+}
+
+interface KanbanCardFrameProps extends KanbanCardProps {
+  dragDisabled: boolean;
+  isDragging?: boolean;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: SyntheticListenerMap;
+  setNodeRef?: (node: HTMLElement | null) => void;
+  style?: CSSProperties;
 }
 
 const priorityColors = {
@@ -28,20 +40,16 @@ const priorityLabels = {
   urgent: 'Khẩn cấp',
 };
 
-export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
-  const dragDisabled = task.progress_mode === 'checklist' || task.review_status === 'pending_review';
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-    disabled: dragDisabled,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  // Xác định risk level từ task (mặc định là 'low')
+function KanbanCardFrame({
+  task,
+  onTaskClick,
+  dragDisabled,
+  isDragging = false,
+  dragAttributes,
+  dragListeners,
+  setNodeRef,
+  style,
+}: KanbanCardFrameProps) {
   const riskLevel = (task.risk_level as 'low' | 'medium' | 'high') || 'low';
   const riskScore = task.risk_score || 0;
   const isHighRisk = riskLevel === 'high';
@@ -62,29 +70,30 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      onClick={() => onTaskClick?.(task)}
-      className={`bg-white p-4 rounded-lg shadow-sm border transition-shadow cursor-pointer ${
+      {...dragAttributes}
+      {...dragListeners}
+      onClick={() => {
+        if (!isDragging) {
+          onTaskClick?.(task);
+        }
+      }}
+      className={`rounded-lg border bg-white p-4 shadow-sm transition-shadow cursor-pointer ${
         isHighRisk
-          ? 'border-red-300 hover:shadow-red-100 hover:shadow-md'
+          ? 'border-red-300 hover:shadow-md hover:shadow-red-100'
           : isStale
-          ? 'border-yellow-300 hover:shadow-yellow-100 hover:shadow-md'
-          : 'border-gray-200 hover:shadow-md'
+            ? 'border-yellow-300 hover:shadow-md hover:shadow-yellow-100'
+            : 'border-gray-200 hover:shadow-md'
       }`}
     >
-      <div className="flex justify-between items-start mb-2 gap-2">
-        <h4 className="font-semibold text-sm line-clamp-2 flex-1">{task.ten}</h4>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {/* Risk badge - chỉ hiển thị khi có risk đáng kể hoặc stale */}
-          {(riskLevel !== 'low' || isStale) && (
-            <RiskIndicator riskLevel={riskLevel} riskScore={riskScore} />
-          )}
-          {isStale && (
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <h4 className="line-clamp-2 flex-1 text-sm font-semibold">{task.ten}</h4>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {(riskLevel !== 'low' || isStale) && <RiskIndicator riskLevel={riskLevel} riskScore={riskScore} />}
+          {isStale ? (
             <span title="Task không có cập nhật">
-              <AlertCircle className="w-3.5 h-3.5 text-yellow-600" />
+              <AlertCircle className="h-3.5 w-3.5 text-yellow-600" />
             </span>
-          )}
+          ) : null}
           <Badge className={priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}>
             {priorityLabels[task.priority as keyof typeof priorityLabels] || priorityLabels.medium}
           </Badge>
@@ -100,29 +109,27 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
         ) : null}
       </div>
 
-      {task.mo_ta && (
-        <p className="text-xs text-gray-600 line-clamp-2 mb-3">{task.mo_ta}</p>
-      )}
+      {task.mo_ta ? <p className="mb-3 line-clamp-2 text-xs text-gray-600">{task.mo_ta}</p> : null}
 
       <div className="flex items-center justify-between text-xs text-gray-500">
         <div className="flex items-center gap-1">
-          {task.nguoi_dung && (
+          {task.nguoi_dung ? (
             <>
-              <User className="w-3 h-3" />
+              <User className="h-3 w-3" />
               <span>{task.nguoi_dung.ten}</span>
             </>
-          )}
+          ) : null}
         </div>
-        {task.deadline && (
+        {task.deadline ? (
           <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
+            <Clock className="h-3 w-3" />
             <span>{new Date(task.deadline).toLocaleDateString('vi-VN')}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-3">
-        <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <div className="mb-1 flex justify-between text-xs text-gray-600">
           <span>{task.progress_mode === 'checklist' ? 'Tiến độ' : 'Nhịp xử lý'}</span>
           <span>{task.progress_mode === 'checklist' ? `${effectiveProgress}%` : progressLabel}</span>
         </div>
@@ -143,5 +150,45 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
         </p>
       ) : null}
     </div>
+  );
+}
+
+export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
+  const dragDisabled = task.progress_mode === 'checklist' || task.review_status === 'pending_review';
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+    disabled: dragDisabled,
+  });
+
+  return (
+    <KanbanCardFrame
+      task={task}
+      onTaskClick={onTaskClick}
+      dragDisabled={dragDisabled}
+      isDragging={isDragging}
+      dragAttributes={attributes}
+      dragListeners={listeners}
+      setNodeRef={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+      }}
+    />
+  );
+}
+
+export function KanbanCardPreview({ task }: { task: Task }) {
+  const dragDisabled = task.progress_mode === 'checklist' || task.review_status === 'pending_review';
+
+  return (
+    <KanbanCardFrame
+      task={task}
+      dragDisabled={dragDisabled}
+      style={{
+        opacity: 0.95,
+        boxShadow: '0 18px 40px rgba(15, 23, 42, 0.14)',
+      }}
+    />
   );
 }
