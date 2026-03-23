@@ -6,9 +6,28 @@ export interface Organization {
   ten: string;
   mo_ta: string | null;
   logo_url: string | null;
+  settings: {
+    allow_external_project_invites: boolean;
+  };
   nguoi_tao_id: string;
   ngay_tao: string;
   cap_nhat_cuoi: string;
+}
+
+const defaultOrganizationSettings: Organization['settings'] = {
+  allow_external_project_invites: false,
+};
+
+function normalizeOrganization<T extends Partial<Organization> & { settings?: Partial<Organization['settings']> | null }>(
+  organization: T
+): T & { settings: Organization['settings'] } {
+  return {
+    ...organization,
+    settings: {
+      ...defaultOrganizationSettings,
+      ...(organization.settings || {}),
+    },
+  };
 }
 
 // GET /api/organizations - Lấy thông tin tổ chức của user hiện tại
@@ -61,7 +80,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(organization);
+    return NextResponse.json(normalizeOrganization(organization));
   } catch (error) {
     console.error('Error fetching organization:', error);
     return NextResponse.json(
@@ -87,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ten, mo_ta, logo_url } = body;
+    const { ten, mo_ta, logo_url, settings } = body;
 
     if (!ten) {
       return NextResponse.json(
@@ -125,6 +144,10 @@ export async function POST(request: NextRequest) {
         ten,
         mo_ta,
         logo_url,
+        settings: {
+          ...defaultOrganizationSettings,
+          ...(settings || {}),
+        },
         nguoi_tao_id: userData.id,
       })
       .select()
@@ -154,7 +177,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(organization, { status: 201 });
+    return NextResponse.json(normalizeOrganization(organization), { status: 201 });
   } catch (error) {
     console.error('Error creating organization:', error);
     return NextResponse.json(
@@ -180,7 +203,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ten, mo_ta, logo_url } = body;
+    const { ten, mo_ta, logo_url, settings } = body;
 
     // Lấy thông tin người dùng
     const { data: userData, error: userError } = await supabase
@@ -218,10 +241,16 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Cập nhật thông tin
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (ten !== undefined) updateData.ten = ten;
     if (mo_ta !== undefined) updateData.mo_ta = mo_ta;
     if (logo_url !== undefined) updateData.logo_url = logo_url;
+    if (settings !== undefined) {
+      updateData.settings = {
+        ...defaultOrganizationSettings,
+        ...((settings || {}) as Partial<Organization['settings']>),
+      };
+    }
 
     const { data: organization, error: updateError } = await supabase
       .from('to_chuc')
@@ -238,7 +267,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(organization);
+    return NextResponse.json(normalizeOrganization(organization));
   } catch (error) {
     console.error('Error updating organization:', error);
     return NextResponse.json(

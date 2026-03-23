@@ -11,13 +11,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
 import { defaultSettings, useUpdateUserSettings, useUserSettings } from '@/lib/hooks/use-settings';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { data: settingsResponse, isLoading } = useUserSettings();
+  const { data: organization, isLoading: isOrganizationLoading } = useOrganization();
   const updateSettings = useUpdateUserSettings();
+  const updateOrganization = useUpdateOrganization();
   const settings = settingsResponse?.data || defaultSettings;
 
   const logoutOthersMutation = useMutation({
@@ -76,11 +79,20 @@ export default function SettingsPage() {
     });
   };
 
-  if (isLoading) {
+  const handleOrganizationSettingChange = (value: boolean) => {
+    updateOrganization.mutate({
+      settings: {
+        allow_external_project_invites: value,
+      },
+    });
+  };
+
+  if (isLoading || isOrganizationLoading) {
     return (
       <div className="mx-auto max-w-7xl px-6 py-8">
         <Skeleton className="h-[220px] rounded-[38px]" />
         <div className="mt-6 space-y-4">
+          <Skeleton className="h-[220px] rounded-[30px]" />
           <Skeleton className="h-[220px] rounded-[30px]" />
           <Skeleton className="h-[220px] rounded-[30px]" />
           <Skeleton className="h-[220px] rounded-[30px]" />
@@ -98,7 +110,7 @@ export default function SettingsPage() {
         </>
       }
       title="Cài đặt"
-      description="Quản lý thông báo, giao diện mặc định và bảo mật tài khoản."
+      description="Quản lý thông báo, giao diện mặc định, phạm vi cộng tác và bảo mật tài khoản."
       metrics={[
         {
           label: 'Thông báo chủ động',
@@ -134,7 +146,10 @@ export default function SettingsPage() {
                 <Label className="text-base text-[#223021]">{title}</Label>
                 <p className="text-sm text-[#67745f]">{description}</p>
               </div>
-              <Switch checked={settings.notifications[key as keyof typeof settings.notifications]} onCheckedChange={(checked) => handleNotificationChange(key as keyof typeof settings.notifications, checked)} />
+              <Switch
+                checked={settings.notifications[key as keyof typeof settings.notifications]}
+                onCheckedChange={(checked) => handleNotificationChange(key as keyof typeof settings.notifications, checked)}
+              />
             </div>
           ))}
         </div>
@@ -212,6 +227,31 @@ export default function SettingsPage() {
         </DashboardSection>
       </div>
 
+      {organization ? (
+        <DashboardSection title="Tổ chức" description="Kiểm soát phạm vi cộng tác mặc định cho các dự án trong tổ chức của bạn.">
+          <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <Label className="text-base text-[#223021]">Cho phép mời người ngoài tổ chức</Label>
+                <p className="text-sm text-[#67745f]">
+                  Khi tắt, chỉ email thuộc cùng tổ chức mới có thể được mời vào dự án. Thiết lập này mặc định ưu tiên phạm vi nội bộ.
+                </p>
+              </div>
+              <Switch
+                checked={organization.settings.allow_external_project_invites}
+                onCheckedChange={handleOrganizationSettingChange}
+                disabled={updateOrganization.isPending}
+              />
+            </div>
+            <div className="mt-4 rounded-[20px] border border-[#e4ebdd] bg-white/80 px-4 py-3 text-sm text-[#52614f]">
+              {organization.settings.allow_external_project_invites
+                ? 'Cộng tác liên tổ chức đang bật. Quản trị dự án có thể mời cả email ngoài tổ chức.'
+                : 'Cộng tác liên tổ chức đang tắt. Mọi lời mời mới sẽ bị giới hạn trong cùng tổ chức.'}
+            </div>
+          </div>
+        </DashboardSection>
+      ) : null}
+
       <DashboardSection title="Bảo mật và dữ liệu" description="Các thao tác liên quan tới phiên đăng nhập và tài khoản.">
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4 rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
@@ -219,7 +259,12 @@ export default function SettingsPage() {
               <Label className="text-base text-[#223021]">Phiên đăng nhập</Label>
               <p className="mt-1 text-sm text-[#67745f]">Đăng xuất khỏi tất cả thiết bị khác ngoài thiết bị hiện tại.</p>
             </div>
-            <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={() => logoutOthersMutation.mutate()} disabled={logoutOthersMutation.isPending}>
+            <Button
+              variant="outline"
+              className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]"
+              onClick={() => logoutOthersMutation.mutate()}
+              disabled={logoutOthersMutation.isPending}
+            >
               {logoutOthersMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -248,7 +293,13 @@ export default function SettingsPage() {
                 </Button>
               ) : (
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="border-[#e6cdbf] bg-white text-[#8f5a3e] hover:bg-[#fff2ea]" onClick={() => setShowDeleteConfirm(false)} disabled={deleteAccountMutation.isPending}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-[#e6cdbf] bg-white text-[#8f5a3e] hover:bg-[#fff2ea]"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deleteAccountMutation.isPending}
+                  >
                     Hủy
                   </Button>
                   <Button variant="destructive" size="sm" onClick={() => deleteAccountMutation.mutate()} disabled={deleteAccountMutation.isPending}>

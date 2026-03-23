@@ -23,7 +23,7 @@ export function useCreateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { ten: string; mo_ta?: string; logo_url?: string }) => {
+    mutationFn: async (data: { ten: string; mo_ta?: string; logo_url?: string; settings?: Organization['settings'] }) => {
       const response = await fetch('/api/organizations', {
         method: 'POST',
         headers: {
@@ -48,7 +48,7 @@ export function useUpdateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { ten?: string; mo_ta?: string; logo_url?: string }) => {
+    mutationFn: async (data: { ten?: string; mo_ta?: string; logo_url?: string; settings?: Organization['settings'] }) => {
       const response = await fetch('/api/organizations', {
         method: 'PATCH',
         headers: {

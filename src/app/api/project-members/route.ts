@@ -129,7 +129,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email này đã được mời vào dự án' }, { status: 400 });
     }
 
-    const { data: invitedUser } = await supabase.from('nguoi_dung').select('id').eq('email', email).single();
+    const { data: projectInfoWithOrg, error: projectError } = await supabase
+      .from('du_an')
+      .select('ten, to_chuc_id')
+      .eq('id', du_an_id)
+      .single();
+
+    if (projectError || !projectInfoWithOrg) {
+      return NextResponse.json({ error: 'KhÃ´ng tÃ¬m tháº¥y dá»± Ã¡n' }, { status: 404 });
+    }
+
+    const { data: organizationData } = await supabase
+      .from('to_chuc')
+      .select('settings')
+      .eq('id', projectInfoWithOrg.to_chuc_id)
+      .single();
+
+    const allowExternalProjectInvites =
+      !!organizationData?.settings &&
+      typeof organizationData.settings === 'object' &&
+      'allow_external_project_invites' in organizationData.settings
+        ? Boolean((organizationData.settings as { allow_external_project_invites?: boolean }).allow_external_project_invites)
+        : false;
+
+    const { data: invitedUser } = await supabase
+      .from('nguoi_dung')
+      .select('id, to_chuc_id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (!allowExternalProjectInvites) {
+      if (!invitedUser?.id) {
+        return NextResponse.json(
+          { error: 'Tá»• chá»©c hiá»‡n chÆ°a cho phÃ©p má»i email ngoÃ i tá»• chá»©c vÃ o dá»± Ã¡n' },
+          { status: 400 }
+        );
+      }
+
+      if (invitedUser.to_chuc_id !== projectInfoWithOrg.to_chuc_id) {
+        return NextResponse.json(
+          { error: 'NgÆ°á»i Ä‘Æ°á»£c má»i cáº§n thuá»™c cÃ¹ng tá»• chá»©c vá»›i dá»± Ã¡n nÃ y' },
+          { status: 400 }
+        );
+      }
+    }
 
     const { data: member, error: createError } = await supabase
       .from('thanh_vien_du_an')
@@ -158,7 +201,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Không thể tạo lời mời' }, { status: 500 });
     }
 
-    const { data: projectInfo } = await supabase.from('du_an').select('ten').eq('id', du_an_id).single();
+    const projectInfo = projectInfoWithOrg;
 
     if (invitedUser?.id) {
       await supabase.from('thong_bao').insert({

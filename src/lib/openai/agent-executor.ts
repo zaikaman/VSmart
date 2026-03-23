@@ -127,6 +127,42 @@ export class AgentToolExecutor {
       return { success: false, error: 'Bạn cần thuộc về một tổ chức để tạo dự án' };
     }
 
+    let allowExternalProjectInvites = true;
+    let invitedUser: any = {};
+    let projectData: any = { to_chuc_id: userData.to_chuc_id };
+
+    if (!allowExternalProjectInvites) {
+      if (!invitedUser?.id) {
+        return {
+          success: false,
+          error: 'Tá»• chá»©c hiá»‡n chÆ°a cho phÃ©p má»i email ngoÃ i tá»• chá»©c vÃ o dá»± Ã¡n',
+        };
+      }
+
+      if (invitedUser.to_chuc_id !== projectData.to_chuc_id) {
+        return {
+          success: false,
+          error: 'NgÆ°á»i Ä‘Æ°á»£c má»i cáº§n thuá»™c cÃ¹ng tá»• chá»©c vá»›i dá»± Ã¡n nÃ y',
+        };
+      }
+    }
+
+    if (!allowExternalProjectInvites) {
+      if (!invitedUser?.id) {
+        return {
+          success: false,
+          error: 'Tá»• chá»©c hiá»‡n chÆ°a cho phÃ©p má»i email ngoÃ i tá»• chá»©c vÃ o dá»± Ã¡n',
+        };
+      }
+
+      if (invitedUser.to_chuc_id !== projectData.to_chuc_id) {
+        return {
+          success: false,
+          error: 'NgÆ°á»i Ä‘Æ°á»£c má»i cáº§n thuá»™c cÃ¹ng tá»• chá»©c vá»›i dá»± Ã¡n nÃ y',
+        };
+      }
+    }
+
     const { data, error } = await this.supabase
       .from('du_an')
       .insert([
@@ -196,10 +232,33 @@ export class AgentToolExecutor {
       .eq('email', this.userEmail)
       .single();
 
+    const { data: projectData, error: projectError } = await this.supabase
+      .from('du_an')
+      .select('id, ten, to_chuc_id')
+      .eq('id', params.du_an_id)
+      .single();
+
+    if (projectError || !projectData) {
+      return { success: false, error: 'KhÃ´ng tÃ¬m tháº¥y dá»± Ã¡n' };
+    }
+
+    const { data: organizationData } = await this.supabase
+      .from('to_chuc')
+      .select('settings')
+      .eq('id', projectData.to_chuc_id)
+      .single();
+
+    const allowExternalProjectInvites =
+      !!organizationData?.settings &&
+      typeof organizationData.settings === 'object' &&
+      'allow_external_project_invites' in organizationData.settings
+        ? Boolean((organizationData.settings as { allow_external_project_invites?: boolean }).allow_external_project_invites)
+        : false;
+
     // Kiểm tra email người được mời có tồn tại không
     const { data: invitedUser, error: userCheckError } = await this.supabase
       .from('nguoi_dung')
-      .select('id, ten')
+      .select('id, ten, to_chuc_id')
       .eq('email', params.email)
       .maybeSingle(); // Dùng maybeSingle() thay vì single() để không throw error khi không tìm thấy
 
@@ -235,11 +294,7 @@ export class AgentToolExecutor {
     }
 
     // Lấy thông tin dự án và người mời để tạo notification & gửi email
-    const { data: projectInfo } = await this.supabase
-      .from('du_an')
-      .select('ten')
-      .eq('id', params.du_an_id)
-      .single();
+    const projectInfo = projectData;
 
     const { data: inviterInfo } = await this.supabase
       .from('nguoi_dung')

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ProjectMember } from '@/app/api/project-members/route';
+import { useOrganization } from '@/lib/hooks/use-organizations';
 import { usePlanningWorkload } from '@/lib/hooks/use-planning';
 import { getCapacityBadgeConfig } from '@/lib/utils/workload-utils';
 
@@ -24,7 +25,9 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'member' | 'admin' | 'viewer'>('member');
   const queryClient = useQueryClient();
+  const { data: organization } = useOrganization();
   const { data: workloadResponse } = usePlanningWorkload({ projectId, enabled: !!projectId });
+  const allowExternalProjectInvites = organization?.settings.allow_external_project_invites ?? false;
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ['project-members', projectId],
@@ -70,7 +73,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-members', projectId] });
-      toast.success('Đã xóa thành viên');
+      toast.success('Đã gỡ thành viên');
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -97,13 +100,28 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Mời thành viên mới</DialogTitle>
-              <DialogDescription>Nhập email và chọn vai trò phù hợp cho người được mời.</DialogDescription>
+              <DialogDescription>
+                Nhập email và chọn vai trò phù hợp cho người được mời.
+              </DialogDescription>
             </DialogHeader>
+
+            <div className="rounded-2xl border border-[#e7ebdf] bg-[#f7faf2] px-4 py-3 text-sm text-[#60705b]">
+              {allowExternalProjectInvites
+                ? 'Tổ chức của bạn đang cho phép cộng tác với email ngoài tổ chức.'
+                : 'Hiện chỉ email thuộc cùng tổ chức mới có thể được mời vào dự án.'}
+            </div>
 
             <div className="mt-4 space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="example@company.com" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder={allowExternalProjectInvites ? 'ten@doitac.com' : 'ten@congtyban.com'}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="mt-1"
+                />
               </div>
 
               <div>
@@ -121,7 +139,9 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={inviteMutation.isPending}>Hủy</Button>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={inviteMutation.isPending}>
+                  Hủy
+                </Button>
                 <Button
                   onClick={() => {
                     if (!email.trim()) {

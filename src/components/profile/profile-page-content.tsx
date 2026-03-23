@@ -12,6 +12,7 @@ import { AvatarUpload } from '@/components/ui/avatar-upload';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
 
 interface UserProfile {
   id: string;
@@ -35,6 +36,8 @@ export function ProfilePageContent() {
     ten_cong_ty: '',
     ten_phong_ban: '',
   });
+  const { data: organization } = useOrganization();
+  const updateOrganizationMutation = useUpdateOrganization();
 
   const { data: user, isLoading } = useQuery<UserProfile>({
     queryKey: ['user-profile'],
@@ -59,6 +62,7 @@ export function ProfilePageContent() {
   });
 
   const skills = skillsResponse?.data || [];
+  const canEditOrganization = Boolean(user && organization && organization.nguoi_tao_id === user.id);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { ten?: string; ten_cong_ty?: string; ten_phong_ban?: string }) => {
@@ -73,8 +77,31 @@ export function ProfilePageContent() {
       }
       return response.json();
     },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const saveProfileMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const profilePayload: { ten?: string; ten_cong_ty?: string; ten_phong_ban?: string } = {
+        ten: data.ten,
+        ten_phong_ban: data.ten_phong_ban,
+      };
+
+      if (organization) {
+        if (canEditOrganization) {
+          await updateOrganizationMutation.mutateAsync({ ten: data.ten_cong_ty });
+        }
+      } else {
+        profilePayload.ten_cong_ty = data.ten_cong_ty;
+      }
+
+      return updateProfileMutation.mutateAsync(profilePayload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
       toast.success('Đã cập nhật thông tin thành công');
       setIsEditing(false);
     },
@@ -173,7 +200,7 @@ export function ProfilePageContent() {
     if (user) {
       setFormData({
         ten: user.ten,
-        ten_cong_ty: user.ten_cong_ty || '',
+        ten_cong_ty: user.to_chuc?.ten || user.ten_cong_ty || '',
         ten_phong_ban: user.ten_phong_ban || '',
       });
       setIsEditing(true);
@@ -284,9 +311,21 @@ export function ProfilePageContent() {
             </div>
 
             <div>
-              <Label htmlFor="ten_cong_ty">Công ty</Label>
+              <Label htmlFor="ten_cong_ty">{user.to_chuc ? 'Tổ chức' : 'Công ty'}</Label>
               {isEditing ? (
-                <Input id="ten_cong_ty" value={formData.ten_cong_ty} onChange={(e) => setFormData({ ...formData, ten_cong_ty: e.target.value })} placeholder="Nhập tên công ty" className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]" />
+                <>
+                  <Input
+                    id="ten_cong_ty"
+                    value={formData.ten_cong_ty}
+                    onChange={(e) => setFormData({ ...formData, ten_cong_ty: e.target.value })}
+                    placeholder={user.to_chuc ? 'Nhập tên tổ chức' : 'Nhập tên công ty'}
+                    className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
+                    disabled={Boolean(user.to_chuc && !canEditOrganization)}
+                  />
+                  {user.to_chuc && !canEditOrganization ? (
+                    <p className="mt-2 text-xs text-[#8a7a66]">Tên tổ chức được quản lý bởi người tạo tổ chức.</p>
+                  ) : null}
+                </>
               ) : (
                 <p className="mt-2 text-sm text-[#223021]">{user.to_chuc?.ten || user.ten_cong_ty || 'Chưa cập nhật'}</p>
               )}
@@ -304,8 +343,8 @@ export function ProfilePageContent() {
 
           {isEditing ? (
             <div className="mt-5 flex gap-2">
-              <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => updateProfileMutation.mutate(formData)} disabled={updateProfileMutation.isPending}>
-                {updateProfileMutation.isPending ? (
+              <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => saveProfileMutation.mutate(formData)} disabled={saveProfileMutation.isPending}>
+                {saveProfileMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Đang lưu...
@@ -317,7 +356,7 @@ export function ProfilePageContent() {
                   </>
                 )}
               </Button>
-              <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={() => setIsEditing(false)} disabled={updateProfileMutation.isPending}>
+              <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={() => setIsEditing(false)} disabled={saveProfileMutation.isPending}>
                 Hủy
               </Button>
             </div>

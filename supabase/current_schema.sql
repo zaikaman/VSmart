@@ -259,6 +259,7 @@ CREATE TABLE public.to_chuc (
   ten character varying NOT NULL,
   mo_ta text,
   logo_url character varying,
+  settings jsonb NOT NULL DEFAULT '{"allow_external_project_invites": false}'::jsonb,
   nguoi_tao_id uuid NOT NULL,
   ngay_tao timestamp with time zone DEFAULT now(),
   cap_nhat_cuoi timestamp with time zone DEFAULT now(),
