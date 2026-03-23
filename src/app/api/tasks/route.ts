@@ -14,6 +14,7 @@ const taskSchema = z.object({
   phan_du_an_id: z.string().uuid(),
   assignee_id: z.string().uuid().optional().nullable(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  trang_thai: z.enum(['todo', 'in-progress', 'done']).optional(),
   checklist_items: z.array(z.unknown()).optional(),
   template_id: z.string().uuid().optional().nullable(),
   progress_mode: z.enum(['manual', 'checklist']).optional(),
@@ -44,6 +45,24 @@ function buildEmptyResponse(page: number, limit: number) {
       totalPages: 0,
     },
   });
+}
+
+function buildPagination(params: { page: number; limit: number; total: number; viewMode: string | null }) {
+  if (params.viewMode === 'kanban') {
+    return {
+      page: 1,
+      limit: params.total,
+      total: params.total,
+      totalPages: params.total > 0 ? 1 : 0,
+    };
+  }
+
+  return {
+    page: params.page,
+    limit: params.limit,
+    total: params.total,
+    totalPages: Math.ceil(params.total / params.limit),
+  };
 }
 
 function canSelfAssignOnly(params: {
@@ -135,6 +154,7 @@ export async function GET(request: NextRequest) {
     const riskScoreMin = searchParams.get('riskScoreMin');
     const reviewStatus = searchParams.get('reviewStatus');
     const isStale = searchParams.get('isStale') === 'true';
+    const viewMode = searchParams.get('viewMode');
 
     const accessiblePartIds = await getAccessiblePartIds({
       supabase,
@@ -177,9 +197,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
     let query = supabase
       .from('task')
       .select(
@@ -200,8 +217,13 @@ export async function GET(request: NextRequest) {
       )
       .in('phan_du_an_id', accessiblePartIds)
       .is('deleted_at', null)
-      .range(from, to)
       .order('ngay_tao', { ascending: false });
+
+    if (viewMode !== 'kanban') {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+    }
 
     if (trangThai) {
       query = query.eq('trang_thai', trangThai);
@@ -320,12 +342,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       data: normalizedData,
-      pagination: {
+      pagination: buildPagination({
         page,
         limit,
         total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit),
-      },
+        viewMode,
+      }),
     });
   } catch (error) {
     console.error('Error in GET /api/tasks:', error);
@@ -446,6 +468,7 @@ export async function POST(request: NextRequest) {
       phan_du_an_id: validated.phan_du_an_id,
       assignee_id: validated.assignee_id,
       priority: validated.priority,
+      trang_thai: validated.trang_thai,
       checklist_items: checklistItems,
       template_id: validated.template_id ?? null,
       progress_mode: validated.progress_mode,

@@ -25,6 +25,7 @@ import {
 } from '@/lib/hooks/use-task-execution';
 import { useApproveTask, useRejectTask, useSubmitTaskForReview } from '@/lib/hooks/use-governance';
 import { useTask, type Task as HookTask } from '@/lib/hooks/use-tasks';
+import { canTransitionReviewStatus } from '@/lib/auth/permissions';
 
 interface BaseTask {
   id: string;
@@ -36,6 +37,8 @@ interface BaseTask {
   trang_thai?: string;
   priority: string;
   progress: number;
+  progressMode?: 'manual' | 'checklist';
+  progress_mode?: 'manual' | 'checklist';
   riskScore?: number | null;
   risk_score?: number | null;
 }
@@ -93,6 +96,7 @@ function normalizeTask(task: BaseTask | null, details?: HookTask | null): HookTa
     trang_thai: (task.trangThai || task.trang_thai || 'todo') as 'todo' | 'in-progress' | 'done',
     priority: task.priority as HookTask['priority'],
     progress: task.progress,
+    progress_mode: task.progressMode ?? task.progress_mode ?? 'manual',
     risk_score: task.riskScore ?? task.risk_score ?? 0,
     risk_level: 'low',
     risk_updated_at: null,
@@ -186,6 +190,10 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   const canSubmitReview = resolvedTask.permissions?.canSubmitReview ?? false;
   const canApprove = resolvedTask.permissions?.canApprove ?? false;
   const canReject = resolvedTask.permissions?.canReject ?? false;
+  const reviewStatus = resolvedTask.review_status || 'draft';
+  const canShowSubmitReview = canSubmitReview && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'pending_review' });
+  const canShowApprove = canApprove && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'approved' });
+  const canShowReject = canReject && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'changes_requested' });
 
   const submitComment = (event: React.FormEvent) => {
     event.preventDefault();
@@ -315,9 +323,9 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
                 placeholder="Ghi rõ nhận xét duyệt hoặc những điểm cần chỉnh sửa..."
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                {canSubmitReview ? <Button variant="outline" onClick={() => submitReview('submit')} disabled={submitReviewMutation.isPending}>Gửi duyệt</Button> : null}
-                {canApprove ? <Button className="bg-[#191a23] text-white hover:bg-[#2a2b35]" onClick={() => submitReview('approve')} disabled={approveTaskMutation.isPending}>Duyệt task</Button> : null}
-                {canReject ? <Button variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => submitReview('reject')} disabled={rejectTaskMutation.isPending}>Yêu cầu chỉnh sửa</Button> : null}
+                {canShowSubmitReview ? <Button variant="outline" onClick={() => submitReview('submit')} disabled={submitReviewMutation.isPending}>Gửi duyệt</Button> : null}
+                {canShowApprove ? <Button className="bg-[#191a23] text-white hover:bg-[#2a2b35]" onClick={() => submitReview('approve')} disabled={approveTaskMutation.isPending}>Duyệt task</Button> : null}
+                {canShowReject ? <Button variant="outline" className="border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => submitReview('reject')} disabled={rejectTaskMutation.isPending}>Yêu cầu chỉnh sửa</Button> : null}
               </div>
             </div>
 
@@ -510,6 +518,7 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
           trangThai: resolvedTask.trang_thai,
           priority: resolvedTask.priority,
           progress: resolvedTask.progress,
+          progressMode: resolvedTask.progress_mode,
         }}
         open={editModalOpen}
         onOpenChange={(isOpen) => {

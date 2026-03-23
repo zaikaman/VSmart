@@ -23,6 +23,15 @@ export async function createTaskWithRelations(input: CreateTaskWithRelationsInpu
   const checklistItems = normalizeChecklistItems(input.checklist_items || []);
   const progressMode =
     input.progress_mode || (checklistItems.length > 0 ? 'checklist' : 'manual');
+  const initialStatus = input.trang_thai || 'todo';
+  const initialProgress =
+    progressMode === 'checklist'
+      ? 0
+      : initialStatus === 'done'
+        ? 100
+        : initialStatus === 'in-progress'
+          ? 50
+          : 0;
 
   const { data: task, error: taskError } = await supabaseAdmin
     .from('task')
@@ -34,8 +43,8 @@ export async function createTaskWithRelations(input: CreateTaskWithRelationsInpu
         phan_du_an_id: input.phan_du_an_id,
         assignee_id: input.assignee_id ?? null,
         priority: input.priority || 'medium',
-        trang_thai: input.trang_thai || 'todo',
-        progress: 0,
+        trang_thai: initialStatus,
+        progress: initialProgress,
         risk_score: 0,
         risk_level: 'low',
         is_stale: false,

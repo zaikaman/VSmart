@@ -31,6 +31,7 @@ interface Task {
   trangThai: string;
   priority: string;
   progress: number;
+  progressMode?: 'manual' | 'checklist';
   assigneeId?: string | null;
 }
 
@@ -172,9 +173,12 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
         mo_ta: data.mo_ta || undefined,
         deadline: data.deadline ? new Date(data.deadline).toISOString() : undefined,
         priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
-        progress: Number(data.progress),
-        progress_mode: 'manual',
       };
+
+      if ((task.progressMode || 'manual') === 'manual') {
+        updateData.progress = Number(data.progress);
+        updateData.progress_mode = 'manual';
+      }
 
       await updateTaskMutation.mutateAsync(updateData);
 
@@ -321,20 +325,26 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
             </div>
           ) : null}
 
-          <div>
-            <Label htmlFor="progress">Tiến độ (%)</Label>
-            <Input
-              id="progress"
-              type="number"
-              min={0}
-              max={100}
-              {...register('progress', {
-                min: { value: 0, message: 'Tiến độ tối thiểu là 0%' },
-                max: { value: 100, message: 'Tiến độ tối đa là 100%' },
-              })}
-            />
-            {errors.progress && <p className="text-sm text-red-600 mt-1">{errors.progress.message}</p>}
-          </div>
+          {(task.progressMode || 'manual') === 'manual' ? (
+            <div>
+              <Label htmlFor="progress">Tiến độ (%)</Label>
+              <Input
+                id="progress"
+                type="number"
+                min={0}
+                max={100}
+                {...register('progress', {
+                  min: { value: 0, message: 'Tiến độ tối thiểu là 0%' },
+                  max: { value: 100, message: 'Tiến độ tối đa là 100%' },
+                })}
+              />
+              {errors.progress && <p className="text-sm text-red-600 mt-1">{errors.progress.message}</p>}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] px-4 py-3 text-sm text-slate-600">
+              Task này đang dùng checklist để tự đồng bộ tiến độ, nên không chỉnh tay ở đây.
+            </div>
+          )}
 
           <div className="rounded-lg border p-4 space-y-4">
             <div className="flex items-center justify-between">

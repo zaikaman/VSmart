@@ -75,6 +75,7 @@ export interface CreateTaskInput {
   deadline: string;
   phan_du_an_id: string;
   assignee_id?: string;
+  trang_thai?: 'todo' | 'in-progress' | 'done';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   checklist_items?: Array<{
     title: string;
@@ -109,6 +110,7 @@ interface TasksParams {
   riskScoreMin?: number;
   reviewStatus?: 'draft' | 'pending_review' | 'approved' | 'changes_requested';
   isStale?: boolean;
+  viewMode?: 'default' | 'kanban';
 }
 
 export function useTasks(params?: TasksParams) {
@@ -124,6 +126,7 @@ export function useTasks(params?: TasksParams) {
     riskScoreMin: params?.riskScoreMin ?? null,
     reviewStatus: params?.reviewStatus ?? null,
     isStale: params?.isStale ?? false,
+    viewMode: params?.viewMode ?? 'default',
   };
 
   return useQuery<PaginatedTasksResponse>({
@@ -145,6 +148,7 @@ export function useTasks(params?: TasksParams) {
       }
       if (normalizedParams.reviewStatus) searchParams.set('reviewStatus', normalizedParams.reviewStatus);
       if (normalizedParams.isStale) searchParams.set('isStale', 'true');
+      if (normalizedParams.viewMode !== 'default') searchParams.set('viewMode', normalizedParams.viewMode);
 
       const response = await fetch(`/api/tasks?${searchParams.toString()}`);
       if (!response.ok) throw new Error('Không thể tải danh sách task');

@@ -13,11 +13,13 @@ export interface Task {
   trang_thai?: string;
   priority: string;
   progress: number;
+  progress_mode?: 'manual' | 'checklist';
   phan_du_an_id?: string;
   assignee_id?: string | null;
   risk_score?: number;
   risk_level?: 'low' | 'medium' | 'high';
   is_stale?: boolean;
+  review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested';
   nguoi_dung?: {
     id: string;
     ten: string;
@@ -39,17 +41,31 @@ interface KanbanColumnProps {
   tasks: Task[];
   onTaskClick?: (task: Task) => void;
   onAddTask?: (columnId: string) => void;
+  isDroppable?: boolean;
+  canAddTask?: boolean;
+  emptyMessage?: string;
 }
 
 const columnStyles = {
   todo: 'bg-gray-50/50 border-gray-200',
   'in-progress': 'bg-[#b9ff66]/5 border-[#b9ff66]/30',
+  pending_review: 'bg-[#fff7e8] border-[#f2d89a]',
   done: 'bg-gray-50/50 border-gray-200',
 };
 
-export function KanbanColumn({ id, title, tasks, onTaskClick, onAddTask }: KanbanColumnProps) {
+export function KanbanColumn({
+  id,
+  title,
+  tasks,
+  onTaskClick,
+  onAddTask,
+  isDroppable = true,
+  canAddTask = true,
+  emptyMessage = 'Chưa có task nào',
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id,
+    disabled: !isDroppable,
   });
 
   const taskIds = tasks.map((task) => task.id);
@@ -64,7 +80,7 @@ export function KanbanColumn({ id, title, tasks, onTaskClick, onAddTask }: Kanba
           <h3 className="font-semibold text-gray-800">{title}</h3>
           <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium">{tasks.length}</span>
         </div>
-        {onAddTask ? (
+        {onAddTask && canAddTask ? (
           <button
             onClick={() => onAddTask(id)}
             className="rounded p-1 transition-colors hover:bg-gray-200"
@@ -81,7 +97,7 @@ export function KanbanColumn({ id, title, tasks, onTaskClick, onAddTask }: Kanba
             <KanbanCard key={task.id} task={task} onTaskClick={onTaskClick} />
           ))}
           {tasks.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-400">Chưa có task nào</div>
+            <div className="py-8 text-center text-sm text-gray-400">{emptyMessage}</div>
           ) : null}
         </div>
       </SortableContext>

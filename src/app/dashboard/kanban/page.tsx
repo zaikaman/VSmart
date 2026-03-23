@@ -12,26 +12,21 @@ import { SavedViewBar } from '@/components/governance/saved-view-bar';
 import { ShortcutDialog } from '@/components/governance/shortcut-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Pagination } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHotkeys } from '@/lib/hooks/use-hotkeys';
 import { useProjectParts, type ProjectPart } from '@/lib/hooks/use-project-parts';
 import { useProjects } from '@/lib/hooks/use-projects';
 import { useSavedViews } from '@/lib/hooks/use-saved-views';
-import { useUserSettings } from '@/lib/hooks/use-settings';
 import { useTasks } from '@/lib/hooks/use-tasks';
 
 type RiskFilter = 'all' | 'low' | 'medium' | 'high' | 'stale';
 type TaskDetailData = ComponentProps<typeof TaskDetailModal>['task'];
 
 export default function KanbanPage() {
-  const { data: settingsResponse } = useUserSettings();
-  const itemsPerPage = settingsResponse?.data?.dashboard?.itemsPerPage || 10;
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedPartId, setSelectedPartId] = useState('');
   const [riskFilter, setRiskFilter] = useState<RiskFilter>('all');
-  const [currentPage, setCurrentPage] = useState(1);
   const [selectedTask, setSelectedTask] = useState<TaskDetailData>(null);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [initialStatus, setInitialStatus] = useState('todo');
@@ -62,25 +57,23 @@ export default function KanbanPage() {
   const hasCustomFilters = Boolean(selectedProjectId || selectedPartId || riskFilter !== 'all');
 
   const { data: tasksResponse, isLoading: tasksLoading, error } = useTasks({
-    page: currentPage,
-    limit: itemsPerPage,
     duAnId: effectiveProjectId || undefined,
     phanDuAnId: effectivePartId || undefined,
     riskLevel: riskFilter === 'low' || riskFilter === 'medium' || riskFilter === 'high' ? riskFilter : undefined,
     isStale: riskFilter === 'stale',
+    viewMode: 'kanban',
   });
 
   const currentView = useMemo(
     () => ({
-      projectId: selectedProjectId,
-      partId: selectedPartId,
+      projectId: effectiveProjectId,
+      partId: effectivePartId,
       riskFilter,
     }),
-    [riskFilter, selectedPartId, selectedProjectId]
+    [effectivePartId, effectiveProjectId, riskFilter]
   );
 
   const tasks = tasksResponse?.data || [];
-  const pagination = tasksResponse?.pagination;
   const highRiskCount = tasks.filter((task) => task.risk_level === 'high' || (task.risk_score || 0) >= 70).length;
   const inProgressCount = tasks.filter((task) => task.trang_thai === 'in-progress').length;
   const staleCount = tasks.filter((task) => task.is_stale).length;
@@ -131,6 +124,7 @@ export default function KanbanPage() {
       trangThai: task.trang_thai || 'todo',
       priority: task.priority,
       progress: task.progress,
+      progressMode: task.progress_mode,
       riskScore: task.risk_score,
     });
   };
@@ -235,7 +229,6 @@ export default function KanbanPage() {
           setSelectedProjectId(view.projectId);
           setSelectedPartId(view.partId);
           setRiskFilter(view.riskFilter);
-          setCurrentPage(1);
         }}
         onSave={(name) => savedViews.saveView(name, currentView)}
         onDelete={savedViews.removeView}
@@ -256,7 +249,6 @@ export default function KanbanPage() {
               setSelectedProjectId('');
               setSelectedPartId('');
               setRiskFilter('all');
-              setCurrentPage(1);
             }}
             disabled={!hasCustomFilters}
           >
@@ -301,7 +293,6 @@ export default function KanbanPage() {
                 onValueChange={(value) => {
                   setSelectedProjectId(value);
                   setSelectedPartId('');
-                  setCurrentPage(1);
                 }}
               >
                 <SelectTrigger className="h-11 w-full rounded-2xl border-[#dfe5d6] bg-white text-[#233021] shadow-none" aria-label="Chọn dự án">
@@ -324,7 +315,6 @@ export default function KanbanPage() {
                 value={effectivePartId}
                 onValueChange={(value) => {
                   setSelectedPartId(value);
-                  setCurrentPage(1);
                 }}
                 disabled={!effectiveProjectId || partsLoading}
               >
@@ -358,7 +348,6 @@ export default function KanbanPage() {
                 value={riskFilter}
                 onValueChange={(value) => {
                   setRiskFilter(value as RiskFilter);
-                  setCurrentPage(1);
                 }}
               >
                 <SelectTrigger className="h-11 w-full rounded-2xl border-[#dfe5d6] bg-white text-[#233021] shadow-none" aria-label="Lọc theo rủi ro">
@@ -391,18 +380,6 @@ export default function KanbanPage() {
 
       <DashboardSection title="Bảng task" description="Kéo thả và mở chi tiết task như bình thường.">
         <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onAddTask={handleAddTask} />
-
-        {pagination && pagination.totalPages > 1 ? (
-          <div className="mt-6">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={pagination.totalPages}
-              totalItems={pagination.total}
-              itemsPerPage={pagination.limit}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        ) : null}
       </DashboardSection>
 
       <CreateTaskModal

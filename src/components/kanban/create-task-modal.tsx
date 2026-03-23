@@ -486,6 +486,7 @@ export function CreateTaskModal({
         mo_ta: data.mo_ta,
         deadline: data.deadline ? new Date(data.deadline).toISOString() : new Date().toISOString(),
         phan_du_an_id: phanDuAnId,
+        trang_thai: initialStatus === 'in-progress' || initialStatus === 'done' ? initialStatus : 'todo',
         priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
         template_id: selectedTemplateId !== 'no-template' ? selectedTemplateId : null,
         checklist_items: normalizedChecklist,

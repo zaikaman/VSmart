@@ -56,6 +56,23 @@ function buildTaskPermissions(auth: Awaited<ReturnType<typeof getTaskAccessConte
   };
 }
 
+function getManualStatusFromProgress(progress: number) {
+  if (progress >= 100) return 'done' as const;
+  if (progress <= 0) return 'todo' as const;
+  return 'in-progress' as const;
+}
+
+function getManualProgressFromStatus(status: 'todo' | 'in-progress' | 'done', currentProgress: number) {
+  if (status === 'todo') return 0;
+  if (status === 'done') return 100;
+
+  if (currentProgress > 0 && currentProgress < 100) {
+    return currentProgress;
+  }
+
+  return 50;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -129,6 +146,10 @@ export async function PATCH(
         progress,
         progress_mode,
         review_status,
+        submitted_for_review_at,
+        reviewed_by,
+        reviewed_at,
+        review_comment,
         phan_du_an_id,
         phan_du_an (
           du_an_id,
@@ -141,6 +162,15 @@ export async function PATCH(
 
     if (!oldTask) {
       return NextResponse.json({ error: 'KhÃ´ng tÃ¬m tháº¥y task' }, { status: 404 });
+    }
+
+    const currentProgressMode = oldTask?.progress_mode || 'manual';
+
+    if (currentProgressMode === 'checklist' && (validated.progress !== undefined || validated.trang_thai !== undefined)) {
+      return NextResponse.json(
+        { error: 'Task dùng checklist không thể đổi trạng thái hoặc tiến độ thủ công' },
+        { status: 400 }
+      );
     }
 
     if (
@@ -180,9 +210,43 @@ export async function PATCH(
       }
     }
 
+    const normalizedPayload = {
+      ...updatePayload,
+      ...(currentProgressMode === 'manual' && validated.trang_thai !== undefined && validated.progress === undefined
+        ? { progress: getManualProgressFromStatus(validated.trang_thai, oldTask.progress) }
+        : {}),
+      ...(currentProgressMode === 'manual' && validated.progress !== undefined && validated.trang_thai === undefined
+        ? { trang_thai: getManualStatusFromProgress(validated.progress) }
+        : {}),
+    };
+
+    const nextStatus =
+      (normalizedPayload.trang_thai as 'todo' | 'in-progress' | 'done' | undefined) || oldTask.trang_thai;
+    const nextProgress = typeof normalizedPayload.progress === 'number' ? normalizedPayload.progress : oldTask.progress;
+    const hasSubstantiveChanges =
+      (validated.ten !== undefined && validated.ten !== oldTask.ten) ||
+      (validated.mo_ta !== undefined && validated.mo_ta !== oldTask.mo_ta) ||
+      (validated.deadline !== undefined && validated.deadline !== oldTask.deadline) ||
+      (validated.priority !== undefined && validated.priority !== oldTask.priority) ||
+      (validated.assignee_id !== undefined && validated.assignee_id !== oldTask.assignee_id) ||
+      (validated.progress_mode !== undefined && validated.progress_mode !== oldTask.progress_mode);
+    const shouldResetReview =
+      oldTask.review_status !== 'draft' &&
+      (nextStatus !== 'done' || nextProgress < 100 || hasSubstantiveChanges);
+
+    if (shouldResetReview) {
+      Object.assign(normalizedPayload, {
+        review_status: 'draft',
+        submitted_for_review_at: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        review_comment: null,
+      });
+    }
+
     const { data: updatedTask, error } = await supabaseAdmin
       .from('task')
-      .update(updatePayload)
+      .update(normalizedPayload)
       .eq('id', id)
       .is('deleted_at', null)
       .select('*, phan_du_an_id')
@@ -220,7 +284,7 @@ export async function PATCH(
       }
     }
 
-    if (updatePayload.progress_mode === 'checklist') {
+    if (normalizedPayload.progress_mode === 'checklist') {
       await syncTaskProgressFromChecklist(updatedTask.id);
     } else if (
       updatedTask.phan_du_an_id &&

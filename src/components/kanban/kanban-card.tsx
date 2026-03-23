@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, User, AlertCircle } from 'lucide-react';
 import { Task } from './kanban-column';
 import { RiskBadge, RiskIndicator, RiskProgressBar } from './risk-badge';
+import { ReviewStatusBadge } from '@/components/governance/review-status-badge';
 
 interface KanbanCardProps {
   task: Task;
@@ -27,8 +28,10 @@ const priorityLabels = {
 };
 
 export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
+  const dragDisabled = task.progress_mode === 'checklist' || task.review_status === 'pending_review';
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
+    disabled: dragDisabled,
   });
 
   const style = {
@@ -76,6 +79,15 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
         </div>
       </div>
 
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {task.review_status && task.review_status !== 'draft' ? <ReviewStatusBadge status={task.review_status} /> : null}
+        {task.progress_mode === 'checklist' ? (
+          <Badge variant="outline" className="border-[#d8e3cf] bg-[#f8fbf3] text-[#556451]">
+            Theo checklist
+          </Badge>
+        ) : null}
+      </div>
+
       {task.mo_ta && (
         <p className="text-xs text-gray-600 line-clamp-2 mb-3">{task.mo_ta}</p>
       )}
@@ -109,6 +121,14 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
         </div>
         <RiskProgressBar progress={task.progress} riskLevel={riskLevel} />
       </div>
+
+      {dragDisabled ? (
+        <p className="mt-2 text-[11px] text-[#7a846f]">
+          {task.review_status === 'pending_review'
+            ? 'Task đang chờ duyệt nên không thể kéo thả.'
+            : 'Task dùng checklist, hãy cập nhật từng mục để đổi trạng thái.'}
+        </p>
+      ) : null}
     </div>
   );
 }
