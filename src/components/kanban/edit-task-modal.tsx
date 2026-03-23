@@ -30,7 +30,6 @@ interface Task {
   deadline?: string | null;
   trangThai: string;
   priority: string;
-  progress: number;
   progressMode?: 'manual' | 'checklist';
   assigneeId?: string | null;
 }
@@ -45,7 +44,6 @@ interface TaskFormData {
   ten: string;
   mo_ta: string;
   deadline: string;
-  progress: number;
 }
 
 const DAY_OPTIONS = [
@@ -83,7 +81,6 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
         ten: task.ten,
         mo_ta: task.moTa || '',
         deadline: task.deadline ? task.deadline.split('T')[0] : '',
-        progress: task.progress,
       });
     }
   }, [task, open, reset]);
@@ -174,11 +171,6 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
         deadline: data.deadline ? new Date(data.deadline).toISOString() : undefined,
         priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
       };
-
-      if ((task.progressMode || 'manual') === 'manual') {
-        updateData.progress = Number(data.progress);
-        updateData.progress_mode = 'manual';
-      }
 
       await updateTaskMutation.mutateAsync(updateData);
 
@@ -325,26 +317,11 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
             </div>
           ) : null}
 
-          {(task.progressMode || 'manual') === 'manual' ? (
-            <div>
-              <Label htmlFor="progress">Tiến độ (%)</Label>
-              <Input
-                id="progress"
-                type="number"
-                min={0}
-                max={100}
-                {...register('progress', {
-                  min: { value: 0, message: 'Tiến độ tối thiểu là 0%' },
-                  max: { value: 100, message: 'Tiến độ tối đa là 100%' },
-                })}
-              />
-              {errors.progress && <p className="text-sm text-red-600 mt-1">{errors.progress.message}</p>}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] px-4 py-3 text-sm text-slate-600">
-              Task này đang dùng checklist để tự đồng bộ tiến độ, nên không chỉnh tay ở đây.
-            </div>
-          )}
+          <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] px-4 py-3 text-sm text-slate-600">
+            {(task.progressMode || 'manual') === 'checklist'
+              ? 'Task này dùng checklist để tự đồng bộ tiến độ.'
+              : 'Task manual sẽ tự suy ra tiến độ từ trạng thái xử lý và luồng duyệt, không cần nhập % thủ công.'}
+          </div>
 
           <div className="rounded-lg border p-4 space-y-4">
             <div className="flex items-center justify-between">

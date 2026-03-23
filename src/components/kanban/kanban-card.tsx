@@ -7,6 +7,7 @@ import { Clock, User, AlertCircle } from 'lucide-react';
 import { Task } from './kanban-column';
 import { RiskBadge, RiskIndicator, RiskProgressBar } from './risk-badge';
 import { ReviewStatusBadge } from '@/components/governance/review-status-badge';
+import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task-progress';
 
 interface KanbanCardProps {
   task: Task;
@@ -45,6 +46,17 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
   const riskScore = task.risk_score || 0;
   const isHighRisk = riskLevel === 'high';
   const isStale = task.is_stale || false;
+  const effectiveProgress = getEffectiveTaskProgress({
+    progress: task.progress,
+    progressMode: task.progress_mode,
+    status: task.trang_thai,
+    reviewStatus: task.review_status,
+  });
+  const progressLabel = getTaskProgressLabel({
+    progressMode: task.progress_mode,
+    status: task.trang_thai,
+    reviewStatus: task.review_status,
+  });
 
   return (
     <div
@@ -111,15 +123,21 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
 
       <div className="mt-3">
         <div className="flex justify-between text-xs text-gray-600 mb-1">
-          <span>Tiến độ</span>
+          <span>{task.progress_mode === 'checklist' ? 'Tiến độ' : 'Nhịp xử lý'}</span>
           <div className="flex items-center gap-2">
             {riskLevel !== 'low' && (
               <RiskBadge riskLevel={riskLevel} riskScore={riskScore} showScore size="sm" />
             )}
-            <span>{task.progress}%</span>
+            <span>{task.progress_mode === 'checklist' ? `${effectiveProgress}%` : progressLabel}</span>
           </div>
         </div>
-        <RiskProgressBar progress={task.progress} riskLevel={riskLevel} />
+        {task.progress_mode === 'checklist' ? (
+          <RiskProgressBar progress={effectiveProgress} riskLevel={riskLevel} />
+        ) : (
+          <div className="rounded-full border border-[#e4eadb] bg-[#f6f8f1] px-3 py-2 text-xs text-[#5f6d59]">
+            Tiến độ của task này được suy ra tự động từ trạng thái xử lý và luồng duyệt.
+          </div>
+        )}
       </div>
 
       {dragDisabled ? (

@@ -26,6 +26,7 @@ import {
 import { useApproveTask, useRejectTask, useSubmitTaskForReview } from '@/lib/hooks/use-governance';
 import { useTask, type Task as HookTask } from '@/lib/hooks/use-tasks';
 import { canTransitionReviewStatus } from '@/lib/auth/permissions';
+import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task-progress';
 
 interface BaseTask {
   id: string;
@@ -41,6 +42,8 @@ interface BaseTask {
   progress_mode?: 'manual' | 'checklist';
   riskScore?: number | null;
   risk_score?: number | null;
+  reviewStatus?: 'draft' | 'pending_review' | 'approved' | 'changes_requested' | null;
+  review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested' | null;
 }
 
 interface Comment {
@@ -98,6 +101,7 @@ function normalizeTask(task: BaseTask | null, details?: HookTask | null): HookTa
     progress: task.progress,
     progress_mode: task.progressMode ?? task.progress_mode ?? 'manual',
     risk_score: task.riskScore ?? task.risk_score ?? 0,
+    review_status: task.reviewStatus ?? task.review_status ?? 'draft',
     risk_level: 'low',
     risk_updated_at: null,
     is_stale: false,
@@ -191,6 +195,17 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   const canApprove = resolvedTask.permissions?.canApprove ?? false;
   const canReject = resolvedTask.permissions?.canReject ?? false;
   const reviewStatus = resolvedTask.review_status || 'draft';
+  const effectiveProgress = getEffectiveTaskProgress({
+    progress: resolvedTask.progress,
+    progressMode: resolvedTask.progress_mode,
+    status: resolvedTask.trang_thai,
+    reviewStatus,
+  });
+  const progressLabel = getTaskProgressLabel({
+    progressMode: resolvedTask.progress_mode,
+    status: resolvedTask.trang_thai,
+    reviewStatus,
+  });
   const canShowSubmitReview = canSubmitReview && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'pending_review' });
   const canShowApprove = canApprove && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'approved' });
   const canShowReject = canReject && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'changes_requested' });
@@ -234,8 +249,12 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
                 </div>
               </div>
               <div className="rounded-2xl border border-[#e7ebdf] bg-[#fbfbf8] px-4 py-3 text-right">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Tiến độ</p>
-                <p className="mt-1 text-2xl font-semibold text-slate-900">{resolvedTask.progress}%</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  {resolvedTask.progress_mode === 'checklist' ? 'Tiến độ' : 'Nhịp xử lý'}
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">
+                  {resolvedTask.progress_mode === 'checklist' ? `${effectiveProgress}%` : progressLabel}
+                </p>
               </div>
             </div>
           </DialogHeader>
@@ -517,7 +536,6 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
           deadline: resolvedTask.deadline,
           trangThai: resolvedTask.trang_thai,
           priority: resolvedTask.priority,
-          progress: resolvedTask.progress,
           progressMode: resolvedTask.progress_mode,
         }}
         open={editModalOpen}

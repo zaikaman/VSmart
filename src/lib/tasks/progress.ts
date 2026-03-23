@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { calculateDuAnProgress, calculatePhanDuAnProgress } from '@/lib/utils/calculate-progress';
+import { getEffectiveTaskProgress } from '@/lib/utils/task-progress';
 
 function extractSingleRelation<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) {
@@ -36,7 +37,7 @@ export async function updateDuAnProgress(duAnId: string) {
 export async function updatePhanDuAnProgress(phanDuAnId: string) {
   const { data: tasks, error: tasksError } = await supabaseAdmin
     .from('task')
-    .select('id, trang_thai, progress')
+    .select('id, trang_thai, progress, progress_mode, review_status')
     .eq('phan_du_an_id', phanDuAnId)
     .is('deleted_at', null);
 
@@ -48,7 +49,12 @@ export async function updatePhanDuAnProgress(phanDuAnId: string) {
     tasks.map((task) => ({
       id: task.id,
       trangThai: task.trang_thai,
-      progress: task.progress,
+      progress: getEffectiveTaskProgress({
+        progress: task.progress,
+        progressMode: task.progress_mode,
+        status: task.trang_thai,
+        reviewStatus: task.review_status,
+      }),
     }))
   );
 
@@ -79,16 +85,17 @@ export async function syncTaskProgressFromChecklist(taskId: string) {
     return;
   }
 
-  const { count: totalItems } = await supabaseAdmin
-    .from('task_checklist_item')
-    .select('id', { count: 'exact', head: true })
-    .eq('task_id', taskId);
-
-  const { count: completedItems } = await supabaseAdmin
-    .from('task_checklist_item')
-    .select('id', { count: 'exact', head: true })
-    .eq('task_id', taskId)
-    .eq('is_done', true);
+  const [{ count: totalItems }, { count: completedItems }] = await Promise.all([
+    supabaseAdmin
+      .from('task_checklist_item')
+      .select('id', { count: 'exact', head: true })
+      .eq('task_id', taskId),
+    supabaseAdmin
+      .from('task_checklist_item')
+      .select('id', { count: 'exact', head: true })
+      .eq('task_id', taskId)
+      .eq('is_done', true),
+  ]);
 
   if (task.progress_mode === 'checklist') {
     const total = totalItems || 0;

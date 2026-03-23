@@ -3,6 +3,7 @@ import { canTransitionReviewStatus, hasPermission } from '@/lib/auth/permissions
 import { logTaskActivity } from '@/lib/activity/log';
 import { getTaskAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
+import { updatePhanDuAnProgress } from '@/lib/tasks/progress';
 
 export async function POST(
   request: Request,
@@ -26,7 +27,7 @@ export async function POST(
 
     const { data: task, error: taskError } = await supabaseAdmin
       .from('task')
-      .select('id, ten, trang_thai, progress, review_status, phan_du_an_id')
+      .select('id, ten, trang_thai, progress, progress_mode, review_status, phan_du_an_id')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -51,6 +52,7 @@ export async function POST(
       .from('task')
       .update({
         review_status: 'pending_review',
+        progress: task.progress_mode === 'checklist' ? task.progress : 90,
         submitted_for_review_at: now,
         reviewed_by: null,
         reviewed_at: null,
@@ -62,6 +64,10 @@ export async function POST(
 
     if (updateError || !updatedTask) {
       return NextResponse.json({ error: 'Không thể gửi task sang hàng chờ duyệt' }, { status: 400 });
+    }
+
+    if (task.phan_du_an_id) {
+      await updatePhanDuAnProgress(task.phan_du_an_id);
     }
 
     const { data: approvers } = await supabaseAdmin

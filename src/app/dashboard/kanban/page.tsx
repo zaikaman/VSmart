@@ -125,6 +125,7 @@ export default function KanbanPage() {
       priority: task.priority,
       progress: task.progress,
       progressMode: task.progress_mode,
+      reviewStatus: task.review_status,
       riskScore: task.risk_score,
     });
   };
