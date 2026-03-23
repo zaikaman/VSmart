@@ -277,6 +277,7 @@ CREATE TABLE public.to_chuc (
   nguoi_tao_id uuid NOT NULL,
   ngay_tao timestamp with time zone DEFAULT now(),
   cap_nhat_cuoi timestamp with time zone DEFAULT now(),
+  settings jsonb NOT NULL DEFAULT '{"allow_join_requests": false, "allow_external_project_invites": false}'::jsonb,
   CONSTRAINT to_chuc_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.yeu_cau_gia_nhap_to_chuc (

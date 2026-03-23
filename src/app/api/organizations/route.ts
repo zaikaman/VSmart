@@ -34,6 +34,20 @@ function normalizeOrganization<T extends Partial<Organization> & { settings?: Pa
   };
 }
 
+async function getNormalizedOrganizationSettings(organizationId: string) {
+  const { data: organization, error } = await supabaseAdmin
+    .from('to_chuc')
+    .select('settings')
+    .eq('id', organizationId)
+    .single();
+
+  if (error || !organization) {
+    return null;
+  }
+
+  return normalizeOrganization(organization).settings;
+}
+
 // GET /api/organizations - Lấy thông tin tổ chức của user hiện tại
 export async function GET(request: NextRequest) {
   try {
@@ -188,8 +202,14 @@ export async function PATCH(request: NextRequest) {
     if (mo_ta !== undefined) updateData.mo_ta = mo_ta;
     if (logo_url !== undefined) updateData.logo_url = logo_url;
     if (settings !== undefined) {
+      const existingSettings = await getNormalizedOrganizationSettings(userData.to_chuc_id);
+
+      if (!existingSettings) {
+        return NextResponse.json({ error: 'Không tìm thấy cấu hình tổ chức hiện tại' }, { status: 404 });
+      }
+
       updateData.settings = {
-        ...defaultOrganizationSettings,
+        ...existingSettings,
         ...((settings || {}) as Partial<Organization['settings']>),
       };
     }
