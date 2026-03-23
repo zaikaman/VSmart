@@ -128,6 +128,11 @@ function KanbanCardFrame({
             Theo checklist
           </Badge>
         ) : null}
+        {task.requires_review ? (
+          <Badge variant="outline" className="border-[#e8d6b5] bg-[#fff8ea] text-[#8c6b2f]">
+            Cần duyệt
+          </Badge>
+        ) : null}
         {isStale ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-[#f2df9d] bg-[#fff8dd] px-2.5 py-1 text-[11px] font-medium text-[#8a6b1a]">
             <AlertCircle className="h-3.5 w-3.5" />

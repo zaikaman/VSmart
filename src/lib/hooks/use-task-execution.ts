@@ -73,15 +73,39 @@ interface ChecklistQueryData {
   data: ChecklistItem[];
 }
 
-function calculateTaskStateFromChecklist(items: ChecklistItem[]) {
+function calculateTaskStateFromChecklist(items: ChecklistItem[], requiresReview = false) {
   const total = items.length;
   const completed = items.filter((item) => item.is_done).length;
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return {
     progress,
-    trang_thai: progress > 0 ? 'in-progress' : 'todo',
+    trang_thai: progress >= 100 && !requiresReview ? 'done' : progress > 0 ? 'in-progress' : 'todo',
   } as const;
+}
+
+function extractTaskRequiresReview(
+  snapshots: Array<[readonly unknown[], unknown]>,
+  taskId: string
+) {
+  for (const [, data] of snapshots) {
+    if (!data || typeof data !== 'object') {
+      continue;
+    }
+
+    if ('data' in data && Array.isArray((data as { data?: unknown }).data)) {
+      const task = (data as { data: Array<Record<string, unknown>> }).data.find((item) => item.id === taskId);
+      if (task && typeof task.requires_review === 'boolean') {
+        return task.requires_review;
+      }
+    }
+
+    if ('id' in data && (data as { id?: string }).id === taskId && typeof (data as { requires_review?: unknown }).requires_review === 'boolean') {
+      return Boolean((data as { requires_review?: boolean }).requires_review);
+    }
+  }
+
+  return false;
 }
 
 function updateTaskCaches(
@@ -155,6 +179,7 @@ export function useAddChecklistItems(taskId: string) {
 
       const previousChecklist = queryClient.getQueryData<ChecklistQueryData>(['task-checklist', taskId]);
       const previousTaskSnapshots = queryClient.getQueriesData({ queryKey: ['tasks'] });
+      const requiresReview = extractTaskRequiresReview(previousTaskSnapshots, taskId);
       const sourceItems =
         payload.items && payload.items.length > 0
           ? payload.items
@@ -175,7 +200,7 @@ export function useAddChecklistItems(taskId: string) {
         const nextChecklist = [...previousChecklist.data, ...optimisticItems];
 
         queryClient.setQueryData<ChecklistQueryData>(['task-checklist', taskId], { data: nextChecklist });
-        updateTaskCaches(queryClient, taskId, calculateTaskStateFromChecklist(nextChecklist));
+        updateTaskCaches(queryClient, taskId, calculateTaskStateFromChecklist(nextChecklist, requiresReview));
       }
 
       return { previousChecklist, previousTaskSnapshots };
@@ -231,6 +256,7 @@ export function useUpdateChecklistItem(taskId: string) {
 
       const previousChecklist = queryClient.getQueryData<ChecklistQueryData>(['task-checklist', taskId]);
       const previousTaskSnapshots = queryClient.getQueriesData({ queryKey: ['tasks'] });
+      const requiresReview = extractTaskRequiresReview(previousTaskSnapshots, taskId);
 
       if (previousChecklist) {
         const nextChecklist = previousChecklist.data.map((item) =>
@@ -238,7 +264,7 @@ export function useUpdateChecklistItem(taskId: string) {
         );
 
         queryClient.setQueryData<ChecklistQueryData>(['task-checklist', taskId], { data: nextChecklist });
-        updateTaskCaches(queryClient, taskId, calculateTaskStateFromChecklist(nextChecklist));
+        updateTaskCaches(queryClient, taskId, calculateTaskStateFromChecklist(nextChecklist, requiresReview));
       }
 
       return { previousChecklist, previousTaskSnapshots };
@@ -284,12 +310,13 @@ export function useDeleteChecklistItem(taskId: string) {
 
       const previousChecklist = queryClient.getQueryData<ChecklistQueryData>(['task-checklist', taskId]);
       const previousTaskSnapshots = queryClient.getQueriesData({ queryKey: ['tasks'] });
+      const requiresReview = extractTaskRequiresReview(previousTaskSnapshots, taskId);
 
       if (previousChecklist) {
         const nextChecklist = previousChecklist.data.filter((item) => item.id !== checklistId);
 
         queryClient.setQueryData<ChecklistQueryData>(['task-checklist', taskId], { data: nextChecklist });
-        updateTaskCaches(queryClient, taskId, calculateTaskStateFromChecklist(nextChecklist));
+        updateTaskCaches(queryClient, taskId, calculateTaskStateFromChecklist(nextChecklist, requiresReview));
       }
 
       return { previousChecklist, previousTaskSnapshots };

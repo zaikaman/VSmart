@@ -18,6 +18,7 @@ const taskSchema = z.object({
   checklist_items: z.array(z.unknown()).optional(),
   template_id: z.string().uuid().optional().nullable(),
   progress_mode: z.enum(['manual', 'checklist']).optional(),
+  requires_review: z.boolean().optional(),
 });
 
 const DEFAULT_LIMIT = 20;
@@ -472,6 +473,7 @@ export async function POST(request: NextRequest) {
       checklist_items: checklistItems,
       template_id: validated.template_id ?? null,
       progress_mode: validated.progress_mode,
+      requires_review: validated.requires_review,
       actor_id: dbUser.id,
       project_id: partData.du_an_id,
     });

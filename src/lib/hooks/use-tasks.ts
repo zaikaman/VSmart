@@ -26,6 +26,7 @@ export interface Task {
   progress_mode?: 'manual' | 'checklist';
   template_id?: string | null;
   recurring_rule_id?: string | null;
+  requires_review?: boolean;
   review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested';
   submitted_for_review_at?: string | null;
   review_request_comment?: string | null;
@@ -85,6 +86,7 @@ export interface CreateTaskInput {
   }>;
   template_id?: string | null;
   progress_mode?: 'manual' | 'checklist';
+  requires_review?: boolean;
 }
 
 export interface UpdateTaskInput {
@@ -97,6 +99,7 @@ export interface UpdateTaskInput {
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   progress?: number;
   progress_mode?: 'manual' | 'checklist';
+  requires_review?: boolean;
 }
 
 interface TasksParams {

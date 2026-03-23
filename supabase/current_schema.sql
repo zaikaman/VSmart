@@ -193,6 +193,7 @@ CREATE TABLE public.task (
   progress_mode character varying DEFAULT 'manual'::character varying CHECK (progress_mode::text = ANY (ARRAY['manual'::character varying, 'checklist'::character varying]::text[])),
   template_id uuid,
   recurring_rule_id uuid,
+  requires_review boolean NOT NULL DEFAULT false,
   review_status character varying NOT NULL DEFAULT 'draft'::character varying CHECK (review_status::text = ANY (ARRAY['draft'::character varying, 'pending_review'::character varying, 'approved'::character varying, 'changes_requested'::character varying]::text[])),
   submitted_for_review_at timestamp with time zone,
   reviewed_by uuid,

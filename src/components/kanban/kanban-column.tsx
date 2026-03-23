@@ -14,6 +14,7 @@ export interface Task {
   priority: string;
   progress: number;
   progress_mode?: 'manual' | 'checklist';
+  requires_review?: boolean;
   phan_du_an_id?: string;
   assignee_id?: string | null;
   risk_score?: number;

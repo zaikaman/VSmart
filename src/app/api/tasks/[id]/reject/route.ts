@@ -37,7 +37,7 @@ export async function POST(
 
     const { data: task, error: taskError } = await supabaseAdmin
       .from('task')
-      .select('id, ten, assignee_id, progress_mode, review_status, phan_du_an_id')
+      .select('id, ten, assignee_id, progress_mode, requires_review, review_status, phan_du_an_id')
       .eq('id', id)
       .is('deleted_at', null)
       .single();

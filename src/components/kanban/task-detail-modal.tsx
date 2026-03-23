@@ -52,6 +52,8 @@ interface BaseTask {
   progress_mode?: 'manual' | 'checklist';
   riskScore?: number | null;
   risk_score?: number | null;
+  requiresReview?: boolean;
+  requires_review?: boolean;
   reviewStatus?: 'draft' | 'pending_review' | 'approved' | 'changes_requested' | null;
   review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested' | null;
   submitted_for_review_at?: string | null;
@@ -116,6 +118,7 @@ function normalizeTask(task: BaseTask | null, details?: HookTask | null): HookTa
     progress: task.progress,
     progress_mode: task.progressMode ?? task.progress_mode ?? 'manual',
     risk_score: task.riskScore ?? task.risk_score ?? 0,
+    requires_review: task.requiresReview ?? task.requires_review ?? false,
     review_status: task.reviewStatus ?? task.review_status ?? 'draft',
     submitted_for_review_at: task.submitted_for_review_at ?? null,
     review_request_comment: task.reviewRequestComment ?? task.review_request_comment ?? null,
@@ -239,7 +242,8 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
     ? effectiveProgress >= 100
     : resolvedTask.trang_thai === 'done' || effectiveProgress >= 100;
   const canRequestReview = canSubmitReview && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'pending_review' });
-  const canShowSubmitReview = canRequestReview && isReadyForReview;
+  const requiresReview = resolvedTask.requires_review ?? false;
+  const canShowSubmitReview = requiresReview && canRequestReview && isReadyForReview;
   const canShowApprove = canApprove && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'approved' });
   const canShowReject = canReject && canTransitionReviewStatus({ currentStatus: reviewStatus, nextStatus: 'changes_requested' });
   const reviewRequestComment = resolvedTask.review_request_comment ?? null;
@@ -658,6 +662,10 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
           trangThai: resolvedTask.trang_thai,
           priority: resolvedTask.priority,
           progressMode: resolvedTask.progress_mode,
+          requiresReview: resolvedTask.requires_review,
+          assigneeId: resolvedTask.assignee_id,
+          projectId: resolvedTask.phan_du_an?.du_an_id,
+          canAssign: resolvedTask.permissions?.canAssign,
         }}
         open={editModalOpen}
         onOpenChange={(isOpen) => {

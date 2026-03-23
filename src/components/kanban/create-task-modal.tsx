@@ -26,6 +26,7 @@ import { useBreakdownTask, useCreateTaskTemplate, useTaskTemplates } from '@/lib
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { getCapacityBadgeConfig } from '@/lib/utils/workload-utils';
+import { Switch } from '@/components/ui/switch';
 
 interface CreateTaskModalProps {
   open: boolean;
@@ -183,6 +184,7 @@ export function CreateTaskModal({
   const [selectedFromAI, setSelectedFromAI] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('no-template');
   const [checklistItems, setChecklistItems] = useState<DraftChecklistItem[]>([]);
+  const [requiresReview, setRequiresReview] = useState(false);
 
   const taskName = watch('ten');
   const taskDescription = watch('mo_ta');
@@ -305,6 +307,7 @@ export function CreateTaskModal({
       setSelectedPriority('medium');
       setSelectedTemplateId('no-template');
       setChecklistItems([]);
+      setRequiresReview(false);
       deadlineReviewMutation.reset();
       reset({
         ten: '',
@@ -491,6 +494,7 @@ export function CreateTaskModal({
         template_id: selectedTemplateId !== 'no-template' ? selectedTemplateId : null,
         checklist_items: normalizedChecklist,
         progress_mode: normalizedChecklist.length > 0 ? 'checklist' : 'manual',
+        requires_review: requiresReview,
       };
 
       if (selectedAssignee !== 'unassigned') {
@@ -655,6 +659,18 @@ export function CreateTaskModal({
             <div>
               <Label htmlFor="deadline">Deadline</Label>
               <Input id="deadline" type="date" {...register('deadline')} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label className="text-sm font-semibold text-[#253124]">Cần duyệt trước khi hoàn thành</Label>
+                <p className="mt-1 text-sm text-[#64705f]">
+                  Bật cho những task có đầu ra cần kiểm tra lại trước khi chốt hẳn.
+                </p>
+              </div>
+              <Switch checked={requiresReview} onCheckedChange={setRequiresReview} />
             </div>
           </div>
 

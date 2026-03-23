@@ -12,6 +12,7 @@ export interface CreateTaskWithRelationsInput {
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   trang_thai?: 'todo' | 'in-progress' | 'done';
   progress_mode?: 'manual' | 'checklist';
+  requires_review?: boolean;
   template_id?: string | null;
   recurring_rule_id?: string | null;
   checklist_items?: ChecklistItemInput[] | unknown;
@@ -49,6 +50,7 @@ export async function createTaskWithRelations(input: CreateTaskWithRelationsInpu
         risk_level: 'low',
         is_stale: false,
         progress_mode: progressMode,
+        requires_review: input.requires_review ?? false,
         template_id: input.template_id ?? null,
         recurring_rule_id: input.recurring_rule_id ?? null,
       },

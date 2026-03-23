@@ -143,6 +143,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
     if (currentColumnId === newColumnId) return;
 
     const nextProgress = getManualProgressFromColumn(newColumnId, task.progress || 0);
+    const shouldRouteToReview = task.requires_review && newColumnId === 'done';
 
     setOptimisticTasks((prev) =>
       prev.map((item) =>
@@ -150,8 +151,8 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
           ? {
               ...item,
               trang_thai: newColumnId,
-              progress: nextProgress,
-              review_status: newColumnId === 'done' ? item.review_status : 'draft',
+              progress: shouldRouteToReview ? 90 : nextProgress,
+              review_status: shouldRouteToReview ? 'pending_review' : newColumnId === 'done' ? item.review_status : 'draft',
             }
           : item
       )
@@ -166,6 +167,9 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          if (shouldRouteToReview) {
+            toast.success('Task đã được chuyển sang chờ duyệt');
+          }
         },
         onError: (error) => {
           queryClient.invalidateQueries({ queryKey: ['tasks'] });

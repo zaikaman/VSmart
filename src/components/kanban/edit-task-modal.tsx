@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -15,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUpdateTask, UpdateTaskInput } from '@/lib/hooks/use-tasks';
+import { useProjectMembers } from '@/lib/hooks/use-project-members';
 import { useDeleteRecurringRule, useRecurringRule, useSaveRecurringRule } from '@/lib/hooks/use-task-execution';
 import { useDeadlineReview, useInsightFeedback } from '@/lib/hooks/use-ai-insights';
 import { buildCronExpression, parseCronExpression, RecurringPattern } from '@/lib/tasks/recurring';
@@ -32,6 +34,9 @@ interface Task {
   priority: string;
   progressMode?: 'manual' | 'checklist';
   assigneeId?: string | null;
+  projectId?: string;
+  canAssign?: boolean;
+  requiresReview?: boolean;
 }
 
 interface EditTaskModalProps {
@@ -44,6 +49,12 @@ interface TaskFormData {
   ten: string;
   mo_ta: string;
   deadline: string;
+}
+
+interface CurrentUser {
+  id: string;
+  ten: string;
+  email: string;
 }
 
 const DAY_OPTIONS = [
@@ -64,8 +75,24 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
   const saveRecurringRuleMutation = useSaveRecurringRule(task?.id || '');
   const deleteRecurringRuleMutation = useDeleteRecurringRule(task?.id || '');
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TaskFormData>();
+  const { data: projectMembers } = useProjectMembers(task?.projectId || '');
+  const { data: currentUser } = useQuery<CurrentUser>({
+    queryKey: ['edit-task-current-user'],
+    queryFn: async () => {
+      const response = await fetch('/api/users/me');
+      if (!response.ok) {
+        throw new Error('Không thể tải thông tin người dùng');
+      }
+      return response.json() as Promise<CurrentUser>;
+    },
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const [selectedPriority, setSelectedPriority] = useState(task?.priority || 'medium');
+  const [selectedStatus, setSelectedStatus] = useState<'todo' | 'in-progress' | 'done'>('todo');
+  const [selectedAssignee, setSelectedAssignee] = useState('unassigned');
+  const [requiresReview, setRequiresReview] = useState(false);
   const [enableRecurring, setEnableRecurring] = useState(false);
   const [recurringPattern, setRecurringPattern] = useState<RecurringPattern>('daily');
   const [recurringTime, setRecurringTime] = useState('09:00');
@@ -82,6 +109,10 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
         mo_ta: task.moTa || '',
         deadline: task.deadline ? task.deadline.split('T')[0] : '',
       });
+      setSelectedPriority(task.priority || 'medium');
+      setSelectedStatus((task.trangThai as 'todo' | 'in-progress' | 'done') || 'todo');
+      setSelectedAssignee(task.assigneeId || 'unassigned');
+      setRequiresReview(Boolean(task.requiresReview));
     }
   }, [task, open, reset]);
 
@@ -160,6 +191,38 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
     return `Tạo task mỗi ngày lúc ${recurringTime}`;
   }, [enableRecurring, recurringPattern, recurringTime, weeklyDay]);
 
+  const canAssignTasks = task?.canAssign ?? false;
+  const memberCandidates = useMemo(
+    () =>
+      (projectMembers || [])
+        .filter((member) => member.trang_thai === 'active' && member.nguoi_dung?.id)
+        .map((member) => ({
+          id: member.nguoi_dung!.id,
+          ten: member.nguoi_dung!.ten,
+          email: member.nguoi_dung!.email,
+        })),
+    [projectMembers]
+  );
+  const assigneeCandidates = useMemo(() => {
+    if (canAssignTasks) {
+      return memberCandidates;
+    }
+
+    return currentUser ? [{ id: currentUser.id, ten: currentUser.ten, email: currentUser.email }] : [];
+  }, [canAssignTasks, currentUser, memberCandidates]);
+
+  useEffect(() => {
+    if (!open || canAssignTasks) {
+      return;
+    }
+
+    if (selectedAssignee === 'unassigned' || selectedAssignee === currentUser?.id) {
+      return;
+    }
+
+    setSelectedAssignee('unassigned');
+  }, [canAssignTasks, currentUser?.id, open, selectedAssignee]);
+
   const onSubmit = async (data: TaskFormData) => {
     if (!task) return;
 
@@ -170,7 +233,13 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
         mo_ta: data.mo_ta || undefined,
         deadline: data.deadline ? new Date(data.deadline).toISOString() : undefined,
         priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
+        assignee_id: selectedAssignee === 'unassigned' ? null : selectedAssignee,
+        requires_review: requiresReview,
       };
+
+      if ((task.progressMode || 'manual') === 'manual') {
+        updateData.trang_thai = selectedStatus;
+      }
 
       await updateTaskMutation.mutateAsync(updateData);
 
@@ -259,6 +328,61 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
             <div>
               <Label htmlFor="deadline">Deadline</Label>
               <Input id="deadline" type="date" {...register('deadline')} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="assignee">Người thực hiện</Label>
+              <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+                <SelectTrigger id="assignee">
+                  <SelectValue placeholder="Chọn người thực hiện" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Chưa phân công</SelectItem>
+                  {assigneeCandidates.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.ten}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!canAssignTasks ? (
+                <p className="mt-1 text-xs text-slate-500">Bạn chỉ có thể tự nhận task hoặc để trống.</p>
+              ) : null}
+            </div>
+
+            <div>
+              <Label htmlFor="status">Trạng thái xử lý</Label>
+              <Select
+                value={selectedStatus}
+                onValueChange={(value) => setSelectedStatus(value as 'todo' | 'in-progress' | 'done')}
+                disabled={(task.progressMode || 'manual') === 'checklist'}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todo">Cần làm</SelectItem>
+                  <SelectItem value="in-progress">Đang làm</SelectItem>
+                  <SelectItem value="done">Hoàn thành</SelectItem>
+                </SelectContent>
+              </Select>
+              {(task.progressMode || 'manual') === 'checklist' ? (
+                <p className="mt-1 text-xs text-slate-500">Task checklist đổi trạng thái theo checklist và luồng duyệt.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] px-4 py-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Label className="text-sm font-semibold text-[#253124]">Cần duyệt trước khi hoàn thành</Label>
+                <p className="mt-1 text-sm text-slate-600">
+                  Khi bật, task sẽ đi vào chờ duyệt thay vì chốt thẳng hoàn thành.
+                </p>
+              </div>
+              <Switch checked={requiresReview} onCheckedChange={setRequiresReview} />
             </div>
           </div>
 

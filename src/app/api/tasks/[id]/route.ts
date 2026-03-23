@@ -16,6 +16,7 @@ const updateTaskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   progress: z.number().min(0).max(100).optional(),
   progress_mode: z.enum(['manual', 'checklist']).optional(),
+  requires_review: z.boolean().optional(),
 });
 
 function getProjectNameFromRelation(value: unknown) {
@@ -145,6 +146,7 @@ export async function PATCH(
         priority,
         progress,
         progress_mode,
+        requires_review,
         review_status,
         submitted_for_review_at,
         review_request_comment,
@@ -224,18 +226,38 @@ export async function PATCH(
     const nextStatus =
       (normalizedPayload.trang_thai as 'todo' | 'in-progress' | 'done' | undefined) || oldTask.trang_thai;
     const nextProgress = typeof normalizedPayload.progress === 'number' ? normalizedPayload.progress : oldTask.progress;
+    const nextRequiresReview =
+      typeof normalizedPayload.requires_review === 'boolean' ? normalizedPayload.requires_review : oldTask.requires_review;
     const hasSubstantiveChanges =
       (validated.ten !== undefined && validated.ten !== oldTask.ten) ||
       (validated.mo_ta !== undefined && validated.mo_ta !== oldTask.mo_ta) ||
       (validated.deadline !== undefined && validated.deadline !== oldTask.deadline) ||
       (validated.priority !== undefined && validated.priority !== oldTask.priority) ||
       (validated.assignee_id !== undefined && validated.assignee_id !== oldTask.assignee_id) ||
-      (validated.progress_mode !== undefined && validated.progress_mode !== oldTask.progress_mode);
+      (validated.progress_mode !== undefined && validated.progress_mode !== oldTask.progress_mode) ||
+      (validated.requires_review !== undefined && validated.requires_review !== oldTask.requires_review);
     const shouldResetReview =
       oldTask.review_status !== 'draft' &&
       (nextStatus !== 'done' || nextProgress < 100 || hasSubstantiveChanges);
 
-    if (shouldResetReview) {
+    const shouldEnterReviewFromStatusChange =
+      currentProgressMode === 'manual' &&
+      nextRequiresReview &&
+      nextStatus === 'done' &&
+      oldTask.review_status !== 'approved';
+
+    if (shouldEnterReviewFromStatusChange) {
+      Object.assign(normalizedPayload, {
+        review_status: 'pending_review',
+        submitted_for_review_at: new Date().toISOString(),
+        reviewed_by: null,
+        reviewed_at: null,
+        review_comment: null,
+        progress: 90,
+      });
+    }
+
+    if (shouldResetReview && !shouldEnterReviewFromStatusChange) {
       Object.assign(normalizedPayload, {
         review_status: 'draft',
         submitted_for_review_at: null,
@@ -323,6 +345,10 @@ export async function PATCH(
 
     if (validated.priority !== undefined && validated.priority !== oldTask.priority) {
       changes.push('priority');
+    }
+
+    if (validated.requires_review !== undefined && validated.requires_review !== oldTask.requires_review) {
+      changes.push('requires_review');
     }
 
     await logTaskActivity({

@@ -35,7 +35,7 @@ export async function POST(
 
     const { data: task, error: taskError } = await supabaseAdmin
       .from('task')
-      .select('id, ten, trang_thai, progress, progress_mode, review_status, phan_du_an_id')
+      .select('id, ten, trang_thai, progress, progress_mode, requires_review, review_status, phan_du_an_id')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -46,6 +46,10 @@ export async function POST(
 
     if (!canTransitionReviewStatus({ currentStatus: task.review_status, nextStatus: 'pending_review' })) {
       return NextResponse.json({ error: 'Task hiện chưa thể chuyển sang chờ duyệt' }, { status: 400 });
+    }
+
+    if (!task.requires_review) {
+      return NextResponse.json({ error: 'Task này không yêu cầu bước duyệt trước khi hoàn thành' }, { status: 400 });
     }
 
     const isChecklistTask = task.progress_mode === 'checklist';
