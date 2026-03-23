@@ -46,6 +46,20 @@ function buildEmptyResponse(page: number, limit: number) {
   });
 }
 
+function canSelfAssignOnly(params: {
+  actorId: string;
+  currentAssigneeId?: string | null;
+  nextAssigneeId?: string | null;
+}) {
+  const currentAssigneeId = params.currentAssigneeId ?? null;
+  const nextAssigneeId = params.nextAssigneeId ?? null;
+
+  return (
+    (currentAssigneeId === null || currentAssigneeId === params.actorId) &&
+    (nextAssigneeId === null || nextAssigneeId === params.actorId)
+  );
+}
+
 async function getAccessiblePartIds({
   supabase,
   email,
@@ -234,6 +248,17 @@ export async function GET(request: NextRequest) {
       return {
         ...task,
         permissions: {
+          canAssign: Boolean(
+            currentDbUser &&
+              hasPermission(
+                {
+                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
+                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
+                  isAssignee: task.assignee_id === currentDbUser.id,
+                },
+                'assignTask'
+              )
+          ),
           canUpdate: Boolean(
             currentDbUser &&
               hasPermission(
@@ -347,6 +372,49 @@ export async function POST(request: NextRequest) {
 
     if (!canCreate) {
       return NextResponse.json({ error: 'Bạn không có quyền tạo task trong dự án này' }, { status: 403 });
+    }
+
+    const canAssign = hasPermission(
+      {
+        appRole: dbUser.vai_tro as 'admin' | 'manager' | 'member',
+        projectRole: membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+      },
+      'assignTask'
+    );
+
+    if (
+      validated.assignee_id !== undefined &&
+      !canAssign &&
+      !canSelfAssignOnly({
+        actorId: dbUser.id,
+        nextAssigneeId: validated.assignee_id,
+      })
+    ) {
+      return NextResponse.json(
+        { error: 'Báº¡n chá»‰ cÃ³ thá»ƒ giao task cho chÃ­nh mÃ¬nh' },
+        { status: 403 }
+      );
+    }
+
+    if (validated.assignee_id) {
+      const { data: assigneeMembership, error: assigneeMembershipError } = await supabase
+        .from('thanh_vien_du_an')
+        .select('id')
+        .eq('du_an_id', partData.du_an_id)
+        .eq('nguoi_dung_id', validated.assignee_id)
+        .eq('trang_thai', 'active')
+        .maybeSingle();
+
+      if (assigneeMembershipError) {
+        return NextResponse.json({ error: 'KhÃ´ng thá»ƒ kiá»ƒm tra ngÆ°á»i Ä‘Æ°á»£c giao' }, { status: 400 });
+      }
+
+      if (!assigneeMembership) {
+        return NextResponse.json(
+          { error: 'NgÆ°á»i Ä‘Æ°á»£c giao khÃ´ng thuá»™c dá»± Ã¡n nÃ y' },
+          { status: 400 }
+        );
+      }
     }
 
     let checklistItems = normalizeChecklistItems(validated.checklist_items || []);

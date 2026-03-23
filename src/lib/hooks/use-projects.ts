@@ -66,6 +66,16 @@ interface ProjectsParams {
   trangThai?: string;
 }
 
+async function getApiErrorMessage(response: Response, fallback: string) {
+  const error = await response.json().catch(() => ({} as { error?: unknown }));
+
+  if (typeof error.error === 'string' && error.error.trim()) {
+    return error.error;
+  }
+
+  return fallback;
+}
+
 export function useProjects(params?: ProjectsParams) {
   const normalizedParams = {
     page: params?.page ?? 1,
@@ -86,7 +96,9 @@ export function useProjects(params?: ProjectsParams) {
       }
 
       const response = await fetch(`/api/projects?${searchParams.toString()}`);
-      if (!response.ok) throw new Error('Không thể tải danh sách dự án');
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, 'Không thể tải danh sách dự án.'));
+      }
       return response.json() as Promise<PaginatedProjectsResponse>;
     },
     placeholderData: keepPreviousData,
@@ -100,7 +112,9 @@ export function useProject(id: string) {
     queryKey: ['projects', id],
     queryFn: async () => {
       const response = await fetch(`/api/projects/${id}`);
-      if (!response.ok) throw new Error('Không thể tải dự án');
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, 'Không thể tải dự án.'));
+      }
       return response.json() as Promise<Project>;
     },
     enabled: !!id,
@@ -119,10 +133,11 @@ export function useCreateProject() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
+
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Không thể tạo dự án');
+        throw new Error(await getApiErrorMessage(response, 'Không thể tạo dự án.'));
       }
+
       return response.json();
     },
     onSuccess: () => {
@@ -141,10 +156,11 @@ export function useUpdateProject(id: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
+
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Không thể cập nhật dự án');
+        throw new Error(await getApiErrorMessage(response, 'Không thể cập nhật dự án.'));
       }
+
       return response.json();
     },
     onSuccess: () => {
@@ -162,10 +178,11 @@ export function useDeleteProject() {
       const response = await fetch(`/api/projects/${id}`, {
         method: 'DELETE',
       });
+
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Không thể xóa dự án');
+        throw new Error(await getApiErrorMessage(response, 'Không thể xóa dự án.'));
       }
+
       return response.json();
     },
     onSuccess: () => {

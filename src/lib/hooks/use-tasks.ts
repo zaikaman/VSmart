@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export interface TaskPermissions {
+  canAssign: boolean;
   canUpdate: boolean;
   canDelete: boolean;
   canSubmitReview: boolean;

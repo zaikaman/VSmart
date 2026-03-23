@@ -13,6 +13,7 @@ export const PERMISSION_MATRIX = {
     manageProjects: true,
     manageMembers: true,
     createTask: true,
+    assignTask: true,
     updateTask: true,
     deleteTask: true,
     submitReview: true,
@@ -26,6 +27,7 @@ export const PERMISSION_MATRIX = {
     manageProjects: true,
     manageMembers: true,
     createTask: true,
+    assignTask: true,
     updateTask: true,
     deleteTask: true,
     submitReview: true,
@@ -39,6 +41,7 @@ export const PERMISSION_MATRIX = {
     manageProjects: false,
     manageMembers: false,
     createTask: true,
+    assignTask: false,
     updateTask: true,
     deleteTask: false,
     submitReview: true,
@@ -69,6 +72,14 @@ export function hasPermission(context: PermissionContext, permission: Permission
     }
 
     return base;
+  }
+
+  if (permission === 'assignTask') {
+    if (context.projectRole === 'viewer') {
+      return false;
+    }
+
+    return base || ['owner', 'admin'].includes(context.projectRole || '');
   }
 
   if (permission === 'submitReview') {

@@ -25,6 +25,20 @@ function getProjectNameFromRelation(value: unknown) {
     : null;
 }
 
+function canSelfAssignOnly(params: {
+  actorId: string;
+  currentAssigneeId?: string | null;
+  nextAssigneeId?: string | null;
+}) {
+  const currentAssigneeId = params.currentAssigneeId ?? null;
+  const nextAssigneeId = params.nextAssigneeId ?? null;
+
+  return (
+    (currentAssigneeId === null || currentAssigneeId === params.actorId) &&
+    (nextAssigneeId === null || nextAssigneeId === params.actorId)
+  );
+}
+
 function buildTaskPermissions(auth: Awaited<ReturnType<typeof getTaskAccessContext>>) {
   const context = {
     appRole: auth.dbUser.vai_tro as 'admin' | 'manager' | 'member',
@@ -33,6 +47,7 @@ function buildTaskPermissions(auth: Awaited<ReturnType<typeof getTaskAccessConte
   };
 
   return {
+    canAssign: hasPermission(context, 'assignTask'),
     canUpdate: hasPermission(context, 'updateTask'),
     canDelete: hasPermission(context, 'deleteTask'),
     canSubmitReview: hasPermission(context, 'submitReview'),
@@ -123,6 +138,47 @@ export async function PATCH(
       )
       .eq('id', id)
       .single();
+
+    if (!oldTask) {
+      return NextResponse.json({ error: 'KhÃ´ng tÃ¬m tháº¥y task' }, { status: 404 });
+    }
+
+    if (
+      validated.assignee_id !== undefined &&
+      validated.assignee_id !== oldTask.assignee_id &&
+      !permissions.canAssign &&
+      !canSelfAssignOnly({
+        actorId: auth.dbUser.id,
+        currentAssigneeId: oldTask.assignee_id,
+        nextAssigneeId: validated.assignee_id,
+      })
+    ) {
+      return NextResponse.json(
+        { error: 'Báº¡n khÃ´ng cÃ³ quyá»n thay Ä‘á»•i ngÆ°á»i thá»±c hiá»‡n task nÃ y' },
+        { status: 403 }
+      );
+    }
+
+    if (validated.assignee_id) {
+      const { data: assigneeMembership, error: assigneeMembershipError } = await supabaseAdmin
+        .from('thanh_vien_du_an')
+        .select('id')
+        .eq('du_an_id', auth.projectId)
+        .eq('nguoi_dung_id', validated.assignee_id)
+        .eq('trang_thai', 'active')
+        .maybeSingle();
+
+      if (assigneeMembershipError) {
+        return NextResponse.json({ error: 'KhÃ´ng thá»ƒ kiá»ƒm tra ngÆ°á»i Ä‘Æ°á»£c giao' }, { status: 400 });
+      }
+
+      if (!assigneeMembership) {
+        return NextResponse.json(
+          { error: 'NgÆ°á»i Ä‘Æ°á»£c giao khÃ´ng thuá»™c dá»± Ã¡n nÃ y' },
+          { status: 400 }
+        );
+      }
+    }
 
     const { data: updatedTask, error } = await supabaseAdmin
       .from('task')

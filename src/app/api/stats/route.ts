@@ -6,6 +6,30 @@ import {
   getWorkloadPlanningData,
 } from '@/lib/planning/planning-service';
 
+const EMPTY_STATS = {
+  totalProjects: 0,
+  inProgressTasks: 0,
+  totalUsers: 0,
+  overdueTasks: 0,
+  upcomingDeadlines: [],
+  workloadSummary: {
+    totalMembers: 0,
+    overloadedMembers: 0,
+    stretchedMembers: 0,
+    availableMembers: 0,
+    totalActiveTasks: 0,
+    avgLoadRatio: 0,
+    overloadThreshold: 0,
+  },
+  riskTrends: {
+    low: 0,
+    medium: 0,
+    high: 0,
+  },
+  overloadedMembers: [],
+  riskyProjects: [],
+};
+
 export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
@@ -30,6 +54,10 @@ export async function GET() {
         { error: 'Không tìm thấy thông tin người dùng' },
         { status: 404 }
       );
+    }
+
+    if (!userData.to_chuc_id) {
+      return NextResponse.json({ data: EMPTY_STATS });
     }
 
     const [projectCountResult, membershipsResult, userCountResult] = await Promise.all([

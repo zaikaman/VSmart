@@ -80,7 +80,12 @@ export async function POST(request: NextRequest) {
     const { supabase, authUser, dbUser } = await getAuthenticatedUserContext();
 
     if (!hasPermission({ appRole: dbUser.vai_tro as 'admin' | 'manager' | 'member' }, 'manageProjects')) {
-      return NextResponse.json({ error: 'Bạn không có quyền tạo dự án' }, { status: 403 });
+      return NextResponse.json(
+        {
+          error: 'Bạn chưa có quyền tạo dự án. Hãy liên hệ quản lý hoặc admin để được cấp quyền.',
+        },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -93,11 +98,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userError || !userData) {
-      return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng' }, { status: 404 });
+      return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng.' }, { status: 404 });
     }
 
     if (!userData.to_chuc_id) {
-      return NextResponse.json({ error: 'Bạn cần thuộc về một tổ chức để tạo dự án' }, { status: 400 });
+      return NextResponse.json({ error: 'Bạn cần thuộc về một tổ chức để tạo dự án.' }, { status: 400 });
     }
 
     const { data, error } = await supabase
@@ -118,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     if (error || !data) {
       console.error('Error creating project:', error);
-      return NextResponse.json({ error: error?.message || 'Không thể tạo dự án' }, { status: 400 });
+      return NextResponse.json({ error: error?.message || 'Không thể tạo dự án.' }, { status: 400 });
     }
 
     await supabase.from('thanh_vien_du_an').insert({

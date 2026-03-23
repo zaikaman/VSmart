@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import {
   Dialog,
@@ -96,6 +97,19 @@ interface DraftChecklistItem {
   sort_order?: number;
 }
 
+interface CurrentUser {
+  id: string;
+  ten: string;
+  email: string;
+  vai_tro: 'admin' | 'manager' | 'member';
+}
+
+interface ProjectPermissionResponse {
+  permissions?: {
+    canAssignTasks?: boolean;
+  };
+}
+
 function createChecklistDraftItem(title = ''): DraftChecklistItem {
   return {
     id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -121,6 +135,34 @@ export function CreateTaskModal({
   const { data: workloadResponse } = usePlanningWorkload({
     projectId,
     enabled: open && !!projectId,
+  });
+  const { data: currentUser } = useQuery<CurrentUser>({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const response = await fetch('/api/users/me');
+      if (!response.ok) {
+        throw new Error('KhÃ´ng thá»ƒ táº£i thÃ´ng tin ngÆ°á»i dÃ¹ng');
+      }
+      return response.json() as Promise<CurrentUser>;
+    },
+    enabled: open,
+    staleTime: 5 * 60 * 1000,
+  });
+  const { data: projectPermissionData } = useQuery<ProjectPermissionResponse>({
+    queryKey: ['project-permissions', projectId],
+    queryFn: async () => {
+      if (!projectId) {
+        return {};
+      }
+
+      const response = await fetch(`/api/projects/${projectId}`);
+      if (!response.ok) {
+        throw new Error('KhÃ´ng thá»ƒ táº£i quyá»n dá»± Ã¡n');
+      }
+      return response.json() as Promise<ProjectPermissionResponse>;
+    },
+    enabled: open && !!projectId,
+    staleTime: 30 * 1000,
   });
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TaskFormData>({
     defaultValues: {
@@ -168,12 +210,28 @@ export function CreateTaskModal({
     () => (allCandidates.length > 0 ? allCandidates : workloadCandidates),
     [allCandidates, workloadCandidates]
   );
+  const selfCandidate = useMemo(
+    () =>
+      currentUser
+        ? {
+            id: currentUser.id,
+            ten: currentUser.ten,
+            email: currentUser.email,
+          }
+        : null,
+    [currentUser]
+  );
+  const canAssignTasks = projectPermissionData?.permissions?.canAssignTasks ?? false;
+  const selfAssignCandidates = useMemo(
+    () => (selfCandidate ? [selfCandidate] : []),
+    [selfCandidate]
+  );
 
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const deadlineReviewTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchSuggestions = useCallback(async () => {
-    if (!taskName || taskName.length < 3 || !phanDuAnId) {
+    if (!canAssignTasks || !taskName || taskName.length < 3 || !phanDuAnId) {
       setSuggestions([]);
       return;
     }
@@ -214,14 +272,14 @@ export function CreateTaskModal({
     } finally {
       setIsLoadingSuggestions(false);
     }
-  }, [taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
+  }, [canAssignTasks, taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
 
   useEffect(() => {
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
 
-    if (taskName && taskName.length >= 3 && phanDuAnId) {
+    if (canAssignTasks && taskName && taskName.length >= 3 && phanDuAnId) {
       const timer = setTimeout(() => {
         fetchSuggestions();
       }, 800);
@@ -234,7 +292,7 @@ export function CreateTaskModal({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
+  }, [canAssignTasks, taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
 
   useEffect(() => {
     if (!open) {
@@ -257,6 +315,23 @@ export function CreateTaskModal({
       });
     }
   }, [open, initialStatus, reset]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (!canAssignTasks) {
+      setSuggestions([]);
+      setAllCandidates([]);
+      setSuggestionsError(null);
+      setSelectedFromAI(null);
+
+      if (selectedAssignee !== 'unassigned' && selectedAssignee !== currentUser?.id) {
+        setSelectedAssignee('unassigned');
+      }
+    }
+  }, [open, canAssignTasks, currentUser?.id, selectedAssignee]);
 
   useEffect(() => {
     if (deadlineReviewTimerRef.current) {
@@ -687,7 +762,8 @@ export function CreateTaskModal({
             )}
           </div>
 
-          <div className="border rounded-lg p-4 bg-gray-50">
+          {canAssignTasks ? (
+            <div className="border rounded-lg p-4 bg-gray-50">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#b9ff66]" />
@@ -862,7 +938,37 @@ export function CreateTaskModal({
                 </div>
               )}
             </div>
-          </div>
+            </div>
+          ) : (
+            <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
+              <div>
+                <Label className="text-sm font-semibold">NgÆ°á»i thá»±c hiá»‡n</Label>
+                <p className="mt-1 text-xs text-gray-500">
+                  Báº¡n cÃ³ thá»ƒ tá»± nháº­n task nÃ y hoáº·c Ä‘á»ƒ trá»‘ng Ä‘á»ƒ xá»­ lÃ½ sau.
+                </p>
+              </div>
+
+              <Select
+                value={selectedAssignee}
+                onValueChange={(value) => {
+                  setSelectedAssignee(value);
+                  setSelectedFromAI(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chá»n ngÆ°á»i thá»±c hiá»‡n" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">ChÆ°a phÃ¢n cÃ´ng</SelectItem>
+                  {selfAssignCandidates.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.ten}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {selectedAssignee !== 'unassigned' && (
             <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
@@ -871,6 +977,7 @@ export function CreateTaskModal({
                 Đã chọn:{' '}
                 <strong>
                   {suggestions.find((s) => s.nguoi_dung_id === selectedAssignee)?.user?.ten ||
+                    selfAssignCandidates.find((c) => c.id === selectedAssignee)?.ten ||
                     manualCandidates.find((c) => c.id === selectedAssignee)?.ten ||
                     'Unknown'}
                 </strong>
