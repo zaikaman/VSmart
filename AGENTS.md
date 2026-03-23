@@ -1,5 +1,5 @@
 - Sau khi hoàn thành 1 task nào đó, nhớ chạy lại npm run build để kiểm tra còn lỗi không và fix.
 - Luôn luôn viết content bằng tiếng Việt.
 - Khi làm các tasks về giao diện, nhớ là phải dùng cái SKILL.md trong .agents/frontend-design/ và bảo đảm nó đồng bộ với giao diện hiện có.
-- Một điều quan trọng nữa: đừng viết nội dung trên giao diện như thể bạn đang báo cáo cho tôi; hãy viết một cách tự nhiên như nội dung của sản phẩm thông thường (product copy), chứ không phải ghi chú nội bộ.
+- Một điều quan trọng nữa: đừng viết nội dung trên giao diện như thể bạn đang báo cáo cho tôi; hãy viết một cách tự nhiên nhất có thể.
 - supabase/current_schema.sql là cấu trúc database hiện tại.

@@ -274,16 +274,15 @@ export default function SettingsPage() {
           </div>
         </DashboardSection>
       ) : (
-        <DashboardSection title="Tạo tổ chức khi sẵn sàng làm việc cùng team" description="Thông tin tổ chức không còn đi qua hồ sơ cá nhân. Bạn có thể tạo workspace rõ ràng ngay từ đây.">
+        <DashboardSection title="Tạo tổ chức khi bạn sẵn sàng làm việc cùng team" description="Bạn có thể tạo không gian làm việc chung ngay từ đây, không cần quay lại onboarding.">
           <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
               <div className="inline-flex rounded-full border border-[#d6e3c9] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
-                Workspace riêng
+                Bắt đầu khi cần
               </div>
-              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Khi tạo tổ chức, hệ thống sẽ gán đúng vai trò owner cho người tạo đầu tiên.</h3>
+              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Tạo tổ chức để bắt đầu dự án, mời thành viên và quản lý chung ở một nơi.</h3>
               <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
-                Đây là điểm bắt đầu đúng để mở dự án, quản lý thành viên và cài đặt cộng tác. Hồ sơ cá nhân của bạn vẫn được giữ riêng để tránh trộn
-                dữ liệu công ty vào phần thông tin cá nhân.
+                Hồ sơ cá nhân của bạn vẫn giữ nguyên. Khi tạo tổ chức, bạn sẽ là người quản lý đầu tiên của không gian làm việc đó.
               </p>
               <div className="mt-5">
                 <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
@@ -295,9 +294,9 @@ export default function SettingsPage() {
 
             <div className="space-y-3">
               {[
-                ['Tên công ty sẽ thành dữ liệu tổ chức', 'Từ lúc có workspace, tên tổ chức được lấy từ bảng tổ chức thay vì lưu như một ô hồ sơ cá nhân.'],
-                ['Role cấp tổ chức có chỗ set riêng', 'Owner và admin sẽ đổi role ở màn quản trị tổ chức, không đi qua login callback hay form hồ sơ.'],
-                ['Role dự án vẫn tách riêng', 'Owner, admin, member, viewer của dự án chỉ áp dụng trong từng project cụ thể.'],
+                ['Tên tổ chức', 'Sẽ hiển thị chung cho cả team thay vì nằm trong hồ sơ cá nhân của từng người.'],
+                ['Thành viên', 'Bạn có thể thêm người vào và sắp xếp quyền phù hợp sau khi tạo xong.'],
+                ['Dự án', 'Mọi dự án mới sẽ được mở trong cùng không gian làm việc này.'],
               ].map(([title, description]) => (
                 <div key={title} className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
                   <p className="font-medium text-[#223021]">{title}</p>

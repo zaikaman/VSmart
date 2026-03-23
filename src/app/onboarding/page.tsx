@@ -128,18 +128,15 @@ export default function OnboardingPage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/78">
               Thiết lập ban đầu
             </div>
-            <h1 className="mt-5 text-[clamp(2rem,4vw,3.4rem)] font-semibold leading-tight">
-              Vào việc nhanh, nhưng không trộn hồ sơ cá nhân với dữ liệu của team.
-            </h1>
+            <h1 className="mt-5 text-[clamp(2rem,4vw,3.4rem)] font-semibold leading-tight">Thiết lập vài thông tin để bắt đầu gọn gàng hơn.</h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-white/76">
-              Hồ sơ của bạn là dữ liệu cá nhân. Không gian làm việc là nơi chứa dự án, thành viên và quyền chung. Từ đây về sau hai
-              phần đó sẽ đi theo hai luồng tách biệt.
+              Hoàn thiện hồ sơ cá nhân trước, rồi chọn tạo không gian làm việc ngay hoặc để sau. Mọi thứ sẽ được sắp đúng chỗ ngay từ đầu.
             </p>
 
             <div className="mt-8 grid gap-3">
               {[
-                ['1', 'Hoàn thiện hồ sơ', 'Tên hiển thị và phòng ban được lưu cho riêng bạn.'],
-                ['2', 'Chọn cách bắt đầu', 'Bạn có thể tạo không gian làm việc mới ngay hoặc hoàn thiện hồ sơ trước.'],
+                ['1', 'Điền thông tin cá nhân', 'Tên hiển thị và phòng ban của bạn có thể chỉnh lại bất cứ lúc nào.'],
+                ['2', 'Chọn cách bắt đầu', 'Tạo không gian làm việc ngay hoặc vào sản phẩm trước rồi làm sau.'],
               ].map(([index, title, description]) => (
                 <div key={index} className="rounded-[24px] border border-white/12 bg-white/8 px-4 py-4">
                   <div className="flex items-center gap-3">
@@ -226,7 +223,7 @@ export default function OnboardingPage() {
                       <span className="font-medium">Tạo không gian làm việc mới</span>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-[#647260]">
-                      Tạo tổ chức ngay bây giờ để bắt đầu dự án, mời thành viên và thiết lập quyền vận hành.
+                      Bắt đầu luôn với một không gian riêng để tạo dự án và mời mọi người vào làm việc.
                     </p>
                   </button>
 
@@ -244,7 +241,7 @@ export default function OnboardingPage() {
                       <span className="font-medium">Hoàn thiện hồ sơ trước</span>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-[#647260]">
-                      Vào dashboard với hồ sơ cá nhân trước. Bạn vẫn có thể tạo tổ chức sau từ tổng quan hoặc cài đặt.
+                      Vào sản phẩm trước với hồ sơ cá nhân. Khi cần làm việc cùng team, bạn có thể tạo tổ chức sau.
                     </p>
                   </button>
                 </div>
@@ -274,14 +271,14 @@ export default function OnboardingPage() {
                     </div>
 
                     <div className="rounded-[20px] border border-[#dce5d2] bg-white/80 px-4 py-3 text-sm leading-6 text-[#52614f]">
-                      Người tạo đầu tiên sẽ giữ vai trò <strong>owner</strong> để quản lý cài đặt tổ chức và phân quyền vận hành cho team.
+                      Người tạo đầu tiên sẽ là <strong>owner</strong> để quản lý không gian làm việc này.
                     </div>
                   </div>
                 ) : (
                   <div className="rounded-[28px] border border-[#dce5d2] bg-[#f6f9f1] px-5 py-5 text-sm leading-6 text-[#52614f]">
                     {currentUser?.to_chuc
-                      ? 'Tài khoản của bạn đã thuộc một tổ chức. Bạn có thể hoàn tất hồ sơ cá nhân rồi vào làm việc ngay với quyền hiện có.'
-                      : 'Bạn sẽ vào sản phẩm với hồ sơ cá nhân đã hoàn thiện. Khi cần mở dự án cho team, hãy tạo tổ chức từ dashboard hoặc cài đặt để hệ thống gắn quyền owner đúng chỗ.'}
+                      ? 'Tài khoản của bạn đã có sẵn không gian làm việc. Hoàn tất hồ sơ rồi vào làm việc ngay.'
+                      : 'Bạn sẽ vào sản phẩm với hồ sơ cá nhân đã hoàn thiện. Khi cần bắt đầu dự án cho team, hãy tạo tổ chức sau.'}
                   </div>
                 )}
 

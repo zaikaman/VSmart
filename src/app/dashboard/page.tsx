@@ -192,7 +192,7 @@ export default function DashboardPage() {
       description={
         organization
           ? 'Theo dõi tiến độ chung, deadline sắp tới và các điểm cần chú ý.'
-          : 'Bạn đang ở chế độ hồ sơ cá nhân. Tạo tổ chức khi cần mở dự án, mời thành viên và phân quyền cho team.'
+          : 'Bạn đang dùng VSmart với hồ sơ cá nhân. Khi cần làm việc cùng team, hãy tạo tổ chức để bắt đầu dự án.'
       }
       actions={
         organization ? (
@@ -225,18 +225,17 @@ export default function DashboardPage() {
     >
       {!organization ? (
         <DashboardSection
-          title="Bắt đầu từ hồ sơ cá nhân"
-          description="Tên hiển thị, phòng ban và kỹ năng của bạn được tách riêng với dữ liệu chung của team."
+          title="Sẵn sàng làm việc cùng team"
+          description="Bạn có thể bắt đầu từ hồ sơ cá nhân trước, rồi tạo tổ chức khi cần mở dự án chung."
         >
           <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
               <div className="inline-flex rounded-full border border-[#d6e3c9] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
-                Workspace tách biệt
+                Bắt đầu nhẹ nhàng
               </div>
-              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Chỉ tạo tổ chức khi bạn thực sự cần mở dự án cho team.</h3>
+              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Khi cần làm việc cùng team, hãy tạo một tổ chức riêng.</h3>
               <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
-                Cách này giúp tên công ty không bị lưu nhầm như dữ liệu cá nhân, đồng thời quyền <strong>owner</strong> chỉ xuất hiện khi có
-                một tổ chức thật được tạo ra.
+                Sau đó bạn có thể mở dự án, mời thành viên và quản lý mọi thứ ở cùng một nơi. Người tạo đầu tiên sẽ là <strong>owner</strong>.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
@@ -253,9 +252,9 @@ export default function DashboardPage() {
 
             <div className="space-y-3">
               {[
-                ['1', 'Hồ sơ cá nhân', 'Lưu họ tên, phòng ban, avatar và kỹ năng của riêng bạn.'],
-                ['2', 'Tạo tổ chức', 'Sinh một workspace chung để quản lý dự án, thành viên và quyền.'],
-                ['3', 'Mở dự án đầu tiên', 'Người tạo tổ chức sẽ được gán owner và có thể bắt đầu tạo dự án ngay.'],
+                ['1', 'Cập nhật hồ sơ', 'Thêm họ tên, phòng ban, avatar hoặc kỹ năng để thông tin của bạn đầy đủ hơn.'],
+                ['2', 'Tạo tổ chức', 'Thiết lập không gian làm việc chung cho team khi bạn sẵn sàng.'],
+                ['3', 'Bắt đầu dự án', 'Tạo dự án đầu tiên và mời mọi người vào làm việc cùng nhau.'],
               ].map(([index, title, description]) => (
                 <div key={index} className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
                   <div className="flex items-start gap-3">
@@ -389,12 +388,12 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <DashboardSection title="Tổ chức dùng để làm gì" description="Workspace là nơi hệ thống gắn đúng quyền và dữ liệu chung của team.">
+          <DashboardSection title="Khi có tổ chức, mọi thứ sẽ gọn hơn" description="Dự án, thành viên và cài đặt chung của team sẽ nằm cùng một chỗ.">
             <div className="space-y-3">
               {[
-                ['Role cấp tổ chức', 'Owner, admin, manager và member được quản lý ở một nơi riêng thay vì lẫn vào role dự án.'],
-                ['Dự án và thành viên', 'Mỗi dự án mới đều được tạo trong phạm vi tổ chức để mời người và phân quyền rõ ràng.'],
-                ['Cài đặt chung', 'Thông báo, cộng tác liên tổ chức và danh sách thành viên sẽ đi theo workspace thay vì hồ sơ cá nhân.'],
+                ['Mời người vào làm việc', 'Bạn có thể thêm thành viên và bắt đầu cộng tác ngay trong cùng một không gian.'],
+                ['Mở dự án mới', 'Mọi dự án mới sẽ được tạo đúng chỗ để cả team cùng theo dõi.'],
+                ['Quản lý cài đặt chung', 'Các thiết lập cho team sẽ nằm riêng, không lẫn với hồ sơ cá nhân của bạn.'],
               ].map(([title, description]) => (
                 <div key={title} className="rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
                   <p className="font-medium text-[#223021]">{title}</p>
@@ -404,11 +403,10 @@ export default function DashboardPage() {
             </div>
           </DashboardSection>
 
-          <DashboardSection title="Sẵn sàng tạo workspace" description="Ngay sau khi tạo tổ chức, tài khoản của bạn sẽ trở thành owner của workspace đó.">
+          <DashboardSection title="Tạo tổ chức bất cứ lúc nào" description="Ngay sau khi tạo xong, bạn có thể bắt đầu dự án đầu tiên cho team.">
             <div className="rounded-[24px] border border-[#e4ebdd] bg-[#fbfcf8] p-5">
               <p className="text-sm leading-7 text-[#5d6b58]">
-                Đây là điểm tách ranh giới rõ nhất giữa hồ sơ cá nhân và dữ liệu dùng chung của team. Từ lúc đó trở đi, tên tổ chức,
-                danh sách thành viên và cài đặt vận hành sẽ không còn đi qua hồ sơ cá nhân nữa.
+                Bạn vẫn có thể dùng VSmart với hồ sơ cá nhân trước. Khi cần làm việc cùng team, chỉ cần tạo tổ chức là đủ để bắt đầu.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>

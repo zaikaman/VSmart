@@ -59,7 +59,7 @@ export function CreateOrganizationModal({
         mo_ta: data.mo_ta,
       });
 
-      toast.success('Không gian làm việc đã sẵn sàng');
+      toast.success('Đã tạo tổ chức');
       onOpenChange(false);
       onCreated?.();
     } catch (error) {
@@ -75,17 +75,14 @@ export function CreateOrganizationModal({
             <Building2 className="h-5 w-5 text-[#7f9d5b]" />
             Tạo không gian làm việc
           </DialogTitle>
-          <DialogDescription>
-            Tạo một tổ chức chung để quản lý dự án, thành viên và quyền theo cùng một cấu trúc rõ ràng.
-          </DialogDescription>
+          <DialogDescription>Tạo nơi làm việc chung cho team để bắt đầu dự án và mời mọi người vào làm việc.</DialogDescription>
         </DialogHeader>
 
         <div className="rounded-[22px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] px-4 py-4 text-sm text-[#52614f]">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-4 w-4 text-[#6d8d49]" />
             <p>
-              Người tạo đầu tiên sẽ trở thành <strong>owner</strong> của tổ chức này. Vai trò đó có thể quản lý role,
-              cài đặt tổ chức và phân quyền vận hành cho team.
+              Người tạo đầu tiên sẽ là <strong>owner</strong> của tổ chức này và có thể quản lý cài đặt chung cho team.
             </p>
           </div>
         </div>
@@ -107,7 +104,7 @@ export function CreateOrganizationModal({
             <Textarea
               id="mo_ta"
               {...register('mo_ta')}
-              placeholder="Mô tả ngắn về team, phạm vi làm việc hoặc mục tiêu chung."
+              placeholder="Ví dụ: Team sản phẩm nội bộ hoặc nhóm triển khai khách hàng."
               className="mt-1.5 min-h-[110px] border-[#dfe5d6] bg-[#fbfcf8]"
             />
           </div>

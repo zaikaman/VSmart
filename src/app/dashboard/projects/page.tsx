@@ -26,7 +26,7 @@ export default function ProjectsPage() {
       description={
         organization
           ? 'Xem toàn bộ dự án và mở nhanh phần đang cần làm.'
-          : 'Tạo tổ chức trước để hệ thống gắn đúng phạm vi dự án, thành viên và quyền cộng tác.'
+          : 'Tạo tổ chức trước để bắt đầu dự án và mời team vào làm việc.'
       }
       actions={
         <Button
@@ -70,13 +70,12 @@ export default function ProjectsPage() {
           <ProjectList />
         </DashboardSection>
       ) : (
-        <DashboardSection title="Tạo workspace trước khi mở dự án" description="Dự án là dữ liệu dùng chung của team nên cần nằm trong một tổ chức thật.">
+        <DashboardSection title="Tạo tổ chức trước khi bắt đầu dự án" description="Khi có tổ chức, bạn có thể mở dự án cho team ở đúng một nơi chung.">
           <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
-              <h3 className="text-xl font-semibold text-[#223021]">Khi có tổ chức, dự án mới sẽ tự đi kèm owner, member và quyền cộng tác rõ ràng.</h3>
+              <h3 className="text-xl font-semibold text-[#223021]">Chỉ cần tạo một tổ chức là bạn có thể bắt đầu dự án cho cả team.</h3>
               <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
-                Đây là cách tránh nhầm lẫn giữa thông tin cá nhân và dữ liệu vận hành của team. Người tạo tổ chức sẽ trở thành owner để bắt đầu mở
-                dự án, mời người và thiết lập quyền ngay trong cùng một flow.
+                Sau đó bạn có thể tạo dự án, mời thành viên và sắp xếp công việc ngay trong cùng một không gian làm việc.
               </p>
               <div className="mt-5">
                 <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
@@ -88,9 +87,9 @@ export default function ProjectsPage() {
 
             <div className="space-y-3">
               {[
-                ['Owner của tổ chức', 'Được sinh ra khi workspace được tạo thật, không còn gán ngầm từ một ô tên công ty.'],
-                ['Owner của dự án', 'Được gán khi bạn mở dự án đầu tiên trong tổ chức đó.'],
-                ['Thành viên dự án', 'Chỉ được mời vào đúng phạm vi dự án, không ảnh hưởng role cấp tổ chức.'],
+                ['Tạo tổ chức', 'Thiết lập nơi làm việc chung cho cả team.'],
+                ['Tạo dự án', 'Mở dự án đầu tiên và bắt đầu chia việc.'],
+                ['Mời thành viên', 'Thêm đúng người vào đúng dự án khi cần.'],
               ].map(([title, description]) => (
                 <div key={title} className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
                   <p className="font-medium text-[#223021]">{title}</p>
