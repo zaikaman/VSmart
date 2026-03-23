@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -30,6 +30,7 @@ interface ProjectFormData {
 
 export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalProps) {
   const createProjectMutation = useCreateProject();
+  const wasOpenRef = useRef(open);
   const {
     register,
     handleSubmit,
@@ -42,10 +43,12 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
   });
 
   useEffect(() => {
-    if (!open) {
+    if (wasOpenRef.current && !open) {
       reset();
       createProjectMutation.reset();
     }
+
+    wasOpenRef.current = open;
   }, [open, reset, createProjectMutation]);
 
   const onSubmit = async (data: ProjectFormData) => {
