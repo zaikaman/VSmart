@@ -2,8 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CheckCircle2, ExternalLink, Loader2, MessageSquare, Paperclip, Send, Sparkles, User } from 'lucide-react';
+import { Calendar, CheckCircle2, ExternalLink, Loader2, MessageSquare, Paperclip, Send, Sparkles, Trash2, User } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +34,7 @@ import {
   useUploadTaskAttachment,
 } from '@/lib/hooks/use-task-execution';
 import { useApproveTask, useRejectTask, useSubmitTaskForReview } from '@/lib/hooks/use-governance';
-import { useTask, type Task as HookTask } from '@/lib/hooks/use-tasks';
+import { useDeleteTask, useTask, type Task as HookTask } from '@/lib/hooks/use-tasks';
 import { canTransitionReviewStatus } from '@/lib/auth/permissions';
 import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task-progress';
 
@@ -113,6 +123,7 @@ function normalizeTask(task: BaseTask | null, details?: HookTask | null): HookTa
 
 export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
   const [reviewComment, setReviewComment] = useState('');
@@ -127,6 +138,7 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   const addChecklistMutation = useAddChecklistItems(taskId);
   const updateChecklistMutation = useUpdateChecklistItem(taskId);
   const deleteChecklistMutation = useDeleteChecklistItem(taskId);
+  const deleteTaskMutation = useDeleteTask();
   const uploadAttachmentMutation = useUploadTaskAttachment(taskId);
   const deleteAttachmentMutation = useDeleteTaskAttachment(taskId);
   const submitReviewMutation = useSubmitTaskForReview();
@@ -194,6 +206,7 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
   const canSubmitReview = resolvedTask.permissions?.canSubmitReview ?? false;
   const canApprove = resolvedTask.permissions?.canApprove ?? false;
   const canReject = resolvedTask.permissions?.canReject ?? false;
+  const canDelete = resolvedTask.permissions?.canDelete ?? false;
   const reviewStatus = resolvedTask.review_status || 'draft';
   const effectiveProgress = getEffectiveTaskProgress({
     progress: resolvedTask.progress,
@@ -231,6 +244,18 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Không thể xử lý duyệt task');
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    try {
+      await deleteTaskMutation.mutateAsync(taskId);
+      queryClient.removeQueries({ queryKey: ['tasks', taskId] });
+      setDeleteDialogOpen(false);
+      toast.success('Task đã được xóa khỏi bảng Kanban');
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể xóa task');
     }
   };
 
@@ -521,11 +546,49 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
           </div>
 
           <div className="mt-4 flex justify-end gap-2 border-t pt-4">
+            {canDelete ? (
+              <Button
+                variant="outline"
+                className="mr-auto border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Xóa task
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Đóng</Button>
             {canEdit ? <Button onClick={() => setEditModalOpen(true)}>Chỉnh sửa</Button> : null}
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa task này?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Task sẽ biến mất khỏi bảng Kanban, phần chi tiết và các danh sách đang lọc. Dữ liệu liên quan sẽ không còn hiện trong luồng làm việc hiện tại.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTask}
+              className="bg-rose-600 hover:bg-rose-700"
+              disabled={deleteTaskMutation.isPending}
+            >
+              {deleteTaskMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                'Xóa task'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <EditTaskModal
         key={`${resolvedTask.id}-${editModalOpen ? 'open' : 'closed'}`}
