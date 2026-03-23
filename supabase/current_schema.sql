@@ -142,8 +142,13 @@ CREATE TABLE public.phong_ban (
   so_luong_thanh_vien integer DEFAULT 0,
   ngay_tao timestamp with time zone DEFAULT now(),
   to_chuc_id uuid,
+  cap_nhat_cuoi timestamp with time zone DEFAULT now(),
+  trang_thai character varying NOT NULL DEFAULT 'active'::character varying CHECK (trang_thai::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'merged'::character varying]::text[])),
+  merged_into_id uuid,
+  ngung_su_dung_at timestamp with time zone,
   CONSTRAINT phong_ban_pkey PRIMARY KEY (id),
-  CONSTRAINT phong_ban_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id)
+  CONSTRAINT phong_ban_to_chuc_id_fkey FOREIGN KEY (to_chuc_id) REFERENCES public.to_chuc(id),
+  CONSTRAINT phong_ban_merged_into_id_fkey FOREIGN KEY (merged_into_id) REFERENCES public.phong_ban(id)
 );
 CREATE TABLE public.recurring_task_rule (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

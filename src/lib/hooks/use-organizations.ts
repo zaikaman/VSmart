@@ -121,7 +121,11 @@ export function useUpdateOrganizationMemberRole() {
 
   return useMutation({
     mutationKey: ['update-organization-role'],
-    mutationFn: async (data: { user_id: string; vai_tro: OrganizationMember['vai_tro'] }) => {
+    mutationFn: async (data: {
+      user_id: string;
+      vai_tro?: OrganizationMember['vai_tro'];
+      phong_ban_id?: string | null;
+    }) => {
       const response = await fetch('/api/organization-members', {
         method: 'PATCH',
         headers: {
@@ -139,6 +143,7 @@ export function useUpdateOrganizationMemberRole() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-members'] });
+      queryClient.invalidateQueries({ queryKey: ['phong-ban'] });
       queryClient.invalidateQueries({ queryKey: ['organization'] });
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });

@@ -35,6 +35,38 @@ export async function POST(
     const body = await request.json();
     const validated = partSchema.parse(body);
 
+    const { data: projectData, error: projectError } = await supabaseAdmin
+      .from('du_an')
+      .select('id, to_chuc_id')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single();
+
+    if (projectError || !projectData?.to_chuc_id) {
+      return NextResponse.json({ error: 'Không tìm thấy thông tin tổ chức của dự án.' }, { status: 404 });
+    }
+
+    const { data: departmentData, error: departmentError } = await supabaseAdmin
+      .from('phong_ban')
+      .select('id, trang_thai')
+      .eq('id', validated.phong_ban_id)
+      .eq('to_chuc_id', projectData.to_chuc_id)
+      .maybeSingle();
+
+    if (departmentError || !departmentData) {
+      return NextResponse.json(
+        { error: 'Phòng ban được chọn không thuộc cùng tổ chức với dự án.' },
+        { status: 400 }
+      );
+    }
+
+    if (departmentData.trang_thai !== 'active') {
+      return NextResponse.json(
+        { error: 'Phòng ban này đã ngừng dùng nên không thể nhận phần dự án mới.' },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabaseAdmin
       .from('phan_du_an')
       .insert([
