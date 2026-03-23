@@ -12,6 +12,7 @@ import { AvatarUpload } from '@/components/ui/avatar-upload';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { APP_ROLE_LABELS, canManageOrganizationSettings, type AppRole } from '@/lib/auth/permissions';
 import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
 
 interface UserProfile {
@@ -21,7 +22,7 @@ interface UserProfile {
   avatar_url: string | null;
   ten_cong_ty: string | null;
   ten_phong_ban: string | null;
-  vai_tro: string;
+  vai_tro: AppRole;
   to_chuc?: {
     id: string;
     ten: string;
@@ -62,7 +63,7 @@ export function ProfilePageContent() {
   });
 
   const skills = skillsResponse?.data || [];
-  const canEditOrganization = Boolean(user && organization && organization.nguoi_tao_id === user.id);
+  const canEditOrganization = Boolean(user && organization && canManageOrganizationSettings(user.vai_tro));
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { ten?: string; ten_cong_ty?: string; ten_phong_ban?: string }) => {
@@ -242,7 +243,7 @@ export function ProfilePageContent() {
       metrics={[
         {
           label: 'Vai trò hiện tại',
-          value: user.vai_tro === 'admin' ? 'Quản trị viên' : user.vai_tro === 'manager' ? 'Quản lý' : 'Thành viên',
+          value: APP_ROLE_LABELS[user.vai_tro],
           note: 'Phạm vi làm việc hiện tại',
           icon: <Briefcase className="h-4 w-4 text-[#2f6052]" />,
           surfaceClassName: 'bg-[#eef6f0] border-[#d9eadf]',
@@ -277,7 +278,7 @@ export function ProfilePageContent() {
               <div className="pt-2">
                 <span className="inline-flex items-center gap-1 rounded-full border border-[#dce5d2] bg-[#f3f8eb] px-3 py-1 text-xs font-medium text-[#4f614b]">
                   <Briefcase className="h-3 w-3" />
-                  {user.vai_tro === 'admin' ? 'Quản trị viên' : user.vai_tro === 'manager' ? 'Quản lý' : 'Thành viên'}
+                  {APP_ROLE_LABELS[user.vai_tro]}
                 </span>
               </div>
             </div>
@@ -323,7 +324,7 @@ export function ProfilePageContent() {
                     disabled={Boolean(user.to_chuc && !canEditOrganization)}
                   />
                   {user.to_chuc && !canEditOrganization ? (
-                    <p className="mt-2 text-xs text-[#8a7a66]">Tên tổ chức được quản lý bởi người tạo tổ chức.</p>
+                    <p className="mt-2 text-xs text-[#8a7a66]">Tên tổ chức chỉ owner hoặc admin mới được cập nhật.</p>
                   ) : null}
                 </>
               ) : (

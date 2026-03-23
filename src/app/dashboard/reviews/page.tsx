@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useHotkeys } from '@/lib/hooks/use-hotkeys';
 import { useApproveTask, useRejectTask, useReviewQueue } from '@/lib/hooks/use-governance';
+import { isLeadershipRole } from '@/lib/auth/permissions';
 
 export default function ReviewsPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -39,7 +40,7 @@ export default function ReviewsPage() {
     },
   ]);
 
-  const isManagerView = currentUser?.vai_tro === 'admin' || currentUser?.vai_tro === 'manager';
+  const isManagerView = isLeadershipRole(currentUser?.vai_tro);
   const queueStats = useMemo(() => {
     const items = reviewTasks || [];
     return {

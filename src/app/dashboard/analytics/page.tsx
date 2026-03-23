@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useHotkeys } from '@/lib/hooks/use-hotkeys';
 import { useAnalyticsOverview } from '@/lib/hooks/use-governance';
 import { useSavedViews } from '@/lib/hooks/use-saved-views';
+import { isLeadershipRole } from '@/lib/auth/permissions';
 
 type HealthFilter = 'all' | 'watch' | 'slipping';
 
@@ -65,7 +66,7 @@ export default function AnalyticsPage() {
     },
   ]);
 
-  const isManagerView = currentUser?.vai_tro === 'admin' || currentUser?.vai_tro === 'manager';
+  const isManagerView = isLeadershipRole(currentUser?.vai_tro);
   const filteredProjectHealth = useMemo(() => {
     if (!data) return [];
     if (healthFilter === 'all') return data.projectHealth;

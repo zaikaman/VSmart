@@ -12,6 +12,7 @@ import { CreateProjectModal } from '@/components/projects/create-project-modal';
 import { ProjectCard } from '@/components/projects/project-card';
 import ProjectInvitations from '@/components/projects/project-invitations';
 import { Skeleton } from '@/components/ui/skeleton';
+import { isLeadershipRole } from '@/lib/auth/permissions';
 import { useProjects, type Project } from '@/lib/hooks/use-projects';
 import { useStats } from '@/lib/hooks/use-stats';
 import { useSearchParams } from 'next/navigation';
@@ -57,7 +58,7 @@ export default function DashboardPage() {
   });
 
   const isLoading = projectsLoading || statsLoading;
-  const shouldShowExecutiveSummary = currentUser?.vai_tro === 'admin' || currentUser?.vai_tro === 'manager';
+  const shouldShowExecutiveSummary = isLeadershipRole(currentUser?.vai_tro);
   const projects = projectsData?.data || [];
   const onboardingSteps = [
     {

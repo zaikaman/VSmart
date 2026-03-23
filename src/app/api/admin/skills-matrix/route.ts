@@ -61,7 +61,7 @@ export async function GET() {
     }
 
     // Kiểm tra quyền (chỉ admin hoặc manager mới xem được)
-    if (userData.vai_tro !== 'admin' && userData.vai_tro !== 'manager') {
+    if (userData.vai_tro !== 'owner' && userData.vai_tro !== 'admin' && userData.vai_tro !== 'manager') {
       return NextResponse.json(
         { error: 'Bạn không có quyền truy cập' },
         { status: 403 }

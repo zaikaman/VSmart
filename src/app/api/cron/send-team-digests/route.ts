@@ -16,7 +16,7 @@ export async function POST() {
     const { data: users, error } = await supabase
       .from('nguoi_dung')
       .select('id, ten, email, vai_tro')
-      .in('vai_tro', ['admin', 'manager']);
+      .in('vai_tro', ['owner', 'admin', 'manager']);
 
     if (error) {
       throw new Error(error.message);

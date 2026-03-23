@@ -35,7 +35,7 @@ export interface Database {
           ten: string;
           email: string;
           mat_khau_hash: string;
-          vai_tro: 'admin' | 'manager' | 'member';
+          vai_tro: 'owner' | 'admin' | 'manager' | 'member';
           phong_ban_id: string | null;
           avatar_url: string | null;
           ty_le_hoan_thanh: number;
@@ -47,7 +47,7 @@ export interface Database {
           ten: string;
           email: string;
           mat_khau_hash: string;
-          vai_tro?: 'admin' | 'manager' | 'member';
+          vai_tro?: 'owner' | 'admin' | 'manager' | 'member';
           phong_ban_id?: string | null;
           avatar_url?: string | null;
           ty_le_hoan_thanh?: number;
@@ -59,7 +59,7 @@ export interface Database {
           ten?: string;
           email?: string;
           mat_khau_hash?: string;
-          vai_tro?: 'admin' | 'manager' | 'member';
+          vai_tro?: 'owner' | 'admin' | 'manager' | 'member';
           phong_ban_id?: string | null;
           avatar_url?: string | null;
           ty_le_hoan_thanh?: number;

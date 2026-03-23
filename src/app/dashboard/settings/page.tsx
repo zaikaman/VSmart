@@ -2,15 +2,17 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { BellRing, Loader2, LogOut, Palette, ShieldAlert, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
+import { OrganizationMembersPanel } from '@/components/settings/organization-members-panel';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { APP_ROLE_LABELS, canManageOrganizationSettings, type AppRole } from '@/lib/auth/permissions';
 import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
 import { defaultSettings, useUpdateUserSettings, useUserSettings } from '@/lib/hooks/use-settings';
 
@@ -22,6 +24,20 @@ export default function SettingsPage() {
   const updateSettings = useUpdateUserSettings();
   const updateOrganization = useUpdateOrganization();
   const settings = settingsResponse?.data || defaultSettings;
+  const { data: currentUser } = useQuery({
+    queryKey: ['settings-current-user'],
+    queryFn: async () => {
+      const response = await fetch('/api/users/me');
+      if (!response.ok) {
+        throw new Error('Không thể tải thông tin người dùng');
+      }
+
+      return response.json() as Promise<{ vai_tro?: AppRole; ten?: string }>;
+    },
+  });
+  const canEditOrganization = currentUser?.vai_tro
+    ? canManageOrganizationSettings(currentUser.vai_tro)
+    : false;
 
   const logoutOthersMutation = useMutation({
     mutationFn: async () => {
@@ -92,6 +108,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-7xl px-6 py-8">
         <Skeleton className="h-[220px] rounded-[38px]" />
         <div className="mt-6 space-y-4">
+          <Skeleton className="h-[220px] rounded-[30px]" />
           <Skeleton className="h-[220px] rounded-[30px]" />
           <Skeleton className="h-[220px] rounded-[30px]" />
           <Skeleton className="h-[220px] rounded-[30px]" />
@@ -228,7 +245,7 @@ export default function SettingsPage() {
       </div>
 
       {organization ? (
-        <DashboardSection title="Tổ chức" description="Kiểm soát phạm vi cộng tác mặc định cho các dự án trong tổ chức của bạn.">
+        <DashboardSection title="Tổ chức" description="Kiểm soát phạm vi cộng tác mặc định và giữ ranh giới quyền rõ ràng cho team.">
           <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
@@ -240,7 +257,7 @@ export default function SettingsPage() {
               <Switch
                 checked={organization.settings.allow_external_project_invites}
                 onCheckedChange={handleOrganizationSettingChange}
-                disabled={updateOrganization.isPending}
+                disabled={!canEditOrganization || updateOrganization.isPending}
               />
             </div>
             <div className="mt-4 rounded-[20px] border border-[#e4ebdd] bg-white/80 px-4 py-3 text-sm text-[#52614f]">
@@ -248,7 +265,19 @@ export default function SettingsPage() {
                 ? 'Cộng tác liên tổ chức đang bật. Quản trị dự án có thể mời cả email ngoài tổ chức.'
                 : 'Cộng tác liên tổ chức đang tắt. Mọi lời mời mới sẽ bị giới hạn trong cùng tổ chức.'}
             </div>
+            <div className="mt-4 rounded-[20px] border border-[#dce5d2] bg-white/75 px-4 py-3 text-sm text-[#52614f]">
+              {currentUser?.vai_tro
+                ? `Vai trò hiện tại của bạn trong tổ chức: ${APP_ROLE_LABELS[currentUser.vai_tro]}.`
+                : 'Đang xác nhận quyền hiện tại của bạn.'}
+              {!canEditOrganization ? ' Cài đặt tổ chức chỉ cho phép owner hoặc admin thay đổi.' : ''}
+            </div>
           </div>
+        </DashboardSection>
+      ) : null}
+
+      {organization ? (
+        <DashboardSection title="Thành viên và role" description="Quản lý role tổ chức ở đúng nơi, tách biệt khỏi role dự án để tránh nhầm quyền.">
+          <OrganizationMembersPanel />
         </DashboardSection>
       ) : null}
 

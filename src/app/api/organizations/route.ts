@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { canManageOrganizationSettings, type AppRole } from '@/lib/auth/permissions';
+import { supabaseAdmin } from '@/lib/supabase/client';
 
 export interface Organization {
   id: string;
@@ -34,18 +36,16 @@ function normalizeOrganization<T extends Partial<Organization> & { settings?: Pa
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Lấy thông tin người dùng để có organization_id
     const { data: userData, error: userError } = await supabase
       .from('nguoi_dung')
       .select('to_chuc_id')
@@ -53,20 +53,13 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (userError) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thông tin người dùng' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng' }, { status: 404 });
     }
 
     if (!userData.to_chuc_id) {
-      return NextResponse.json(
-        { error: 'Người dùng chưa thuộc tổ chức nào' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Người dùng chưa thuộc tổ chức nào' }, { status: 404 });
     }
 
-    // Lấy thông tin tổ chức
     const { data: organization, error: orgError } = await supabase
       .from('to_chuc')
       .select('*')
@@ -74,19 +67,13 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (orgError) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy tổ chức' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Không tìm thấy tổ chức' }, { status: 404 });
     }
 
     return NextResponse.json(normalizeOrganization(organization));
   } catch (error) {
     console.error('Error fetching organization:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -94,28 +81,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { ten, mo_ta, logo_url, settings } = body;
 
     if (!ten) {
-      return NextResponse.json(
-        { error: 'Tên tổ chức là bắt buộc' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Tên tổ chức là bắt buộc' }, { status: 400 });
     }
 
-    // Lấy ID người dùng
     const { data: userData, error: userError } = await supabase
       .from('nguoi_dung')
       .select('id, to_chuc_id')
@@ -123,22 +105,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (userError) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thông tin người dùng' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng' }, { status: 404 });
     }
 
-    // Kiểm tra user đã có tổ chức chưa
     if (userData.to_chuc_id) {
-      return NextResponse.json(
-        { error: 'Người dùng đã thuộc một tổ chức' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Người dùng đã thuộc một tổ chức' }, { status: 400 });
     }
 
-    // Tạo tổ chức mới
-    const { data: organization, error: createError } = await supabase
+    const { data: organization, error: createError } = await supabaseAdmin
       .from('to_chuc')
       .insert({
         ten,
@@ -155,35 +129,24 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.error('Error creating organization:', createError);
-      return NextResponse.json(
-        { error: 'Không thể tạo tổ chức' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Không thể tạo tổ chức' }, { status: 500 });
     }
 
-    // Cập nhật organization_id cho user
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('nguoi_dung')
-      .update({ to_chuc_id: organization.id })
+      .update({ to_chuc_id: organization.id, vai_tro: 'owner' })
       .eq('id', userData.id);
 
     if (updateError) {
       console.error('Error updating user organization:', updateError);
-      // Rollback: xóa organization vừa tạo
-      await supabase.from('to_chuc').delete().eq('id', organization.id);
-      return NextResponse.json(
-        { error: 'Không thể cập nhật thông tin người dùng' },
-        { status: 500 }
-      );
+      await supabaseAdmin.from('to_chuc').delete().eq('id', organization.id);
+      return NextResponse.json({ error: 'Không thể cập nhật thông tin người dùng' }, { status: 500 });
     }
 
     return NextResponse.json(normalizeOrganization(organization), { status: 201 });
   } catch (error) {
     console.error('Error creating organization:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -191,56 +154,33 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { ten, mo_ta, logo_url, settings } = body;
 
-    // Lấy thông tin người dùng
     const { data: userData, error: userError } = await supabase
       .from('nguoi_dung')
-      .select('id, to_chuc_id')
+      .select('id, to_chuc_id, vai_tro')
       .eq('email', user.email)
       .single();
 
-    if (userError || !userData.to_chuc_id) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy tổ chức' },
-        { status: 404 }
-      );
+    if (userError || !userData?.to_chuc_id) {
+      return NextResponse.json({ error: 'Không tìm thấy tổ chức' }, { status: 404 });
     }
 
-    // Kiểm tra quyền (chỉ người tạo mới được update)
-    const { data: orgData, error: orgError } = await supabase
-      .from('to_chuc')
-      .select('nguoi_tao_id')
-      .eq('id', userData.to_chuc_id)
-      .single();
-
-    if (orgError) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy tổ chức' },
-        { status: 404 }
-      );
+    if (!canManageOrganizationSettings(userData.vai_tro as AppRole)) {
+      return NextResponse.json({ error: 'Bạn không có quyền cập nhật tổ chức này' }, { status: 403 });
     }
 
-    if (orgData.nguoi_tao_id !== userData.id) {
-      return NextResponse.json(
-        { error: 'Bạn không có quyền cập nhật tổ chức này' },
-        { status: 403 }
-      );
-    }
-
-    // Cập nhật thông tin
     const updateData: Record<string, unknown> = {};
     if (ten !== undefined) updateData.ten = ten;
     if (mo_ta !== undefined) updateData.mo_ta = mo_ta;
@@ -252,7 +192,7 @@ export async function PATCH(request: NextRequest) {
       };
     }
 
-    const { data: organization, error: updateError } = await supabase
+    const { data: organization, error: updateError } = await supabaseAdmin
       .from('to_chuc')
       .update(updateData)
       .eq('id', userData.to_chuc_id)
@@ -261,18 +201,12 @@ export async function PATCH(request: NextRequest) {
 
     if (updateError) {
       console.error('Error updating organization:', updateError);
-      return NextResponse.json(
-        { error: 'Không thể cập nhật tổ chức' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Không thể cập nhật tổ chức' }, { status: 500 });
     }
 
     return NextResponse.json(normalizeOrganization(organization));
   } catch (error) {
     console.error('Error updating organization:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

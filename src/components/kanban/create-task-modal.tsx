@@ -101,7 +101,7 @@ interface CurrentUser {
   id: string;
   ten: string;
   email: string;
-  vai_tro: 'admin' | 'manager' | 'member';
+  vai_tro: 'owner' | 'admin' | 'manager' | 'member';
 }
 
 interface ProjectPermissionResponse {

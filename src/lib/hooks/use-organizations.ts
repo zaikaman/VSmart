@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Organization } from '@/app/api/organizations/route';
+import type {
+  OrganizationMember,
+  OrganizationMembersResponse,
+} from '@/app/api/organization-members/route';
 
 // Lấy thông tin organization của user hiện tại
 export function useOrganization() {
@@ -64,6 +68,58 @@ export function useUpdateOrganization() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
+    },
+  });
+}
+
+export function useOrganizationMembers() {
+  return useQuery({
+    queryKey: ['organization-members'],
+    queryFn: async () => {
+      const response = await fetch('/api/organization-members');
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+
+        throw new Error('KhÃ´ng thá»ƒ láº¥y danh sÃ¡ch thÃ nh viÃªn tá»• chá»©c');
+      }
+
+      return response.json() as Promise<OrganizationMembersResponse>;
+    },
+  });
+}
+
+export function useUpdateOrganizationMemberRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['update-organization-role'],
+    mutationFn: async (data: { user_id: string; vai_tro: OrganizationMember['vai_tro'] }) => {
+      const response = await fetch('/api/organization-members', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'KhÃ´ng thá»ƒ cáº­p nháº­t role tá»• chá»©c');
+      }
+
+      return response.json() as Promise<{ data: OrganizationMember }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-members'] });
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['reviews-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }

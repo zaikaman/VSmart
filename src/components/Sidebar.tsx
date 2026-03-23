@@ -16,6 +16,7 @@ import {
   Settings,
   User,
 } from "lucide-react";
+import { isLeadershipRole } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -83,7 +84,7 @@ export function Sidebar({ className }: { className?: string }) {
     fetchUser();
   }, []);
 
-  const isManagerView = user?.vai_tro === "admin" || user?.vai_tro === "manager";
+  const isManagerView = isLeadershipRole(user?.vai_tro);
 
   return (
     <div

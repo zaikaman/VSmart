@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/client';
+import type { AppRole, ProjectRole } from '@/lib/auth/permissions';
 
 export class RouteError extends Error {
   status: number;
@@ -21,13 +22,13 @@ export interface AuthenticatedUserContext {
     id: string;
     ten: string;
     email: string;
-    vai_tro: string;
+    vai_tro: AppRole;
   };
 }
 
 export interface MembershipContext {
   id: string;
-  vai_tro: string;
+  vai_tro: ProjectRole;
   trang_thai: string;
 }
 
@@ -76,7 +77,10 @@ export async function getAuthenticatedUserContext(): Promise<AuthenticatedUserCo
       id: user.id,
       email: user.email,
     },
-    dbUser,
+    dbUser: {
+      ...dbUser,
+      vai_tro: dbUser.vai_tro as AppRole,
+    },
   };
 }
 
@@ -93,7 +97,10 @@ export async function ensureProjectMembership(projectId: string, email: string) 
     throw new RouteError('Bạn không có quyền truy cập tài nguyên này', 403);
   }
 
-  return membership;
+  return {
+    ...membership,
+    vai_tro: membership.vai_tro as ProjectRole,
+  };
 }
 
 export async function getProjectAccessContext(projectId: string): Promise<ProjectAccessContext> {
