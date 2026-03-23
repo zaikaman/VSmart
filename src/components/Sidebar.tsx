@@ -30,16 +30,39 @@ const ChatButton = dynamic(
   }
 );
 
-const navItems = [
-  { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Dự án", href: "/dashboard/projects", icon: List },
-  { name: "Bảng Kanban", href: "/dashboard/kanban", icon: ClipboardList },
-  { name: "Planning", href: "/dashboard/planning", icon: CalendarRange },
-  { name: "Hồ sơ", href: "/dashboard/profile", icon: User },
-  { name: "Cài đặt", href: "/dashboard/settings", icon: Settings },
+type IconType = typeof LayoutDashboard;
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: IconType;
+  isChatTrigger?: boolean;
+}
+
+const mainNavGroups: Array<{ title: string; items: NavItem[] }> = [
+  {
+    title: "Không gian làm việc",
+    items: [
+      { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Dự án", href: "/dashboard/projects", icon: List },
+      { name: "Bảng Kanban", href: "/dashboard/kanban", icon: ClipboardList },
+      { name: "Planning", href: "/dashboard/planning", icon: CalendarRange },
+    ],
+  },
+  {
+    title: "Tài khoản",
+    items: [
+      { name: "Hồ sơ", href: "/dashboard/profile", icon: User },
+      { name: "Cài đặt", href: "/dashboard/settings", icon: Settings },
+    ],
+  },
+  {
+    title: "Trợ lý",
+    items: [{ name: "Chat AI", href: "/dashboard/chat-ai", icon: Command, isChatTrigger: true }],
+  },
 ];
 
-const adminNavItems = [
+const adminNavItems: NavItem[] = [
   { name: "Hàng chờ duyệt", href: "/dashboard/reviews", icon: ClipboardCheck },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Ma trận kỹ năng", href: "/dashboard/admin/skills-matrix", icon: Award },
@@ -54,6 +77,50 @@ interface UserInfo {
   extendedData?: {
     avatarUrl?: string;
   };
+}
+
+function SidebarSectionLabel({ children }: { children: string }) {
+  return (
+    <div className="px-3 pb-2 pt-1">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8f9a88]">{children}</span>
+    </div>
+  );
+}
+
+function SidebarNavLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
+  if (item.isChatTrigger) {
+    return (
+      <div
+        className={cn(
+          "rounded-[26px] border px-2 py-2 transition-all",
+          isActive
+            ? "border-[#d7e3c8] bg-[#edf6df] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]"
+            : "border-[#e4eadc] bg-white/70 hover:border-[#dbe4d1] hover:bg-white"
+        )}
+      >
+        <div className="flex items-center gap-3 px-2 pb-2 pt-1 text-sm font-medium text-[#5f6e5b]">
+          <item.icon className={cn("h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
+          <span>{item.name}</span>
+        </div>
+        <ChatButton />
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all",
+        isActive
+          ? "border border-[#d7e3c8] bg-[#edf6df] text-[#42533d] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]"
+          : "border border-transparent text-[#62705d] hover:border-[#e2e8d9] hover:bg-white/80 hover:text-[#223021]"
+      )}
+    >
+      <item.icon className={cn("mr-3 h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
+      <span>{item.name}</span>
+    </Link>
+  );
 }
 
 export function Sidebar({ className }: { className?: string }) {
@@ -78,7 +145,7 @@ export function Sidebar({ className }: { className?: string }) {
           });
         }
       } catch {
-        // Giữ sidebar ổn định nếu request người dùng lỗi
+        // Giữ sidebar ổn định nếu request người dùng lỗi.
       }
     }
     fetchUser();
@@ -104,55 +171,30 @@ export function Sidebar({ className }: { className?: string }) {
           <NotificationBell />
         </div>
 
-        <nav className="flex flex-col gap-1">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all",
-                  isActive
-                    ? "border border-[#d7e3c8] bg-[#edf6df] text-[#42533d] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]"
-                    : "border border-transparent text-[#62705d] hover:border-[#e2e8d9] hover:bg-white/80 hover:text-[#223021]"
-                )}
-              >
-                <item.icon className={cn("mr-3 h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex flex-col gap-5">
+          {mainNavGroups.map((group) => (
+            <section key={group.title} className="space-y-1">
+              <SidebarSectionLabel>{group.title}</SidebarSectionLabel>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return <SidebarNavLink key={item.href} item={item} isActive={isActive} />;
+                })}
+              </div>
+            </section>
+          ))}
 
           {isManagerView ? (
-            <>
-              <div className="pb-1 pt-4">
-                <span className="px-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#8b9685]">Điều hành</span>
+            <section className="space-y-1 border-t border-[#e2e8d9] pt-4">
+              <SidebarSectionLabel>Điều hành</SidebarSectionLabel>
+              <div className="space-y-1">
+                {adminNavItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return <SidebarNavLink key={item.href} item={item} isActive={isActive} />;
+                })}
               </div>
-              {adminNavItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all",
-                      isActive
-                        ? "border border-[#d7e3c8] bg-[#edf6df] text-[#42533d] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]"
-                        : "border border-transparent text-[#62705d] hover:border-[#e2e8d9] hover:bg-white/80 hover:text-[#223021]"
-                    )}
-                  >
-                    <item.icon className={cn("mr-3 h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </>
+            </section>
           ) : null}
-
-          <div className="pt-2">
-            <ChatButton />
-          </div>
         </nav>
       </div>
 
