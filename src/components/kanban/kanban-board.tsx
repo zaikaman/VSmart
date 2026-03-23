@@ -11,9 +11,11 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CheckCheck, GitPullRequest } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { KanbanCardPreview } from './kanban-card';
+import { KanbanCard, KanbanCardPreview } from './kanban-card';
 import { KanbanColumn, Task } from './kanban-column';
 import { useUpdateTask } from '@/lib/hooks/use-tasks';
 
@@ -69,9 +71,14 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 4,
       },
     })
+  );
+
+  const reviewQueueTasks = useMemo(
+    () => optimisticTasks.filter((task) => getColumnId(task) === 'pending_review'),
+    [optimisticTasks]
   );
 
   const columns = useMemo(
@@ -79,24 +86,21 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
       {
         id: 'todo' as const,
         title: 'Cần Làm',
+        eyebrow: 'Bắt đầu',
         tasks: optimisticTasks.filter((task) => getColumnId(task) === 'todo'),
         emptyMessage: 'Chưa có việc nào chờ bắt đầu',
       },
       {
         id: 'in-progress' as const,
         title: 'Đang Làm',
+        eyebrow: 'Đang chạy',
         tasks: optimisticTasks.filter((task) => getColumnId(task) === 'in-progress'),
         emptyMessage: 'Chưa có việc nào đang chạy',
       },
       {
-        id: 'pending_review' as const,
-        title: 'Chờ Duyệt',
-        tasks: optimisticTasks.filter((task) => getColumnId(task) === 'pending_review'),
-        emptyMessage: 'Chưa có task nào chờ duyệt',
-      },
-      {
         id: 'done' as const,
         title: 'Hoàn Thành',
+        eyebrow: 'Đã chốt',
         tasks: optimisticTasks.filter((task) => getColumnId(task) === 'done'),
         emptyMessage: 'Chưa có task nào hoàn thành',
       },
@@ -105,9 +109,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const task = optimisticTasks.find((item) => item.id === active.id);
-
+    const task = optimisticTasks.find((item) => item.id === event.active.id);
     if (task) {
       setActiveTask(task);
     }
@@ -123,24 +125,23 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
     const overId = over.id as string;
     const task = optimisticTasks.find((item) => item.id === taskId);
     const overTask = optimisticTasks.find((item) => item.id === overId);
-    const newColumnId = (columns.find((column) => column.id === overId)?.id || (overTask ? getColumnId(overTask) : null)) as WorkflowColumnId | null;
+    const newColumnId = (columns.find((column) => column.id === overId)?.id || (overTask ? getColumnId(overTask) : null)) as Exclude<WorkflowColumnId, 'pending_review'> | null;
 
     if (!task || !newColumnId) return;
 
     if (task.progress_mode === 'checklist') {
-      toast.error('Task đang dùng checklist, hãy cập nhật từng mục để đổi trạng thái.');
+      toast.error('Task dùng checklist, hãy cập nhật từng mục để đổi trạng thái.');
       return;
     }
 
-    if (task.review_status === 'pending_review' || newColumnId === 'pending_review') {
-      toast.error('Task chờ duyệt cần được xử lý trong luồng duyệt, không kéo thả trực tiếp.');
+    if (task.review_status === 'pending_review') {
+      toast.error('Task chờ duyệt cần xử lý trong luồng duyệt, không kéo thả trực tiếp.');
       return;
     }
 
     const currentColumnId = getColumnId(task);
     if (currentColumnId === newColumnId) return;
 
-    const nextStatus = newColumnId;
     const nextProgress = getManualProgressFromColumn(newColumnId, task.progress || 0);
 
     setOptimisticTasks((prev) =>
@@ -148,9 +149,9 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
         item.id === taskId
           ? {
               ...item,
-              trang_thai: nextStatus,
+              trang_thai: newColumnId,
               progress: nextProgress,
-              review_status: nextStatus === 'done' ? item.review_status : 'draft',
+              review_status: newColumnId === 'done' ? item.review_status : 'draft',
             }
           : item
       )
@@ -159,7 +160,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
     updateTaskMutation.mutate(
       {
         id: taskId,
-        trang_thai: nextStatus,
+        trang_thai: newColumnId,
         progress: nextProgress,
       },
       {
@@ -175,29 +176,63 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex gap-6 overflow-x-auto pb-4">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column.id}
-            id={column.id}
-            title={column.title}
-            tasks={column.tasks}
-            onTaskClick={onTaskClick}
-            onAddTask={onAddTask}
-            isDroppable={column.id !== 'pending_review'}
-            canAddTask={column.id === 'todo' || column.id === 'in-progress'}
-            emptyMessage={column.emptyMessage}
-          />
-        ))}
+    <div className="space-y-5">
+      <div className="rounded-[28px] border border-[#e8eddc] bg-[linear-gradient(135deg,#f9fbf6_0%,#f4f7ef_100%)] px-5 py-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#dde6d3] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#687861]">
+              <GitPullRequest className="h-3.5 w-3.5" />
+              Hàng chờ duyệt
+            </div>
+            <p className="mt-3 max-w-2xl text-sm text-[#66745f]">
+              Tách riêng phần reviewer cần xem để bảng kéo thả chính vẫn thoáng và tập trung vào luồng làm việc.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#ead9b7] bg-[#fff7e7] px-4 py-2 text-sm font-medium text-[#89642b]">
+            <CheckCheck className="h-4 w-4" />
+            {reviewQueueTasks.length} task đang chờ duyệt
+          </div>
+        </div>
+
+        <SortableContext items={reviewQueueTasks.map((task) => task.id)} strategy={rectSortingStrategy}>
+          {reviewQueueTasks.length > 0 ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {reviewQueueTasks.map((task) => (
+                <KanbanCard key={task.id} task={task} onTaskClick={onTaskClick} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-[#e8dcc1] bg-white/70 px-4 py-6 text-sm text-[#8a7650]">
+              Chưa có task nào chờ duyệt.
+            </div>
+          )}
+        </SortableContext>
       </div>
 
-      <DragOverlay>{activeTask ? <KanbanCardPreview task={activeTask} /> : null}</DragOverlay>
-    </DndContext>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="grid gap-4 xl:grid-cols-3 md:grid-cols-2">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              id={column.id}
+              title={column.title}
+              eyebrow={column.eyebrow}
+              tasks={column.tasks}
+              onTaskClick={onTaskClick}
+              onAddTask={onAddTask}
+              canAddTask={column.id === 'todo' || column.id === 'in-progress'}
+              emptyMessage={column.emptyMessage}
+            />
+          ))}
+        </div>
+
+        <DragOverlay>{activeTask ? <KanbanCardPreview task={activeTask} /> : null}</DragOverlay>
+      </DndContext>
+    </div>
   );
 }

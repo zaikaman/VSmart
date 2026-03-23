@@ -1,15 +1,15 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import type { DraggableAttributes } from '@dnd-kit/core';
-import { useSortable } from '@dnd-kit/sortable';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
+import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { AlertCircle, Clock, GripVertical, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Clock, User, AlertCircle } from 'lucide-react';
+import { ReviewStatusBadge } from '@/components/governance/review-status-badge';
 import { Task } from './kanban-column';
 import { RiskIndicator, RiskProgressBar } from './risk-badge';
-import { ReviewStatusBadge } from '@/components/governance/review-status-badge';
 import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task-progress';
 
 interface KanbanCardProps {
@@ -66,70 +66,97 @@ function KanbanCardFrame({
     reviewStatus: task.review_status,
   });
 
+  const handleCardClick = () => {
+    if (!isDragging) {
+      onTaskClick?.(task);
+    }
+  };
+
+  const stopHandleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+  };
+
   return (
-    <div
+    <article
       ref={setNodeRef}
       style={style}
-      {...dragAttributes}
-      {...dragListeners}
-      onClick={() => {
-        if (!isDragging) {
-          onTaskClick?.(task);
-        }
-      }}
-      className={`rounded-lg border bg-white p-4 shadow-sm transition-shadow cursor-pointer ${
+      onClick={handleCardClick}
+      className={`rounded-[24px] border bg-white/92 p-4 shadow-[0_10px_26px_rgba(98,115,80,0.08)] transition-all ${
+        isDragging ? 'scale-[1.01] shadow-[0_18px_40px_rgba(42,56,31,0.14)]' : ''
+      } ${
         isHighRisk
-          ? 'border-red-300 hover:shadow-md hover:shadow-red-100'
+          ? 'border-red-200'
           : isStale
-            ? 'border-yellow-300 hover:shadow-md hover:shadow-yellow-100'
-            : 'border-gray-200 hover:shadow-md'
+            ? 'border-yellow-200'
+            : 'border-[#e2e8da]'
       }`}
     >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <h4 className="line-clamp-2 flex-1 text-sm font-semibold">{task.ten}</h4>
-        <div className="flex flex-shrink-0 items-center gap-1.5">
-          {(riskLevel !== 'low' || isStale) && <RiskIndicator riskLevel={riskLevel} riskScore={riskScore} />}
-          {isStale ? (
-            <span title="Task không có cập nhật">
-              <AlertCircle className="h-3.5 w-3.5 text-yellow-600" />
-            </span>
-          ) : null}
-          <Badge className={priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}>
-            {priorityLabels[task.priority as keyof typeof priorityLabels] || priorityLabels.medium}
-          </Badge>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start gap-2">
+            <h4 className="min-w-0 flex-1 text-[15px] font-semibold leading-6 text-[#253124]">{task.ten}</h4>
+            {(riskLevel !== 'low' || isStale) && <RiskIndicator riskLevel={riskLevel} riskScore={riskScore} />}
+            <Badge className={priorityColors[task.priority as keyof typeof priorityColors] || priorityColors.medium}>
+              {priorityLabels[task.priority as keyof typeof priorityLabels] || priorityLabels.medium}
+            </Badge>
+          </div>
+
+          {task.mo_ta ? <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#6a7568]">{task.mo_ta}</p> : null}
         </div>
+
+        <button
+          type="button"
+          {...(!dragDisabled ? dragAttributes : {})}
+          {...(!dragDisabled ? dragListeners : {})}
+          onClick={stopHandleClick}
+          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl border transition ${
+            dragDisabled
+              ? 'cursor-not-allowed border-[#e5eadf] bg-[#f6f8f2] text-[#a0aa9a]'
+              : 'cursor-grab border-[#dfe6d8] bg-[#f8fbf4] text-[#5d6958] hover:border-[#cad6c1] active:cursor-grabbing'
+          }`}
+          style={!dragDisabled ? { touchAction: 'none' } : undefined}
+          aria-label={dragDisabled ? 'Task này không thể kéo thả' : 'Kéo task sang cột khác'}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {task.review_status && task.review_status !== 'draft' ? <ReviewStatusBadge status={task.review_status} /> : null}
         {task.progress_mode === 'checklist' ? (
           <Badge variant="outline" className="border-[#d8e3cf] bg-[#f8fbf3] text-[#556451]">
             Theo checklist
           </Badge>
         ) : null}
+        {isStale ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#f2df9d] bg-[#fff8dd] px-2.5 py-1 text-[11px] font-medium text-[#8a6b1a]">
+            <AlertCircle className="h-3.5 w-3.5" />
+            Chậm cập nhật
+          </span>
+        ) : null}
       </div>
 
-      {task.mo_ta ? <p className="mb-3 line-clamp-2 text-xs text-gray-600">{task.mo_ta}</p> : null}
-
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <div className="flex items-center gap-1">
+      <div className="mt-4 flex items-center justify-between text-xs text-[#788375]">
+        <div className="flex min-w-0 items-center gap-1.5">
           {task.nguoi_dung ? (
             <>
-              <User className="h-3 w-3" />
-              <span>{task.nguoi_dung.ten}</span>
+              <User className="h-3.5 w-3.5" />
+              <span className="truncate">{task.nguoi_dung.ten}</span>
             </>
-          ) : null}
+          ) : (
+            <span>Chưa phân công</span>
+          )}
         </div>
         {task.deadline ? (
-          <div className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
             <span>{new Date(task.deadline).toLocaleDateString('vi-VN')}</span>
           </div>
         ) : null}
       </div>
 
-      <div className="mt-3">
-        <div className="mb-1 flex justify-between text-xs text-gray-600">
+      <div className="mt-4 border-t border-[#eef2ea] pt-3">
+        <div className="mb-1.5 flex justify-between text-xs text-[#64705f]">
           <span>{task.progress_mode === 'checklist' ? 'Tiến độ' : 'Nhịp xử lý'}</span>
           <span>{task.progress_mode === 'checklist' ? `${effectiveProgress}%` : progressLabel}</span>
         </div>
@@ -143,13 +170,13 @@ function KanbanCardFrame({
       </div>
 
       {dragDisabled ? (
-        <p className="mt-2 text-[11px] text-[#7a846f]">
+        <p className="mt-3 text-[11px] leading-5 text-[#7a846f]">
           {task.review_status === 'pending_review'
-            ? 'Task đang chờ duyệt nên không thể kéo thả.'
-            : 'Task dùng checklist, hãy cập nhật từng mục để đổi trạng thái.'}
+            ? 'Đang nằm trong hàng chờ duyệt nên xử lý ở luồng review.'
+            : 'Task checklist đổi trạng thái theo các mục công việc.'}
         </p>
       ) : null}
-    </div>
+    </article>
   );
 }
 
@@ -172,7 +199,7 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.48 : 1,
       }}
     />
   );
@@ -186,8 +213,8 @@ export function KanbanCardPreview({ task }: { task: Task }) {
       task={task}
       dragDisabled={dragDisabled}
       style={{
-        opacity: 0.95,
-        boxShadow: '0 18px 40px rgba(15, 23, 42, 0.14)',
+        opacity: 0.96,
+        transform: 'rotate(1deg)',
       }}
     />
   );

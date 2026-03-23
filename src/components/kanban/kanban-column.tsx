@@ -38,6 +38,7 @@ export interface Task {
 interface KanbanColumnProps {
   id: string;
   title: string;
+  eyebrow?: string;
   tasks: Task[];
   onTaskClick?: (task: Task) => void;
   onAddTask?: (columnId: string) => void;
@@ -47,15 +48,27 @@ interface KanbanColumnProps {
 }
 
 const columnStyles = {
-  todo: 'bg-gray-50/50 border-gray-200',
-  'in-progress': 'bg-[#b9ff66]/5 border-[#b9ff66]/30',
-  pending_review: 'bg-[#fff7e8] border-[#f2d89a]',
-  done: 'bg-gray-50/50 border-gray-200',
+  todo: {
+    shell: 'border-[#dfe5da] bg-[linear-gradient(180deg,#fdfdfb_0%,#fafbf8_100%)]',
+    badge: 'bg-[#eef1eb] text-[#63705f]',
+    accent: 'bg-[#d7ded1]',
+  },
+  'in-progress': {
+    shell: 'border-[#d8edb3] bg-[linear-gradient(180deg,#fbfdf7_0%,#f6fbeb_100%)]',
+    badge: 'bg-[#ecf7d6] text-[#62813c]',
+    accent: 'bg-[#b9df73]',
+  },
+  done: {
+    shell: 'border-[#d9e2f0] bg-[linear-gradient(180deg,#fcfdff_0%,#f6f8fc_100%)]',
+    badge: 'bg-[#edf1f8] text-[#5d6e8f]',
+    accent: 'bg-[#ced9ea]',
+  },
 };
 
 export function KanbanColumn({
   id,
   title,
+  eyebrow,
   tasks,
   onTaskClick,
   onAddTask,
@@ -69,36 +82,48 @@ export function KanbanColumn({
   });
 
   const taskIds = tasks.map((task) => task.id);
+  const style = columnStyles[id as keyof typeof columnStyles];
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-w-[320px] max-w-[380px] flex-col rounded-xl border-2 p-4 transition-colors ${columnStyles[id as keyof typeof columnStyles]} ${isOver ? 'border-[#b9ff66] ring-2 ring-[#b9ff66] ring-offset-2' : ''}`}
+      className={`flex min-h-[520px] flex-col rounded-[28px] border p-4 transition-all duration-200 ${style.shell} ${
+        isOver ? 'translate-y-[-2px] border-[#b9d96c] shadow-[0_18px_40px_rgba(117,147,61,0.12)]' : ''
+      }`}
     >
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-gray-800">{title}</h3>
-          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium">{tasks.length}</span>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          {eyebrow ? (
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#76836f]">{eyebrow}</p>
+          ) : null}
+          <div className="mt-2 flex items-center gap-2">
+            <h3 className="text-[28px] font-semibold tracking-[-0.03em] text-[#253124]">{title}</h3>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${style.badge}`}>{tasks.length}</span>
+          </div>
         </div>
         {onAddTask && canAddTask ? (
           <button
+            type="button"
             onClick={() => onAddTask(id)}
-            className="rounded p-1 transition-colors hover:bg-gray-200"
+            className="rounded-2xl border border-[#dbe4d1] bg-white/90 p-2.5 text-[#5b6857] transition hover:border-[#c9d8bf] hover:bg-white"
             aria-label="Thêm task mới"
           >
-            <Plus className="h-5 w-5 text-gray-600" />
+            <Plus className="h-4 w-4" />
           </button>
         ) : null}
       </div>
 
+      <div className={`mb-4 h-1 rounded-full ${style.accent}`} />
+
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div className="min-h-[200px] flex-1 space-y-3 overflow-y-auto">
-          {tasks.map((task) => (
-            <KanbanCard key={task.id} task={task} onTaskClick={onTaskClick} />
-          ))}
-          {tasks.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-400">{emptyMessage}</div>
-          ) : null}
+        <div className="flex flex-1 flex-col gap-3">
+          {tasks.length > 0 ? (
+            tasks.map((task) => <KanbanCard key={task.id} task={task} onTaskClick={onTaskClick} />)
+          ) : (
+            <div className="flex min-h-[280px] flex-1 items-center justify-center rounded-[24px] border border-dashed border-[#dde4d8] bg-white/55 px-6 text-center text-sm leading-6 text-[#91a08d]">
+              {emptyMessage}
+            </div>
+          )}
         </div>
       </SortableContext>
     </div>
