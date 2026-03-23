@@ -49,7 +49,17 @@ export default function KanbanPage() {
   const { data: parts, isLoading: partsLoading } = useProjectParts(effectiveProjectId);
   const partList = parts || [];
   const effectivePartId = partList.some((part) => part.id === selectedPartId) ? selectedPartId : (partList[0]?.id ?? '');
+  const selectedProjectName = projectList.find((project) => project.id === effectiveProjectId)?.ten || 'Chưa chọn dự án';
   const selectedPartName = partList.find((part) => part.id === effectivePartId)?.ten || '';
+  const riskFilterLabel =
+    {
+      all: 'Tất cả mức rủi ro',
+      low: 'Rủi ro thấp',
+      medium: 'Rủi ro trung bình',
+      high: 'Rủi ro cao',
+      stale: 'Chậm cập nhật',
+    }[riskFilter] || 'Tất cả mức rủi ro';
+  const hasCustomFilters = Boolean(selectedProjectId || selectedPartId || riskFilter !== 'all');
 
   const { data: tasksResponse, isLoading: tasksLoading, error } = useTasks({
     page: currentPage,
@@ -233,84 +243,136 @@ export default function KanbanPage() {
         saving={savedViews.isSaving}
       />
 
-      <DashboardSection title="Bộ lọc" description="Chọn dự án, phần việc và mức rủi ro cần xem.">
-        <div className="flex flex-wrap gap-4">
-          <div className="min-w-[250px]">
-            <Label className="mb-1 block text-sm text-[#67745f]">Dự án</Label>
-            <Select
-              value={effectiveProjectId}
-              onValueChange={(value) => {
-                setSelectedProjectId(value);
-                setSelectedPartId('');
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Chọn dự án">
-                <SelectValue placeholder="Chọn dự án" />
-              </SelectTrigger>
-              <SelectContent>
-                {projectList.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.ten}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <DashboardSection
+        title="Bộ lọc"
+        description="Chọn nhanh ngữ cảnh cần theo dõi rồi lao vào bảng task."
+        actions={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="rounded-full border border-[#dde6d4] bg-[#f8fbf3] px-4 text-[#5c6b57] hover:bg-[#eef4e7]"
+            onClick={() => {
+              setSelectedProjectId('');
+              setSelectedPartId('');
+              setRiskFilter('all');
+              setCurrentPage(1);
+            }}
+            disabled={!hasCustomFilters}
+          >
+            Đưa về mặc định
+          </Button>
+        }
+      >
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.6fr)]">
+          <div className="rounded-[24px] border border-[#dde7d4] bg-[linear-gradient(160deg,#f8fbf4_0%,#f3f7ec_58%,#eef4e7_100%)] p-4 text-[#32412f] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#718068]">Ngữ cảnh đang xem</p>
+                <p className="mt-2 text-lg font-semibold text-[#22301f]">{selectedProjectName}</p>
+                <p className="mt-1 text-sm leading-6 text-[#62705d]">
+                  {selectedPartName || 'Tất cả phần việc'} • {riskFilterLabel}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#d7e2cd] bg-white/80 p-2 text-[#5f7657]">
+                <Filter className="h-4 w-4" />
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full border border-[#d8e3cf] bg-white/85 px-3 py-1 text-xs text-[#53634f]">
+                Dự án: {selectedProjectName}
+              </span>
+              <span className="rounded-full border border-[#d8e3cf] bg-white/85 px-3 py-1 text-xs text-[#53634f]">
+                Phần việc: {selectedPartName || 'Tất cả'}
+              </span>
+              <span className="rounded-full border border-[#d8e3cf] bg-white/85 px-3 py-1 text-xs text-[#53634f]">
+                Ưu tiên xem: {riskFilterLabel}
+              </span>
+            </div>
           </div>
 
-          <div className="min-w-[250px]">
-            <Label className="mb-1 block text-sm text-[#67745f]">Phần dự án</Label>
-            <Select
-              value={effectivePartId}
-              onValueChange={(value) => {
-                setSelectedPartId(value);
-                setCurrentPage(1);
-              }}
-              disabled={!effectiveProjectId || partsLoading}
-            >
-              <SelectTrigger className="border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Chọn phần dự án">
-                <SelectValue
-                  placeholder={
-                    !effectiveProjectId
-                      ? 'Chọn dự án trước'
-                      : partsLoading
-                        ? 'Đang tải...'
-                        : partList.length === 0
-                          ? 'Chưa có phần dự án'
-                          : 'Chọn phần dự án'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {partList.map((part: ProjectPart) => (
-                  <SelectItem key={part.id} value={part.id}>
-                    {part.ten}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-[22px] border border-[#e6ebdf] bg-[#fcfdf9] p-3">
+              <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d7a66]">Dự án</Label>
+              <p className="mb-3 text-sm text-[#687465]">Đổi không gian làm việc trước khi xem task.</p>
+              <Select
+                value={effectiveProjectId}
+                onValueChange={(value) => {
+                  setSelectedProjectId(value);
+                  setSelectedPartId('');
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-11 w-full rounded-2xl border-[#dfe5d6] bg-white text-[#233021] shadow-none" aria-label="Chọn dự án">
+                  <SelectValue placeholder="Chọn dự án" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projectList.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.ten}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="min-w-[220px]">
-            <Label className="mb-1 block text-sm text-[#67745f]">Lọc theo rủi ro</Label>
-            <Select
-              value={riskFilter}
-              onValueChange={(value) => {
-                setRiskFilter(value as RiskFilter);
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="border-[#dfe5d6] bg-[#fbfcf8]" aria-label="Lọc theo rủi ro">
-                <SelectValue placeholder="Tất cả" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="low">Rủi ro thấp</SelectItem>
-                <SelectItem value="medium">Rủi ro trung bình</SelectItem>
-                <SelectItem value="high">Rủi ro cao</SelectItem>
-                <SelectItem value="stale">Chậm cập nhật</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="rounded-[22px] border border-[#e6ebdf] bg-[#fcfdf9] p-3">
+              <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d7a66]">Phần dự án</Label>
+              <p className="mb-3 text-sm text-[#687465]">Thu gọn bảng về đúng nhóm việc cần xử lý.</p>
+              <Select
+                value={effectivePartId}
+                onValueChange={(value) => {
+                  setSelectedPartId(value);
+                  setCurrentPage(1);
+                }}
+                disabled={!effectiveProjectId || partsLoading}
+              >
+                <SelectTrigger className="h-11 w-full rounded-2xl border-[#dfe5d6] bg-white text-[#233021] shadow-none" aria-label="Chọn phần dự án">
+                  <SelectValue
+                    placeholder={
+                      !effectiveProjectId
+                        ? 'Chọn dự án trước'
+                        : partsLoading
+                          ? 'Đang tải...'
+                          : partList.length === 0
+                            ? 'Chưa có phần dự án'
+                            : 'Chọn phần dự án'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {partList.map((part: ProjectPart) => (
+                    <SelectItem key={part.id} value={part.id}>
+                      {part.ten}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-[22px] border border-[#e6ebdf] bg-[#fcfdf9] p-3">
+              <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6d7a66]">Lọc theo rủi ro</Label>
+              <p className="mb-3 text-sm text-[#687465]">Khoanh nhanh các task cần nhìn sớm hơn.</p>
+              <Select
+                value={riskFilter}
+                onValueChange={(value) => {
+                  setRiskFilter(value as RiskFilter);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="h-11 w-full rounded-2xl border-[#dfe5d6] bg-white text-[#233021] shadow-none" aria-label="Lọc theo rủi ro">
+                  <SelectValue placeholder="Tất cả" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="low">Rủi ro thấp</SelectItem>
+                  <SelectItem value="medium">Rủi ro trung bình</SelectItem>
+                  <SelectItem value="high">Rủi ro cao</SelectItem>
+                  <SelectItem value="stale">Chậm cập nhật</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </DashboardSection>
