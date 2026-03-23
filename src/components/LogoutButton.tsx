@@ -1,25 +1,22 @@
 "use client"
 
 import { LogOut } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { supabase } from "@/lib/supabase/client"
 
 export function LogoutButton({ className }: { className?: string }) {
-    const router = useRouter()
-
     const handleLogout = async () => {
         try {
-            const { error } = await supabase.auth.signOut()
+            const response = await fetch("/api/auth/logout", {
+                method: "POST",
+                cache: "no-store",
+            })
 
-            if (error) {
-                throw error
+            if (!response.ok) {
+                throw new Error("Logout request failed")
             }
 
-            toast.success("Đăng xuất thành công")
-            router.replace("/login")
-            router.refresh()
+            window.location.replace("/login")
         } catch (error) {
             console.error("Logout failed:", error)
             toast.error("Đăng xuất thất bại")
