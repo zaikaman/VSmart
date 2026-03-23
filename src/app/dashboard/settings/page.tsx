@@ -270,24 +270,24 @@ export default function SettingsPage() {
       badge={
         <>
           <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Thiết lập theo phạm vi
+          Chia theo khu
         </>
       }
       title="Cài đặt"
-      description="Màn này được tách theo đúng trách nhiệm: việc của bạn, cấu hình tổ chức và vận hành thành viên."
+      description="Mọi thứ được gom theo đúng chỗ: phần của bạn, phần của tổ chức và phần của team."
     >
       <DashboardSection>
         <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#d7e3ca] bg-[#f7faf2] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
               <Wrench className="h-3.5 w-3.5" />
-              Chọn khu bạn cần xử lý
+              Chọn khu cần chỉnh
             </div>
             <h2 className="mt-4 text-[clamp(1.65rem,2.5vw,2.2rem)] font-semibold text-[#1f2b1f]">
-              Mỗi nhóm việc chỉ nên nằm đúng chỗ của nó.
+              Mỗi việc nên nằm đúng chỗ của nó.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-[#61705f]">
-              Cài đặt cá nhân không nên lẫn với chính sách tổ chức, và quản lý thành viên cũng không nên trôi chung với phần giao diện hay thông báo.
+              Muốn chỉnh thông báo hay giao diện thì vào phần cá nhân. Muốn chỉnh quy tắc chung hoặc quản lý người thì sang đúng khu tương ứng.
             </p>
           </div>
 
@@ -303,7 +303,7 @@ export default function SettingsPage() {
             <ScopeCard
               active={selectedScope === 'organization'}
               title="Tổ chức"
-              description="Không gian làm việc, quy tắc cộng tác và danh mục phòng ban."
+              description="Thông tin workspace, quy tắc cộng tác và danh sách phòng ban."
               meta={organization ? 'Workspace' : 'Chưa có'}
               icon={<Building2 className="h-5 w-5" />}
               onClick={() => setSelectedScope('organization')}
@@ -311,8 +311,8 @@ export default function SettingsPage() {
             <ScopeCard
               active={selectedScope === 'members'}
               title="Thành viên"
-              description="Role, lời mời tham gia và các yêu cầu cần duyệt."
-              meta={organization ? 'Vận hành team' : 'Chờ workspace'}
+              description="Vai trò, lời mời tham gia và các yêu cầu cần duyệt."
+              meta={organization ? 'Team' : 'Chờ workspace'}
               icon={<Users2 className="h-5 w-5" />}
               onClick={() => setSelectedScope('members')}
             />
@@ -324,7 +324,7 @@ export default function SettingsPage() {
         <>
           <DashboardSection
             title="Nhận thông báo"
-            description="Chỉ giữ các tín hiệu thật sự cần thiết để hộp thư và trình duyệt không bị quá tải."
+            description="Bật những thông báo bạn thực sự cần để hộp thư và trình duyệt đỡ bị quá tải."
           >
             <div className="space-y-4">
               {notificationItems.map((item) => (
@@ -350,7 +350,7 @@ export default function SettingsPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <DashboardSection
               title="Luồng làm việc mặc định"
-              description="Những lựa chọn ảnh hưởng tới cách bạn mở sản phẩm và đọc dữ liệu hằng ngày."
+              description="Những lựa chọn này ảnh hưởng tới cách bạn mở sản phẩm và xem dữ liệu mỗi ngày."
             >
               <div className="space-y-5">
                 <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
@@ -404,7 +404,7 @@ export default function SettingsPage() {
 
             <DashboardSection
               title="Trải nghiệm hiển thị"
-              description="Phần này chỉ tác động tới cách bạn nhìn thấy sản phẩm, không ảnh hưởng tới người khác."
+              description="Chỉ ảnh hưởng tới cách bạn nhìn thấy hệ thống, không tác động tới người khác."
             >
               <div className="space-y-5">
                 <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
@@ -455,7 +455,7 @@ export default function SettingsPage() {
 
           <DashboardSection
             title="Tài khoản và bảo mật"
-            description="Những thao tác chỉ ảnh hưởng tới phiên đăng nhập và dữ liệu cá nhân của bạn."
+            description="Những thay đổi ở đây chỉ liên quan tới phiên đăng nhập và dữ liệu cá nhân của bạn."
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4 rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
@@ -542,7 +542,7 @@ export default function SettingsPage() {
           <>
             <DashboardSection
               title="Không gian làm việc"
-              description="Những lựa chọn ở đây áp dụng cho cả tổ chức, không chỉ riêng tài khoản của bạn."
+              description="Các lựa chọn ở đây áp dụng cho cả workspace, không chỉ riêng tài khoản của bạn."
             >
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-[26px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
@@ -610,8 +610,8 @@ export default function SettingsPage() {
             </DashboardSection>
 
             <DashboardSection
-              title="Phòng ban dùng chung"
-              description="Danh mục này là nguồn để chia phần dự án theo đúng đầu mối phụ trách."
+              title="Phòng ban"
+              description="Danh sách này dùng chung cho thành viên và lúc chia phần dự án."
             >
               <OrganizationDepartmentsPanel canManage={canEditOrganization} />
             </DashboardSection>
@@ -620,7 +620,7 @@ export default function SettingsPage() {
           <>
             <DashboardSection
               title="Không gian làm việc"
-              description="Phần này dành cho lúc bạn muốn tạo workspace mới hoặc tham gia workspace đang có."
+              description="Tạo workspace mới hoặc tham gia workspace đang có để bắt đầu dùng phần quản trị."
             >
               <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
                 <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
@@ -666,7 +666,7 @@ export default function SettingsPage() {
           <>
             <DashboardSection
               title="Thành viên và vai trò"
-              description="Quản lý con người ở một nơi riêng để tránh lẫn với phần cấu hình hệ thống."
+              description="Quản lý người, vai trò và phòng ban ở một chỗ riêng cho gọn."
             >
               <OrganizationMembersPanel />
             </DashboardSection>
@@ -680,7 +680,7 @@ export default function SettingsPage() {
 
             <DashboardSection
               title="Yêu cầu cần duyệt"
-              description="Những người muốn tham gia tổ chức sẽ chờ xử lý ở đây."
+              description="Các yêu cầu xin tham gia workspace sẽ nằm ở đây."
             >
               <OrganizationJoinRequestsPanel />
             </DashboardSection>
@@ -688,8 +688,8 @@ export default function SettingsPage() {
         ) : (
           <EmptyWorkspaceState
             title="Quản lý thành viên"
-            description="Role, lời mời và yêu cầu gia nhập chỉ có ý nghĩa khi bạn đã có một workspace để quản trị."
-            actionLabel="Chuyển sang khu tổ chức"
+            description="Khi đã có workspace, bạn mới có thể mời người, gán vai trò và duyệt yêu cầu tham gia."
+            actionLabel="Sang khu tổ chức"
             onAction={() => setSelectedScope('organization')}
           />
         )

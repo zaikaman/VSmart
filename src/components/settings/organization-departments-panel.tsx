@@ -60,7 +60,7 @@ const statusToneMap = {
 
 const statusLabelMap = {
   active: 'Đang dùng',
-  inactive: 'Ngừng dùng',
+  inactive: 'Tạm dừng',
   merged: 'Đã gộp',
 } as const;
 
@@ -193,13 +193,13 @@ export function OrganizationDepartmentsPanel({
         <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e4cb] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#5b6d56]">
             <Building2 className="h-3.5 w-3.5" />
-            Cấu trúc tổ chức
+            Phòng ban
           </div>
           <h3 className="mt-4 text-xl font-semibold text-[#223021]">
-            Phòng ban là danh mục dùng chung cho cả thành viên lẫn dự án.
+            Giữ danh sách phòng ban gọn và dễ dùng.
           </h3>
           <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
-            Khi một phòng ban không còn dùng nữa, hãy chuyển sang trạng thái phù hợp hoặc gộp sang phòng ban khác thay vì xóa cứng để tránh mất liên kết dữ liệu.
+            Danh sách này dùng chung cho thành viên và dự án. Nếu một phòng ban không còn dùng nữa, cứ tạm dừng hoặc gộp sang phòng ban khác, không cần xóa hẳn.
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <div className="rounded-[22px] border border-[#deead2] bg-white/80 px-4 py-3">
@@ -207,7 +207,7 @@ export function OrganizationDepartmentsPanel({
               <p className="mt-2 text-2xl font-semibold text-[#223021]">{activeDepartments.length}</p>
             </div>
             <div className="rounded-[22px] border border-[#eadbc9] bg-white/80 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8a6a4c]">Ngừng dùng</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8a6a4c]">Tạm dừng</p>
               <p className="mt-2 text-2xl font-semibold text-[#223021]">{inactiveDepartments.length}</p>
             </div>
             <div className="rounded-[22px] border border-[#d8e2ec] bg-white/80 px-4 py-3">
@@ -220,9 +220,9 @@ export function OrganizationDepartmentsPanel({
         <div className="rounded-[28px] border border-[#e6ebde] bg-[#fbfcf8] p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-[#223021]">Thêm phòng ban mới</p>
+              <p className="text-sm font-medium text-[#223021]">Thêm phòng ban</p>
               <p className="mt-1 text-sm text-[#67745f]">
-                Dùng tên đang vận hành thực tế để thành viên và dự án cùng bám vào một nguồn dữ liệu.
+                Dùng đúng tên phòng ban đang vận hành để sau này gán người và chia việc cho dễ.
               </p>
             </div>
             <div className="rounded-full border border-[#dbe6cf] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#6d7b67]">
@@ -253,7 +253,7 @@ export function OrganizationDepartmentsPanel({
                 onChange={(event) =>
                   setCreateDraft((current) => ({ ...current, mo_ta: event.target.value }))
                 }
-                placeholder="Ghi chú ngắn về phạm vi phụ trách của phòng ban này."
+                placeholder="Ghi vài dòng ngắn về phần việc mà phòng ban này phụ trách."
                 className="mt-2 min-h-[112px] border-[#dfe5d6] bg-white"
                 disabled={!canManage || createPhongBanMutation.isPending}
               />
@@ -273,9 +273,9 @@ export function OrganizationDepartmentsPanel({
 
       {departments.length === 0 ? (
         <div className="rounded-[28px] border border-dashed border-[#d9e3d0] bg-[#f8fbf4] px-5 py-8 text-center">
-          <p className="text-base font-medium text-[#223021]">Chưa có phòng ban nào trong tổ chức.</p>
+          <p className="text-base font-medium text-[#223021]">Chưa có phòng ban nào.</p>
           <p className="mt-2 text-sm leading-6 text-[#66735f]">
-            Khi danh mục này sẵn sàng, hệ thống mới có thể gắn thành viên và chia phần dự án theo đúng đầu mối phụ trách.
+            Thêm vài phòng ban trước rồi quay lại gán cho thành viên hoặc chia phần dự án sẽ dễ hơn nhiều.
           </p>
         </div>
       ) : (
@@ -319,7 +319,7 @@ export function OrganizationDepartmentsPanel({
 
                     <div className="flex flex-col justify-between gap-3">
                       <div className="rounded-[22px] border border-[#dce8d1] bg-[#f6fbef] px-4 py-3 text-sm text-[#556450]">
-                        Tên và mô tả mới sẽ cập nhật đồng bộ ở màn thành viên và các luồng chia phần dự án tiếp theo.
+                        Tên mới sẽ hiện ngay ở danh sách thành viên và lúc chia phần dự án.
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -357,16 +357,16 @@ export function OrganizationDepartmentsPanel({
                       </div>
                       <p className="mt-2 max-w-3xl text-sm leading-6 text-[#66735f]">
                         {department.mo_ta ||
-                          'Chưa có mô tả. Có thể thêm vài dòng để team hiểu rõ phạm vi phụ trách.'}
+                          'Chưa có mô tả. Nếu cần, thêm vài dòng để mọi người hiểu nhanh phòng ban này phụ trách phần nào.'}
                       </p>
                       {department.trang_thai === 'merged' && department.merged_into ? (
                         <p className="mt-3 text-sm text-[#5d6d80]">
-                          Đã gộp sang <strong>{department.merged_into.ten}</strong>. Thành viên và phần dự án liên quan sẽ được dồn về phòng ban đích.
+                          Phòng ban này đã gộp vào <strong>{department.merged_into.ten}</strong>. Người và phần dự án liên quan cũng đã chuyển theo.
                         </p>
                       ) : null}
                       {department.trang_thai === 'inactive' ? (
                         <p className="mt-3 text-sm text-[#8a6844]">
-                          Phòng ban này không còn nhận phân công mới nhưng dữ liệu cũ vẫn được giữ lại an toàn.
+                          Phòng ban này đang tạm dừng, nên sẽ không xuất hiện trong các phân công mới.
                         </p>
                       ) : null}
                     </div>
@@ -392,7 +392,7 @@ export function OrganizationDepartmentsPanel({
                             className="border-[#eadbc9] bg-white text-[#8d6443] hover:bg-[#fff6ef]"
                           >
                             <PauseCircle className="mr-2 h-4 w-4" />
-                            Ngừng dùng
+                            Tạm dừng
                           </Button>
                         ) : null}
 
@@ -404,7 +404,7 @@ export function OrganizationDepartmentsPanel({
                             className="border-[#d8e6c7] bg-white text-[#56704d] hover:bg-[#f6fbef]"
                           >
                             <PlayCircle className="mr-2 h-4 w-4" />
-                            Dùng lại
+                            Bật lại
                           </Button>
                         ) : null}
 
@@ -442,7 +442,7 @@ export function OrganizationDepartmentsPanel({
           <DialogHeader>
             <DialogTitle>Gộp phòng ban</DialogTitle>
             <DialogDescription>
-              Toàn bộ thành viên và phần dự án đang gắn với phòng ban nguồn sẽ chuyển sang phòng ban đích. Phòng ban cũ sẽ được giữ lại dưới trạng thái đã gộp để theo dõi lịch sử.
+              Thành viên và phần dự án của phòng ban này sẽ chuyển sang phòng ban đích. Phòng ban cũ vẫn được giữ lại để xem lại lịch sử.
             </DialogDescription>
           </DialogHeader>
 
@@ -450,10 +450,10 @@ export function OrganizationDepartmentsPanel({
             <div className="space-y-4">
               <div className="rounded-[22px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] px-4 py-4 text-sm text-[#556451]">
                 <p>
-                  Nguồn: <strong>{mergeSourceDepartment.ten}</strong>
+                  Phòng ban cần gộp: <strong>{mergeSourceDepartment.ten}</strong>
                 </p>
                 <p className="mt-2 leading-6">
-                  Sau khi gộp, phòng ban này sẽ không còn dùng cho phân công mới và sẽ trỏ lịch sử sang phòng ban đích.
+                  Sau khi gộp, tên này sẽ không còn dùng cho phân công mới nữa.
                 </p>
               </div>
 
@@ -461,7 +461,7 @@ export function OrganizationDepartmentsPanel({
                 <Label htmlFor="merge-target">Phòng ban đích</Label>
                 <Select value={mergeTargetId} onValueChange={setMergeTargetId}>
                   <SelectTrigger id="merge-target" className="mt-2 border-[#dfe5d6] bg-white">
-                    <SelectValue placeholder="Chọn phòng ban nhận dữ liệu" />
+                    <SelectValue placeholder="Chọn phòng ban sẽ nhận dữ liệu" />
                   </SelectTrigger>
                   <SelectContent>
                     {activeDepartments

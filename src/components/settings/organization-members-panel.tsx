@@ -47,7 +47,7 @@ const roleIconMap = {
 
 const departmentStatusLabel = {
   active: 'Đang dùng',
-  inactive: 'Ngừng dùng',
+  inactive: 'Tạm dừng',
   merged: 'Đã gộp',
 } as const;
 
@@ -127,9 +127,9 @@ export function OrganizationMembersPanel() {
               <p className="mt-3 text-3xl font-semibold">{roleCounts[role]}</p>
               <p className="mt-1 text-sm opacity-80">
                 {role === 'owner'
-                  ? 'Giữ quyết định cuối cùng'
+                  ? 'Giữ quyền quyết định'
                   : role === 'admin'
-                    ? 'Quản trị vận hành'
+                    ? 'Lo vận hành chung'
                     : role === 'manager'
                       ? 'Điều phối công việc'
                       : 'Tham gia triển khai'}
@@ -144,16 +144,16 @@ export function OrganizationMembersPanel() {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e4cb] bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#5b6d56]">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Quyền và phòng ban
+              Vai trò và phòng ban
             </div>
             <p className="max-w-2xl text-sm leading-6 text-[#5d6c57]">
-              Role giữ trách nhiệm ra quyết định. Phòng ban giữ đầu mối vận hành để phân công và chia phần dự án khớp với cơ cấu thực tế.
+              Vai trò cho biết mức quyền, còn phòng ban giúp giao việc và chia phần dự án đúng người phụ trách.
             </p>
           </div>
           <div className="rounded-[20px] border border-[#dce6d1] bg-white/80 px-4 py-3 text-sm text-[#52614f]">
             {permissions.canManageRoles
-              ? 'Bạn có thể cập nhật role và gắn phòng ban cho thành viên trong phạm vi quyền hiện tại.'
-              : 'Bạn đang ở chế độ xem. Vai trò và phòng ban chỉ do owner hoặc admin cập nhật.'}
+              ? 'Bạn có thể chỉnh vai trò và phòng ban cho những người nằm trong phạm vi quyền của mình.'
+              : 'Bạn đang ở chế độ xem. Chỉ owner hoặc admin mới chỉnh được phần này.'}
           </div>
         </div>
 
@@ -217,7 +217,7 @@ export function OrganizationMembersPanel() {
 
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor={`role-${member.id}`}>Role tổ chức</Label>
+                    <Label htmlFor={`role-${member.id}`}>Vai trò</Label>
                     <Select
                       value={draftRole}
                       onValueChange={(value) =>
@@ -280,7 +280,7 @@ export function OrganizationMembersPanel() {
                     </Select>
                     {member.phong_ban_trang_thai && member.phong_ban_trang_thai !== 'active' ? (
                       <p className="text-xs leading-5 text-[#86633e]">
-                        Thành viên này đang gắn vào phòng ban không còn dùng cho phân công mới. Nên chuyển sang một phòng ban đang dùng.
+                        Phòng ban hiện tại không còn dùng cho phân công mới. Nên chuyển sang phòng ban đang hoạt động.
                       </p>
                     ) : null}
                   </div>
@@ -308,7 +308,7 @@ export function OrganizationMembersPanel() {
 
                       updateMemberMutation.mutate(payload, {
                         onSuccess: () => {
-                          toast.success(`Đã cập nhật thông tin của ${member.ten}`);
+                          toast.success(`Đã cập nhật ${member.ten}`);
                           setDraftRoles((current) => {
                             const next = { ...current };
                             delete next[member.id];
@@ -329,10 +329,10 @@ export function OrganizationMembersPanel() {
 
                   <p className="text-right text-xs leading-5 text-[#7a8774]">
                     {isSelf
-                      ? 'Bạn có thể tự gắn phòng ban cho mình, nhưng role của chính bạn được khóa ở màn này.'
+                      ? 'Bạn có thể tự gắn phòng ban cho mình, còn vai trò của chính bạn sẽ không đổi ở đây.'
                       : canEditDepartment || canEditRole
-                        ? 'Role và phòng ban nên phản ánh đúng trách nhiệm và đầu mối phụ trách thực tế.'
-                        : 'Liên hệ owner hoặc admin nếu cần điều chỉnh role hoặc phòng ban.'}
+                        ? 'Giữ vai trò và phòng ban đúng thực tế sẽ giúp giao việc gọn hơn.'
+                        : 'Nếu cần đổi, hãy nhờ owner hoặc admin hỗ trợ.'}
                   </p>
                 </div>
               </div>
@@ -344,7 +344,7 @@ export function OrganizationMembersPanel() {
           <div className="flex items-start gap-2">
             <Building2 className="mt-0.5 h-4 w-4" />
             <p>
-              Khi phòng ban được gắn trực tiếp cho thành viên, các bước phân công và chia phần dự án sẽ bám sát cơ cấu thực tế hơn thay vì chỉ dựa vào tên phòng ban nhập tay.
+              Khi thành viên đã gắn phòng ban sẵn, lúc phân công hay chia phần dự án sẽ khớp cơ cấu team hơn.
             </p>
           </div>
         </div>
