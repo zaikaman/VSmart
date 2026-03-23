@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -14,9 +13,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CreateProjectPartInput, useCreateProjectPart } from '@/lib/hooks/use-project-parts';
+import {
+  CreateProjectPartInput,
+  useCreateProjectPart,
+} from '@/lib/hooks/use-project-parts';
 import { type PhongBan, usePhongBan } from '@/lib/hooks/use-phong-ban';
 
 interface CreatePartModalProps {
@@ -31,7 +39,11 @@ interface PartFormData {
   deadline: string;
 }
 
-export function CreatePartModal({ open, onOpenChange, projectId }: CreatePartModalProps) {
+export function CreatePartModal({
+  open,
+  onOpenChange,
+  projectId,
+}: CreatePartModalProps) {
   const createPartMutation = useCreateProjectPart(projectId);
   const { data: phongBanList, isLoading: phongBanLoading } = usePhongBan();
   const {
@@ -41,7 +53,9 @@ export function CreatePartModal({ open, onOpenChange, projectId }: CreatePartMod
     formState: { errors },
   } = useForm<PartFormData>({
     defaultValues: {
-      deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      deadline: new Date(
+        Date.now() + 14 * 24 * 60 * 60 * 1000
+      ).toISOString().split('T')[0],
     },
   });
 
@@ -71,9 +85,6 @@ export function CreatePartModal({ open, onOpenChange, projectId }: CreatePartMod
       <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Thêm phần dự án</DialogTitle>
-          <DialogDescription>
-            Chia dự án thành từng đầu việc lớn và giao đúng phòng ban phụ trách để theo dõi rõ ràng hơn.
-          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -85,7 +96,9 @@ export function CreatePartModal({ open, onOpenChange, projectId }: CreatePartMod
               placeholder="Ví dụ: Triển khai backend, CSKH sau bán, nội dung chiến dịch"
               className="mt-2"
             />
-            {errors.ten ? <p className="mt-1 text-sm text-red-600">{errors.ten.message}</p> : null}
+            {errors.ten ? (
+              <p className="mt-1 text-sm text-red-600">{errors.ten.message}</p>
+            ) : null}
           </div>
 
           <div>
@@ -98,20 +111,19 @@ export function CreatePartModal({ open, onOpenChange, projectId }: CreatePartMod
             />
           </div>
 
-          <div className="rounded-[22px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] px-4 py-4">
-            <Label htmlFor="phong_ban_id" className="text-base text-[#223021]">
-              Phòng ban phụ trách *
-            </Label>
-            <p className="mt-1 text-sm leading-6 text-[#62705c]">
-              Danh sách này lấy theo phòng ban đang có trong tổ chức, không dùng danh sách cố định.
-            </p>
+          <div>
+            <Label htmlFor="phong_ban_id">Phòng ban phụ trách *</Label>
 
             {hasDepartments ? (
-              <>
+              <div className="mt-2">
                 <Select value={selectedPhongBan} onValueChange={setSelectedPhongBan}>
-                  <SelectTrigger id="phong_ban_id" className="mt-3 border-[#dfe5d6] bg-white">
+                  <SelectTrigger id="phong_ban_id" className="bg-white">
                     <SelectValue
-                      placeholder={phongBanLoading ? 'Đang tải phòng ban...' : 'Chọn phòng ban phụ trách'}
+                      placeholder={
+                        phongBanLoading
+                          ? 'Đang tải phòng ban...'
+                          : 'Chọn phòng ban phụ trách'
+                      }
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -122,20 +134,13 @@ export function CreatePartModal({ open, onOpenChange, projectId }: CreatePartMod
                     ))}
                   </SelectContent>
                 </Select>
-
-                {!selectedPhongBan ? (
-                  <p className="mt-2 text-sm text-[#6a7664]">Chọn một phòng ban để phần dự án có đúng đầu mối phụ trách.</p>
-                ) : null}
-              </>
+              </div>
             ) : (
-              <div className="mt-3 rounded-[18px] border border-dashed border-[#d4dfc7] bg-white/80 px-4 py-4 text-sm text-[#596855]">
-                <p className="font-medium text-[#223021]">Tổ chức này chưa có phòng ban nào để chọn.</p>
-                <p className="mt-1 leading-6">
-                  Hãy tạo danh sách phòng ban trước trong phần cài đặt tổ chức, sau đó quay lại để chia dự án theo đúng đầu mối.
-                </p>
+              <div className="mt-2 rounded-[14px] border border-dashed border-[#d9dde3] bg-white px-4 py-3 text-sm text-[#5f6570]">
+                <p>Chưa có phòng ban để chọn.</p>
                 <Link
                   href="/dashboard/settings"
-                  className="mt-3 inline-flex text-sm font-medium text-[#4f6c38] underline-offset-4 hover:underline"
+                  className="mt-2 inline-flex text-sm font-medium text-[#111111] underline underline-offset-4"
                 >
                   Mở cài đặt tổ chức
                 </Link>

@@ -281,13 +281,13 @@ export default function SettingsPage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#d7e3ca] bg-[#f7faf2] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
               <Wrench className="h-3.5 w-3.5" />
-              Chọn khu cần chỉnh
+              Chọn đúng khu
             </div>
             <h2 className="mt-4 text-[clamp(1.65rem,2.5vw,2.2rem)] font-semibold text-[#1f2b1f]">
-              Mỗi việc nên nằm đúng chỗ của nó.
+              Mọi thứ đã được chia sẵn theo từng khu.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-[#61705f]">
-              Muốn chỉnh thông báo hay giao diện thì vào phần cá nhân. Muốn chỉnh quy tắc chung hoặc quản lý người thì sang đúng khu tương ứng.
+              Phần cá nhân dành cho thông báo và giao diện. Phần tổ chức và thành viên dành cho các thiết lập dùng chung của workspace.
             </p>
           </div>
 
