@@ -5,13 +5,17 @@ import { hasPermission } from '@/lib/auth/permissions';
 import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
+const PROJECT_MEMBER_ROLES = ['owner', 'admin', 'member', 'viewer'] as const;
+const PROJECT_MEMBER_ASSIGNABLE_ROLES = ['admin', 'member', 'viewer'] as const;
+const PROJECT_MEMBER_STATUSES = ['pending', 'active', 'declined'] as const;
+
 export interface ProjectMember {
   id: string;
   du_an_id: string;
   nguoi_dung_id: string | null;
   email: string;
-  vai_tro: 'owner' | 'admin' | 'member' | 'viewer';
-  trang_thai: 'pending' | 'active' | 'declined';
+  vai_tro: (typeof PROJECT_MEMBER_ROLES)[number];
+  trang_thai: (typeof PROJECT_MEMBER_STATUSES)[number];
   ngay_moi: string;
   ngay_tham_gia: string | null;
   nguoi_moi_id: string;
@@ -137,6 +141,10 @@ export async function POST(request: NextRequest) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json({ error: 'Email không hợp lệ' }, { status: 400 });
+    }
+
+    if (!PROJECT_MEMBER_ASSIGNABLE_ROLES.includes(vai_tro)) {
+      return NextResponse.json({ error: 'Vai trò dự án không hợp lệ' }, { status: 400 });
     }
 
     const { data: existingMember } = await supabase
@@ -287,6 +295,18 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'member_id là bắt buộc' }, { status: 400 });
     }
 
+    if (trang_thai === undefined && vai_tro === undefined) {
+      return NextResponse.json({ error: 'Cần có trạng thái hoặc vai trò để cập nhật' }, { status: 400 });
+    }
+
+    if (trang_thai !== undefined && !PROJECT_MEMBER_STATUSES.includes(trang_thai)) {
+      return NextResponse.json({ error: 'Trạng thái thành viên không hợp lệ' }, { status: 400 });
+    }
+
+    if (vai_tro !== undefined && !PROJECT_MEMBER_ROLES.includes(vai_tro)) {
+      return NextResponse.json({ error: 'Vai trò dự án không hợp lệ' }, { status: 400 });
+    }
+
     const { data: memberData } = await supabase
       .from('thanh_vien_du_an')
       .select('id, email, du_an_id, vai_tro, du_an:du_an_id(ten)')
@@ -302,6 +322,18 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (vai_tro) {
+      if (memberData.email === authUser.email) {
+        return NextResponse.json({ error: 'Bạn không thể tự đổi vai trò của chính mình' }, { status: 403 });
+      }
+
+      if (memberData.vai_tro === 'owner') {
+        return NextResponse.json({ error: 'Không thể đổi vai trò của owner dự án tại đây' }, { status: 400 });
+      }
+
+      if (!PROJECT_MEMBER_ASSIGNABLE_ROLES.includes(vai_tro)) {
+        return NextResponse.json({ error: 'Chưa hỗ trợ gán vai trò owner ở màn này' }, { status: 400 });
+      }
+
       const membership = await getProjectMembershipContext(memberData.du_an_id, authUser.email);
       if (!membership) {
         return NextResponse.json({ error: 'Bạn không có quyền thay đổi vai trò thành viên' }, { status: 403 });
