@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock3, Loader2, MailPlus, Search, ShieldCheck, UserPlus2, Users } from 'lucide-react';
+import { Clock3, Loader2, MailPlus, Search, UserPlus2, Users } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { OrganizationMember } from '@/app/api/organization-members/route';
@@ -172,20 +172,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
         <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
           Bạn đang ở chế độ xem. Các thao tác mời, đổi vai trò hoặc gỡ thành viên được ẩn theo quyền hiện tại.
         </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-[#dce7d4] bg-[linear-gradient(135deg,#f9fbf6_0%,#f3f7ee_100%)] px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-[#586854]">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e4cb] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5b6d56]">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Chỉnh vai trò ngay tại dòng
-            </div>
-            <span className="hidden text-[#6c7867] md:inline">Bố cục đã rút gọn để nhìn nhanh người, quyền và thao tác.</span>
-          </div>
-          <div className="rounded-full border border-[#dbe5d3] bg-white/80 px-3 py-1 text-sm font-medium text-[#41513d]">
-            {members.length} thành viên
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {isLoading ? (
         <div className="py-8 text-center text-gray-500">Đang tải...</div>
