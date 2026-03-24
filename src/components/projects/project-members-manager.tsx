@@ -168,29 +168,169 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
         </Dialog>
       </div>
 
-      {!canManage ? <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">Bạn đang ở chế độ xem. Các thao tác mời, đổi vai trò hoặc gỡ thành viên được ẩn theo quyền hiện tại.</div> : <div className="rounded-[24px] border border-[#dce7d4] bg-[linear-gradient(135deg,#f9fbf6_0%,#f2f7ed_100%)] px-4 py-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="space-y-1"><div className="inline-flex items-center gap-2 rounded-full border border-[#d8e4cb] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5b6d56]"><ShieldCheck className="h-3.5 w-3.5" />Cập nhật vai trò trực tiếp</div><p className="max-w-2xl text-sm leading-6 text-[#5d6c57]">Danh sách bên dưới được sắp lại để dễ đọc hơn: bên trái là người tham gia, giữa là quyền trong dự án, bên phải là thao tác lưu.</p></div><div className="rounded-[18px] border border-[#dbe5d3] bg-white/80 px-4 py-3 text-right text-sm text-[#556352]"><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a8774]">Tổng thành viên</p><p className="mt-1 text-2xl font-semibold text-[#223021]">{members.length}</p></div></div></div>}
+      {!canManage ? (
+        <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          Bạn đang ở chế độ xem. Các thao tác mời, đổi vai trò hoặc gỡ thành viên được ẩn theo quyền hiện tại.
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-[#dce7d4] bg-[linear-gradient(135deg,#f9fbf6_0%,#f3f7ee_100%)] px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-[#586854]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e4cb] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#5b6d56]">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Chỉnh vai trò ngay tại dòng
+            </div>
+            <span className="hidden text-[#6c7867] md:inline">Bố cục đã rút gọn để nhìn nhanh người, quyền và thao tác.</span>
+          </div>
+          <div className="rounded-full border border-[#dbe5d3] bg-white/80 px-3 py-1 text-sm font-medium text-[#41513d]">
+            {members.length} thành viên
+          </div>
+        </div>
+      )}
 
-      {isLoading ? <div className="py-8 text-center text-gray-500">Đang tải...</div> : members.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-slate-500">Chưa có thành viên nào. Hãy mời người khác tham gia dự án.</div> : <div className="overflow-hidden rounded-[28px] border border-[#e2e8da] bg-[#fcfdf9]">{members.map((member, index) => {
-        const workload = member.nguoi_dung?.id ? workloadMap.get(member.nguoi_dung.id) : undefined;
-        const capacity = workload ? getCapacityBadgeConfig(workload.loadStatus) : null;
-        const showPresence = Boolean(member.nguoi_dung?.id) && member.trang_thai === 'active';
-        const isOnline = member.nguoi_dung?.id ? isUserOnline(member.nguoi_dung.id) : false;
-        const isOwner = member.vai_tro === 'owner';
-        const isSelf = normalizeText(currentUser?.email) === normalizeText(member.email);
-        const selectedRole = isOwner ? member.vai_tro : draftRoles[member.id] || member.vai_tro;
-        const canEditRole = canManage && !isOwner && !isSelf;
-        const roleChanged = !isOwner && selectedRole !== member.vai_tro;
-        const isUpdatingRole = updateRoleMutation.isPending && updateRoleMutation.variables?.member_id === member.id;
-        const helperText = isOwner ? 'Vai trò này đang cố định vì đây là người giữ quyền cao nhất của dự án.' : isSelf ? 'Bạn không đổi vai trò của chính mình ở đây.' : member.trang_thai === 'pending' ? 'Vai trò mới sẽ áp dụng ngay trên lời mời đang chờ xác nhận.' : 'Lưu thay đổi để cập nhật phạm vi thao tác của thành viên này.';
+      {isLoading ? (
+        <div className="py-8 text-center text-gray-500">Đang tải...</div>
+      ) : members.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-slate-500">
+          Chưa có thành viên nào. Hãy mời người khác tham gia dự án.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {members.map((member) => {
+            const workload = member.nguoi_dung?.id ? workloadMap.get(member.nguoi_dung.id) : undefined;
+            const capacity = workload ? getCapacityBadgeConfig(workload.loadStatus) : null;
+            const showPresence = Boolean(member.nguoi_dung?.id) && member.trang_thai === 'active';
+            const isOnline = member.nguoi_dung?.id ? isUserOnline(member.nguoi_dung.id) : false;
+            const isOwner = member.vai_tro === 'owner';
+            const isSelf = normalizeText(currentUser?.email) === normalizeText(member.email);
+            const selectedRole = isOwner ? member.vai_tro : draftRoles[member.id] || member.vai_tro;
+            const canEditRole = canManage && !isOwner && !isSelf;
+            const roleChanged = !isOwner && selectedRole !== member.vai_tro;
+            const isUpdatingRole = updateRoleMutation.isPending && updateRoleMutation.variables?.member_id === member.id;
+            const helperText = isOwner
+              ? 'Vai trò này đang cố định vì đây là người giữ quyền cao nhất của dự án.'
+              : isSelf
+                ? 'Bạn không đổi vai trò của chính mình ở đây.'
+                : member.trang_thai === 'pending'
+                  ? 'Vai trò mới sẽ áp dụng ngay trên lời mời đang chờ xác nhận.'
+                  : 'Lưu thay đổi để cập nhật phạm vi thao tác của thành viên này.';
 
-        return <div key={member.id} className={`grid gap-4 px-5 py-5 transition hover:bg-white/70 md:grid-cols-[minmax(0,1.2fr)_280px_120px] md:items-start ${index < members.length - 1 ? 'border-b border-[#e6ebdf]' : ''}`}>
-          <div className="min-w-0"><div className="flex items-start gap-3"><Avatar className="h-12 w-12 border border-[#dfe5d6]"><AvatarImage src={member.nguoi_dung?.avatar_url || undefined} /><AvatarFallback>{member.nguoi_dung?.ten?.[0] || member.email[0].toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><p className="font-semibold text-[#223021]">{member.nguoi_dung?.ten || member.email}</p><span className="text-sm text-[#66745f]">{member.email}</span></div><div className="mt-3 flex flex-wrap items-center gap-2"><Badge className={`border ${roleClass(member.vai_tro)}`}>{roleLabel(member.vai_tro)}</Badge><Badge className={`border ${statusClass(member.trang_thai)}`}>{statusLabel(member.trang_thai)}</Badge>{showPresence ? <Badge className={`border ${presenceClass(isOnline)}`}>{presenceReady ? (isOnline ? 'Đang online' : 'Đang offline') : 'Đang kiểm tra'}</Badge> : null}{workload && capacity ? <Badge className={capacity.className}>{capacity.label} · {workload.activeTasks}</Badge> : null}</div></div></div></div>
+            return (
+              <div
+                key={member.id}
+                className="grid gap-4 rounded-[24px] border border-[#e3eadc] bg-white px-4 py-4 shadow-[0_16px_35px_-32px_rgba(98,115,88,0.18)] lg:grid-cols-[minmax(0,1fr)_240px]"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-12 w-12 border border-[#dfe5d6]">
+                      <AvatarImage src={member.nguoi_dung?.avatar_url || undefined} />
+                      <AvatarFallback>{member.nguoi_dung?.ten?.[0] || member.email[0].toUpperCase()}</AvatarFallback>
+                    </Avatar>
 
-          <div className="rounded-[20px] border border-[#e5eadf] bg-white/80 p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a8774]">Vai trò trong dự án</p><p className="mt-1 text-sm text-[#596855]">{isOwner ? 'Cố định' : canEditRole ? 'Có thể chỉnh' : 'Chỉ xem'}</p></div>{isOwner ? <div className="rounded-full border border-[#eadbfb] bg-[#fbf5ff] px-3 py-1 text-xs font-medium text-[#7e4aa8]">Owner</div> : null}</div>{canEditRole ? <Select value={selectedRole} onValueChange={(value) => setDraftRoles((current) => ({ ...current, [member.id]: value as AssignableRole }))} disabled={isUpdatingRole}><SelectTrigger id={`project-role-${member.id}`} className="border-[#dfe5d6] bg-[#fbfcf8]"><SelectValue /></SelectTrigger><SelectContent>{ROLE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select> : <div className="rounded-[16px] border border-[#e3e8dc] bg-[#f8faf5] px-3 py-3 text-sm font-medium text-[#51614e]">{roleLabel(selectedRole)}</div>}<p className="mt-3 text-xs leading-5 text-[#74806f]">{helperText}</p></div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <p className="font-semibold text-[#223021]">{member.nguoi_dung?.ten || member.email}</p>
+                        <span className="text-sm text-[#66745f]">{member.email}</span>
+                      </div>
 
-          <div className="flex flex-col items-start gap-2 md:items-end">{canEditRole ? <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" disabled={!roleChanged || isUpdatingRole} onClick={() => updateRoleMutation.mutate({ member_id: member.id, vai_tro: selectedRole as AssignableRole }, { onSuccess: () => { toast.success(`Đã cập nhật vai trò cho ${member.nguoi_dung?.ten || member.email}`); setDraftRoles((current) => { const next = { ...current }; delete next[member.id]; return next; }); }, onError: (error: Error) => toast.error(error.message) })}>{isUpdatingRole ? 'Đang lưu...' : 'Lưu vai trò'}</Button> : <div className="rounded-full border border-[#e3e8dc] bg-[#f8faf5] px-3 py-1 text-xs font-medium text-[#71806f]">{isOwner ? 'Vai trò cố định' : isSelf ? 'Chính bạn' : 'Chỉ xem'}</div>}{member.vai_tro !== 'owner' && canManage ? <Button variant="ghost" size="sm" onClick={() => removeMutation.mutate(member.id)} disabled={removeMutation.isPending || isUpdatingRole}>Gỡ</Button> : null}</div>
-        </div>;
-      })}</div>}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Badge className={`border ${roleClass(member.vai_tro)}`}>{roleLabel(member.vai_tro)}</Badge>
+                        <Badge className={`border ${statusClass(member.trang_thai)}`}>{statusLabel(member.trang_thai)}</Badge>
+                        {showPresence ? (
+                          <Badge className={`border ${presenceClass(isOnline)}`}>
+                            {presenceReady ? (isOnline ? 'Đang online' : 'Đang offline') : 'Đang kiểm tra'}
+                          </Badge>
+                        ) : null}
+                        {workload && capacity ? <Badge className={capacity.className}>{capacity.label} · {workload.activeTasks}</Badge> : null}
+                      </div>
+
+                      <p className="mt-3 text-sm leading-6 text-[#6b7766]">{helperText}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex h-full flex-col justify-between rounded-[20px] border border-[#e5eadf] bg-[#fbfcf8] p-4">
+                  <div>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a8774]">Vai trò trong dự án</p>
+                        <p className="mt-1 text-sm text-[#596855]">{isOwner ? 'Cố định' : canEditRole ? 'Có thể chỉnh' : 'Chỉ xem'}</p>
+                      </div>
+                      {isOwner ? <div className="rounded-full border border-[#eadbfb] bg-[#fbf5ff] px-3 py-1 text-xs font-medium text-[#7e4aa8]">Owner</div> : null}
+                    </div>
+
+                    {canEditRole ? (
+                      <Select
+                        value={selectedRole}
+                        onValueChange={(value) =>
+                          setDraftRoles((current) => ({ ...current, [member.id]: value as AssignableRole }))
+                        }
+                        disabled={isUpdatingRole}
+                      >
+                        <SelectTrigger id={`project-role-${member.id}`} className="border-[#dfe5d6] bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="rounded-[16px] border border-[#e3e8dc] bg-white px-3 py-3 text-sm font-medium text-[#51614e]">
+                        {roleLabel(selectedRole)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-2">
+                    {canEditRole ? (
+                      <Button
+                        className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+                        disabled={!roleChanged || isUpdatingRole}
+                        onClick={() =>
+                          updateRoleMutation.mutate(
+                            { member_id: member.id, vai_tro: selectedRole as AssignableRole },
+                            {
+                              onSuccess: () => {
+                                toast.success(`Đã cập nhật vai trò cho ${member.nguoi_dung?.ten || member.email}`);
+                                setDraftRoles((current) => {
+                                  const next = { ...current };
+                                  delete next[member.id];
+                                  return next;
+                                });
+                              },
+                              onError: (error: Error) => toast.error(error.message),
+                            }
+                          )
+                        }
+                      >
+                        {isUpdatingRole ? 'Đang lưu...' : 'Lưu vai trò'}
+                      </Button>
+                    ) : (
+                      <div className="rounded-full border border-[#e3e8dc] bg-white px-3 py-1 text-xs font-medium text-[#71806f]">
+                        {isOwner ? 'Vai trò cố định' : isSelf ? 'Chính bạn' : 'Chỉ xem'}
+                      </div>
+                    )}
+
+                    {member.vai_tro !== 'owner' && canManage ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMutation.mutate(member.id)}
+                        disabled={removeMutation.isPending || isUpdatingRole}
+                      >
+                        Gỡ
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
