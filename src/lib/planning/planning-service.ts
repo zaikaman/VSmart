@@ -398,27 +398,27 @@ function buildProjectForecast(project: ProjectRow, tasks: PlanningTaskItem[], me
   const reasons: string[] = [];
 
   if (overdueTasks.length > 0) {
-    reasons.push(`${overdueTasks.length} task Ã„â€˜ÃƒÂ£ quÃƒÂ¡ hÃ¡ÂºÂ¡n nhÃ†Â°ng chÃ†Â°a hoÃƒÂ n thÃƒÂ nh`);
+    reasons.push(`${overdueTasks.length} task đã quá hạn nhưng chưa hoàn thành`);
   }
 
   if (highRiskTasks.length > 0) {
-    reasons.push(`${highRiskTasks.length} task Ã„â€˜ang cÃƒÂ³ rÃ¡Â»Â§i ro cao`);
+    reasons.push(`${highRiskTasks.length} task đang có rủi ro cao`);
   }
 
   if (unassignedTasks.length > 0) {
-    reasons.push(`${unassignedTasks.length} task chÃ†Â°a cÃƒÂ³ ngÃ†Â°Ã¡Â»Âi phÃ¡Â»Â¥ trÃƒÂ¡ch`);
+    reasons.push(`${unassignedTasks.length} task chưa có người phụ trách`);
   }
 
   if (overloadedMembers.length > 0) {
-    reasons.push(`${overloadedMembers.length} thÃƒÂ nh viÃƒÂªn Ã„â€˜ang Ã¡Â»Å¸ trÃ¡ÂºÂ¡ng thÃƒÂ¡i sÃƒÂ¡t tÃ¡ÂºÂ£i hoÃ¡ÂºÂ·c quÃƒÂ¡ tÃ¡ÂºÂ£i`);
+    reasons.push(`${overloadedMembers.length} thành viên đang ở trạng thái sát tải hoặc quá tải`);
   }
 
   if (dueThisWeek.length >= 4) {
-    reasons.push('KhÃ¡Â»â€˜i lÃ†Â°Ã¡Â»Â£ng giao viÃ¡Â»â€¡c dÃ¡Â»â€œn vÃƒÂ o 7 ngÃƒÂ y tÃ¡Â»â€ºi khÃƒÂ¡ dÃƒÂ y');
+    reasons.push('Khối lượng giao việc dồn vào 7 ngày tới khá dày');
   }
 
   if (reasons.length === 0) {
-    reasons.push('NhÃ¡Â»â€¹p Ã„â€˜Ã¡Â»â„¢ giao viÃ¡Â»â€¡c hiÃ¡Â»â€¡n vÃ¡ÂºÂ«n trong ngÃ†Â°Ã¡Â»Â¡ng kiÃ¡Â»Æ’m soÃƒÂ¡t');
+    reasons.push('Nhịp độ giao việc hiện vẫn trong ngưỡng kiểm soát');
   }
 
   return {
@@ -711,7 +711,7 @@ export async function getProjectForecast({
   const projectIds = await getAccessibleProjectIds(email, projectId);
 
   if (projectIds.length === 0) {
-    throw new Error('Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p dá»± Ã¡n nÃ y');
+    throw new Error('Bạn không có quyền truy cập dự án này');
   }
 
   const [projectResult, tasks, memberRowsResult] = await Promise.all([
@@ -747,7 +747,7 @@ export async function getProjectForecast({
   ]);
 
   if (projectResult.error || !projectResult.data) {
-    throw new Error('KhÃ´ng tÃ¬m tháº¥y dá»± Ã¡n');
+    throw new Error('Không tìm thấy dự án');
   }
 
   if (memberRowsResult.error) {

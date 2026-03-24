@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,9 +8,7 @@ import {
   Building2,
   Loader2,
   LogOut,
-  Palette,
   ShieldAlert,
-  SlidersHorizontal,
   Sparkles,
   Users2,
   Workflow,
@@ -39,38 +37,38 @@ type SettingsScope = 'personal' | 'organization' | 'members';
 const notificationItems = [
   {
     key: 'emailTaskAssigned',
-    title: 'Email khi cÃ³ viá»‡c má»›i',
-    description: 'Nháº­n thÆ° khi má»™t task Ä‘Æ°á»£c giao trá»±c tiáº¿p cho báº¡n.',
+    title: 'Email khi có việc mới',
+    description: 'Nhận thư khi một task được giao trực tiếp cho bạn.',
   },
   {
     key: 'emailDeadlineReminder',
-    title: 'Email nháº¯c deadline',
-    description: 'BÃ¡o trÆ°á»›c khi cÃ´ng viá»‡c sáº¯p Ä‘áº¿n háº¡n hoáº·c Ä‘Ã£ sÃ¡t má»‘c.',
+    title: 'Email nhắc deadline',
+    description: 'Báo trước khi công việc sắp đến hạn hoặc đã sát mốc.',
   },
   {
     key: 'emailComments',
-    title: 'Email khi cÃ³ trao Ä‘á»•i má»›i',
-    description: 'Giá»¯ luá»“ng trao Ä‘á»•i khÃ´ng bá»‹ bá» sÃ³t trÃªn task liÃªn quan.',
+    title: 'Email khi có trao đổi mới',
+    description: 'Giữ luồng trao đổi không bị bỏ sót trên task liên quan.',
   },
   {
     key: 'emailTeamDigest',
-    title: 'Email tá»•ng há»£p',
-    description: 'Nháº­n báº£n tÃ³m táº¯t ngáº¯n theo ngÃ y hoáº·c tuáº§n.',
+    title: 'Email tổng hợp',
+    description: 'Nhận bản tóm tắt ngắn theo ngày hoặc tuần.',
   },
   {
     key: 'emailReviewRequests',
-    title: 'Email chá» duyá»‡t',
-    description: 'BÃ¡o khi cÃ³ viá»‡c má»›i Ä‘Æ°á»£c gá»­i sang hÃ ng chá» duyá»‡t.',
+    title: 'Email chờ duyệt',
+    description: 'Báo khi có việc mới được gửi sang hàng chờ duyệt.',
   },
   {
     key: 'emailApprovalResults',
-    title: 'Email káº¿t quáº£ duyá»‡t',
-    description: 'BÃ¡o khi viá»‡c Ä‘Æ°á»£c duyá»‡t hoáº·c cáº§n chá»‰nh sá»­a thÃªm.',
+    title: 'Email kết quả duyệt',
+    description: 'Báo khi việc được duyệt hoặc cần chỉnh sửa thêm.',
   },
   {
     key: 'pushEnabled',
-    title: 'ThÃ´ng bÃ¡o trÃªn trÃ¬nh duyá»‡t',
-    description: 'Hiá»ƒn thá»‹ nháº¯c viá»‡c ngay khi báº¡n Ä‘ang má»Ÿ há»‡ thá»‘ng.',
+    title: 'Thông báo trên trình duyệt',
+    description: 'Hiển thị nhắc việc ngay khi bạn đang mở hệ thống.',
   },
 ] as const;
 
@@ -128,19 +126,16 @@ function EmptyWorkspaceState({
         <div className="max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e3cb] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
             <Workflow className="h-3.5 w-3.5" />
-            ChÆ°a sáºµn sÃ ng
+            Chưa sẵn sàng
           </div>
           <p className="mt-4 text-lg font-semibold text-[#223021]">
-            Khu nÃ y chá»‰ má»Ÿ Ä‘áº§y Ä‘á»§ khi báº¡n Ä‘Ã£ cÃ³ khÃ´ng gian lÃ m viá»‡c chung.
+            Khu này chỉ mở đầy đủ khi bạn đã có không gian làm việc chung.
           </p>
           <p className="mt-2 text-sm leading-7 text-[#61705e]">
-            Táº¡o tá»• chá»©c má»›i hoáº·c tham gia workspace sáºµn cÃ³ trÆ°á»›c, rá»“i quay láº¡i Ä‘á»ƒ quáº£n lÃ½ chÃ­nh sÃ¡ch, phÃ²ng ban vÃ  thÃ nh viÃªn.
+            Tạo tổ chức mới hoặc tham gia workspace sẵn có trước, rồi quay lại để quản lý chính sách, phòng ban và thành viên.
           </p>
           <div className="mt-5">
-            <Button
-              onClick={onAction}
-              className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
-            >
+            <Button onClick={onAction} className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]">
               {actionLabel}
             </Button>
           </div>
@@ -160,23 +155,20 @@ export default function SettingsPage() {
   const updateSettings = useUpdateUserSettings();
   const updateOrganization = useUpdateOrganization();
   const settings = settingsResponse?.data || defaultSettings;
-
   const { data: currentUser } = useCurrentUser();
 
-  const canEditOrganization = currentUser?.vai_tro
-    ? canManageOrganizationSettings(currentUser.vai_tro)
-    : false;
+  const canEditOrganization = currentUser?.vai_tro ? canManageOrganizationSettings(currentUser.vai_tro) : false;
 
   const logoutOthersMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch('/api/users/me/logout-others', { method: 'POST' });
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'KhÃ´ng thá»ƒ Ä‘Äƒng xuáº¥t cÃ¡c thiáº¿t bá»‹ khÃ¡c');
+        throw new Error(error.error || 'Không thể đăng xuất các thiết bị khác');
       }
       return response.json();
     },
-    onSuccess: () => toast.success('ÄÃ£ Ä‘Äƒng xuáº¥t cÃ¡c thiáº¿t bá»‹ khÃ¡c'),
+    onSuccess: () => toast.success('Đã đăng xuất các thiết bị khác'),
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -185,12 +177,12 @@ export default function SettingsPage() {
       const response = await fetch('/api/users/me/delete-account', { method: 'DELETE' });
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'KhÃ´ng thá»ƒ xÃ³a tÃ i khoáº£n');
+        throw new Error(error.error || 'Không thể xóa tài khoản');
       }
       return response.json();
     },
     onSuccess: () => {
-      toast.success('TÃ i khoáº£n Ä‘Ã£ Ä‘Æ°á»£c xÃ³a');
+      toast.success('Tài khoản đã được xóa');
       router.push('/');
     },
     onError: (error: Error) => {
@@ -199,10 +191,7 @@ export default function SettingsPage() {
     },
   });
 
-  const handleNotificationChange = (
-    key: keyof typeof settings.notifications,
-    value: boolean
-  ) => {
+  const handleNotificationChange = (key: keyof typeof settings.notifications, value: boolean) => {
     updateSettings.mutate({
       notifications: {
         [key]: value,
@@ -210,10 +199,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleDashboardChange = (
-    key: keyof typeof settings.dashboard,
-    value: string | number
-  ) => {
+  const handleDashboardChange = (key: keyof typeof settings.dashboard, value: string | number) => {
     updateSettings.mutate({
       dashboard: {
         [key]: value,
@@ -221,10 +207,7 @@ export default function SettingsPage() {
     });
   };
 
-  const handleAppearanceChange = (
-    key: keyof typeof settings.appearance,
-    value: string
-  ) => {
+  const handleAppearanceChange = (key: keyof typeof settings.appearance, value: string) => {
     updateSettings.mutate({
       appearance: {
         [key]: value,
@@ -264,46 +247,46 @@ export default function SettingsPage() {
           Chia theo khu
         </>
       }
-      title="CÃ i Ä‘áº·t"
-      description="Má»i thá»© Ä‘Æ°á»£c gom theo Ä‘Ãºng chá»—: pháº§n cá»§a báº¡n, pháº§n cá»§a tá»• chá»©c vÃ  pháº§n cá»§a team."
+      title="Cài đặt"
+      description="Mọi thứ được gom theo đúng chỗ: phần của bạn, phần của tổ chức và phần của team."
     >
       <DashboardSection>
         <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#d7e3ca] bg-[#f7faf2] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
               <Wrench className="h-3.5 w-3.5" />
-              Chá»n Ä‘Ãºng khu
+              Chọn đúng khu
             </div>
             <h2 className="mt-4 text-[clamp(1.65rem,2.5vw,2.2rem)] font-semibold text-[#1f2b1f]">
-              Má»i thá»© Ä‘Ã£ Ä‘Æ°á»£c chia sáºµn theo tá»«ng khu.
+              Mọi thứ đã được chia sẵn theo từng khu.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-[#61705f]">
-              Pháº§n cÃ¡ nhÃ¢n dÃ nh cho thÃ´ng bÃ¡o vÃ  giao diá»‡n. Pháº§n tá»• chá»©c vÃ  thÃ nh viÃªn dÃ nh cho cÃ¡c thiáº¿t láº­p dÃ¹ng chung cá»§a workspace.
+              Phần cá nhân dành cho thông báo và giao diện. Phần tổ chức và thành viên dành cho các thiết lập dùng chung của workspace.
             </p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
             <ScopeCard
               active={selectedScope === 'personal'}
-              title="CÃ¡ nhÃ¢n"
-              description="ThÃ´ng bÃ¡o, giao diá»‡n, trang máº·c Ä‘á»‹nh vÃ  báº£o máº­t tÃ i khoáº£n."
-              meta="Cá»§a báº¡n"
+              title="Cá nhân"
+              description="Thông báo, giao diện, trang mặc định và bảo mật tài khoản."
+              meta="Của bạn"
               icon={<BellRing className="h-5 w-5" />}
               onClick={() => setSelectedScope('personal')}
             />
             <ScopeCard
               active={selectedScope === 'organization'}
-              title="Tá»• chá»©c"
-              description="ThÃ´ng tin workspace, quy táº¯c cá»™ng tÃ¡c vÃ  danh sÃ¡ch phÃ²ng ban."
-              meta={organization ? 'Workspace' : 'ChÆ°a cÃ³'}
+              title="Tổ chức"
+              description="Thông tin workspace, quy tắc cộng tác và danh sách phòng ban."
+              meta={organization ? 'Workspace' : 'Chưa có'}
               icon={<Building2 className="h-5 w-5" />}
               onClick={() => setSelectedScope('organization')}
             />
             <ScopeCard
               active={selectedScope === 'members'}
-              title="ThÃ nh viÃªn"
-              description="Vai trÃ², lá»i má»i tham gia vÃ  cÃ¡c yÃªu cáº§u cáº§n duyá»‡t."
-              meta={organization ? 'Team' : 'Chá» workspace'}
+              title="Thành viên"
+              description="Vai trò, lời mời tham gia và các yêu cầu cần duyệt."
+              meta={organization ? 'Team' : 'Chờ workspace'}
               icon={<Users2 className="h-5 w-5" />}
               onClick={() => setSelectedScope('members')}
             />
@@ -314,25 +297,17 @@ export default function SettingsPage() {
       {selectedScope === 'personal' ? (
         <>
           <DashboardSection
-            title="Nháº­n thÃ´ng bÃ¡o"
-            description="Báº­t nhá»¯ng thÃ´ng bÃ¡o báº¡n thá»±c sá»± cáº§n Ä‘á»ƒ há»™p thÆ° vÃ  trÃ¬nh duyá»‡t Ä‘á»¡ bá»‹ quÃ¡ táº£i."
+            title="Nhận thông báo"
+            description="Bật những thông báo bạn thực sự cần để hộp thư và trình duyệt đỡ bị quá tải."
           >
             <div className="space-y-4">
               {notificationItems.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between gap-4 rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4"
-                >
+                <div key={item.key} className="flex items-center justify-between gap-4 rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
                   <div className="space-y-1">
                     <Label className="text-base text-[#223021]">{item.title}</Label>
                     <p className="text-sm text-[#67745f]">{item.description}</p>
                   </div>
-                  <Switch
-                    checked={settings.notifications[item.key]}
-                    onCheckedChange={(checked) =>
-                      handleNotificationChange(item.key, checked)
-                    }
-                  />
+                  <Switch checked={settings.notifications[item.key]} onCheckedChange={(checked) => handleNotificationChange(item.key, checked)} />
                 </div>
               ))}
             </div>
@@ -340,53 +315,39 @@ export default function SettingsPage() {
 
           <div className="grid gap-6 lg:grid-cols-2">
             <DashboardSection
-              title="Luá»“ng lÃ m viá»‡c máº·c Ä‘á»‹nh"
-              description="Nhá»¯ng lá»±a chá»n nÃ y áº£nh hÆ°á»Ÿng tá»›i cÃ¡ch báº¡n má»Ÿ sáº£n pháº©m vÃ  xem dá»¯ liá»‡u má»—i ngÃ y."
+              title="Luồng làm việc mặc định"
+              description="Những lựa chọn này ảnh hưởng tới cách bạn mở sản phẩm và xem dữ liệu mỗi ngày."
             >
               <div className="space-y-5">
                 <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
-                  <Label className="text-base text-[#223021]">Trang má»Ÿ Ä‘áº§u</Label>
-                  <p className="mt-1 text-sm text-[#67745f]">
-                    Chá»n nÆ¡i báº¡n muá»‘n vÃ o tháº³ng sau khi Ä‘Äƒng nháº­p.
-                  </p>
-                  <Select
-                    value={settings.dashboard.defaultPage}
-                    onValueChange={(value) =>
-                      handleDashboardChange('defaultPage', value)
-                    }
-                  >
+                  <Label className="text-base text-[#223021]">Trang mở đầu</Label>
+                  <p className="mt-1 text-sm text-[#67745f]">Chọn nơi bạn muốn vào thẳng sau khi đăng nhập.</p>
+                  <Select value={settings.dashboard.defaultPage} onValueChange={(value) => handleDashboardChange('defaultPage', value)}>
                     <SelectTrigger className="mt-3 border-[#dfe5d6] bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="/dashboard">Tá»•ng quan</SelectItem>
-                      <SelectItem value="/dashboard/projects">Dá»± Ã¡n</SelectItem>
-                      <SelectItem value="/dashboard/kanban">Báº£ng Kanban</SelectItem>
+                      <SelectItem value="/dashboard">Tổng quan</SelectItem>
+                      <SelectItem value="/dashboard/projects">Dự án</SelectItem>
+                      <SelectItem value="/dashboard/kanban">Bảng Kanban</SelectItem>
                       <SelectItem value="/dashboard/planning">Planning</SelectItem>
-                      <SelectItem value="/dashboard/reviews">HÃ ng chá» duyá»‡t</SelectItem>
+                      <SelectItem value="/dashboard/reviews">Hàng chờ duyệt</SelectItem>
                       <SelectItem value="/dashboard/analytics">Analytics</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
-                  <Label className="text-base text-[#223021]">Sá»‘ dÃ²ng máº·c Ä‘á»‹nh</Label>
-                  <p className="mt-1 text-sm text-[#67745f]">
-                    Giá»¯ máº­t Ä‘á»™ hiá»ƒn thá»‹ á»•n Ä‘á»‹nh trÃªn cÃ¡c mÃ n danh sÃ¡ch.
-                  </p>
-                  <Select
-                    value={String(settings.dashboard.itemsPerPage)}
-                    onValueChange={(value) =>
-                      handleDashboardChange('itemsPerPage', parseInt(value, 10))
-                    }
-                  >
+                  <Label className="text-base text-[#223021]">Số dòng mặc định</Label>
+                  <p className="mt-1 text-sm text-[#67745f]">Giữ mật độ hiển thị ổn định trên các màn danh sách.</p>
+                  <Select value={String(settings.dashboard.itemsPerPage)} onValueChange={(value) => handleDashboardChange('itemsPerPage', parseInt(value, 10))}>
                     <SelectTrigger className="mt-3 border-[#dfe5d6] bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="10">10 dÃ²ng</SelectItem>
-                      <SelectItem value="25">25 dÃ²ng</SelectItem>
-                      <SelectItem value="50">50 dÃ²ng</SelectItem>
+                      <SelectItem value="10">10 dòng</SelectItem>
+                      <SelectItem value="25">25 dòng</SelectItem>
+                      <SelectItem value="50">50 dòng</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -394,48 +355,34 @@ export default function SettingsPage() {
             </DashboardSection>
 
             <DashboardSection
-              title="Tráº£i nghiá»‡m hiá»ƒn thá»‹"
-              description="Chá»‰ áº£nh hÆ°á»Ÿng tá»›i cÃ¡ch báº¡n nhÃ¬n tháº¥y há»‡ thá»‘ng, khÃ´ng tÃ¡c Ä‘á»™ng tá»›i ngÆ°á»i khÃ¡c."
+              title="Trải nghiệm hiển thị"
+              description="Chỉ ảnh hưởng tới cách bạn nhìn thấy hệ thống, không tác động tới người khác."
             >
               <div className="space-y-5">
                 <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
-                  <Label className="text-base text-[#223021]">Cháº¿ Ä‘á»™ hiá»ƒn thá»‹</Label>
-                  <p className="mt-1 text-sm text-[#67745f]">
-                    Chá»n giao diá»‡n máº·c Ä‘á»‹nh khi má»Ÿ láº¡i há»‡ thá»‘ng.
-                  </p>
-                  <Select
-                    value={settings.appearance.theme}
-                    onValueChange={(value) =>
-                      handleAppearanceChange('theme', value)
-                    }
-                  >
+                  <Label className="text-base text-[#223021]">Chế độ hiển thị</Label>
+                  <p className="mt-1 text-sm text-[#67745f]">Chọn giao diện mặc định khi mở lại hệ thống.</p>
+                  <Select value={settings.appearance.theme} onValueChange={(value) => handleAppearanceChange('theme', value)}>
                     <SelectTrigger className="mt-3 border-[#dfe5d6] bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="system">Theo há»‡ thá»‘ng</SelectItem>
-                      <SelectItem value="light">LuÃ´n sÃ¡ng</SelectItem>
-                      <SelectItem value="dark">LuÃ´n tá»‘i</SelectItem>
+                      <SelectItem value="system">Theo hệ thống</SelectItem>
+                      <SelectItem value="light">Luôn sáng</SelectItem>
+                      <SelectItem value="dark">Luôn tối</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
-                  <Label className="text-base text-[#223021]">NgÃ´n ngá»¯</Label>
-                  <p className="mt-1 text-sm text-[#67745f]">
-                    Chá»n ngÃ´n ngá»¯ Æ°u tiÃªn cho tÃ i khoáº£n cá»§a báº¡n.
-                  </p>
-                  <Select
-                    value={settings.appearance.language}
-                    onValueChange={(value) =>
-                      handleAppearanceChange('language', value)
-                    }
-                  >
+                  <Label className="text-base text-[#223021]">Ngôn ngữ</Label>
+                  <p className="mt-1 text-sm text-[#67745f]">Chọn ngôn ngữ ưu tiên cho tài khoản của bạn.</p>
+                  <Select value={settings.appearance.language} onValueChange={(value) => handleAppearanceChange('language', value)}>
                     <SelectTrigger className="mt-3 border-[#dfe5d6] bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="vi">Tiáº¿ng Viá»‡t</SelectItem>
+                      <SelectItem value="vi">Tiếng Việt</SelectItem>
                       <SelectItem value="en">English</SelectItem>
                     </SelectContent>
                   </Select>
@@ -445,16 +392,14 @@ export default function SettingsPage() {
           </div>
 
           <DashboardSection
-            title="TÃ i khoáº£n vÃ  báº£o máº­t"
-            description="Nhá»¯ng thay Ä‘á»•i á»Ÿ Ä‘Ã¢y chá»‰ liÃªn quan tá»›i phiÃªn Ä‘Äƒng nháº­p vÃ  dá»¯ liá»‡u cÃ¡ nhÃ¢n cá»§a báº¡n."
+            title="Tài khoản và bảo mật"
+            description="Những thay đổi ở đây chỉ liên quan tới phiên đăng nhập và dữ liệu cá nhân của bạn."
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4 rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
                 <div>
-                  <Label className="text-base text-[#223021]">PhiÃªn Ä‘Äƒng nháº­p</Label>
-                  <p className="mt-1 text-sm text-[#67745f]">
-                    ÄÄƒng xuáº¥t khá»i cÃ¡c thiáº¿t bá»‹ khÃ¡c nhÆ°ng giá»¯ nguyÃªn thiáº¿t bá»‹ hiá»‡n táº¡i.
-                  </p>
+                  <Label className="text-base text-[#223021]">Phiên đăng nhập</Label>
+                  <p className="mt-1 text-sm text-[#67745f]">Đăng xuất khỏi các thiết bị khác nhưng giữ nguyên thiết bị hiện tại.</p>
                 </div>
                 <Button
                   variant="outline"
@@ -465,12 +410,12 @@ export default function SettingsPage() {
                   {logoutOthersMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Äang xá»­ lÃ½...
+                      Đang xử lý...
                     </>
                   ) : (
                     <>
                       <LogOut className="mr-2 h-4 w-4" />
-                      ÄÄƒng xuáº¥t thiáº¿t bá»‹ khÃ¡c
+                      Đăng xuất thiết bị khác
                     </>
                   )}
                 </Button>
@@ -480,18 +425,14 @@ export default function SettingsPage() {
                 <div className="flex items-start gap-3">
                   <ShieldAlert className="mt-0.5 h-5 w-5 text-[#b16442]" />
                   <div className="flex-1">
-                    <Label className="text-base text-[#8e5037]">XÃ³a tÃ i khoáº£n</Label>
+                    <Label className="text-base text-[#8e5037]">Xóa tài khoản</Label>
                     <p className="mt-1 text-sm text-[#9d694d]">
-                      XÃ³a vÄ©nh viá»…n tÃ i khoáº£n vÃ  dá»¯ liá»‡u liÃªn quan. HÃ nh Ä‘á»™ng nÃ y khÃ´ng thá»ƒ hoÃ n tÃ¡c.
+                      Xóa vĩnh viễn tài khoản và dữ liệu liên quan. Hành động này không thể hoàn tác.
                     </p>
                   </div>
                   {!showDeleteConfirm ? (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setShowDeleteConfirm(true)}
-                    >
-                      XÃ³a tÃ i khoáº£n
+                    <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)}>
+                      Xóa tài khoản
                     </Button>
                   ) : (
                     <div className="flex gap-2">
@@ -502,21 +443,16 @@ export default function SettingsPage() {
                         onClick={() => setShowDeleteConfirm(false)}
                         disabled={deleteAccountMutation.isPending}
                       >
-                        Há»§y
+                        Hủy
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => deleteAccountMutation.mutate()}
-                        disabled={deleteAccountMutation.isPending}
-                      >
+                      <Button variant="destructive" size="sm" onClick={() => deleteAccountMutation.mutate()} disabled={deleteAccountMutation.isPending}>
                         {deleteAccountMutation.isPending ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Äang xÃ³a...
+                            Đang xóa...
                           </>
                         ) : (
-                          'XÃ¡c nháº­n xÃ³a'
+                          'Xác nhận xóa'
                         )}
                       </Button>
                     </div>
@@ -532,115 +468,94 @@ export default function SettingsPage() {
         organization ? (
           <>
             <DashboardSection
-              title="KhÃ´ng gian lÃ m viá»‡c"
-              description="CÃ¡c lá»±a chá»n á»Ÿ Ä‘Ã¢y Ã¡p dá»¥ng cho cáº£ workspace, khÃ´ng chá»‰ riÃªng tÃ i khoáº£n cá»§a báº¡n."
+              title="Không gian làm việc"
+              description="Các lựa chọn ở đây áp dụng cho cả workspace, không chỉ riêng tài khoản của bạn."
             >
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-[26px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <Label className="text-base text-[#223021]">
-                        Má»i ngÆ°á»i ngoÃ i tá»• chá»©c
-                      </Label>
+                      <Label className="text-base text-[#223021]">Mời người ngoài tổ chức</Label>
                       <p className="mt-2 text-sm leading-6 text-[#65735f]">
-                        Báº­t náº¿u dá»± Ã¡n cá»§a báº¡n thÆ°á»ng cáº§n cá»™ng tÃ¡c vá»›i email ngoÃ i workspace.
+                        Bật nếu dự án của bạn thường cần cộng tác với email ngoài workspace.
                       </p>
                     </div>
                     <Switch
                       checked={organization.settings.allow_external_project_invites}
-                      onCheckedChange={(value) =>
-                        handleOrganizationSettingChange(
-                          'allow_external_project_invites',
-                          value
-                        )
-                      }
+                      onCheckedChange={(value) => handleOrganizationSettingChange('allow_external_project_invites', value)}
                       disabled={!canEditOrganization || updateOrganization.isPending}
                     />
                   </div>
                   <p className="mt-5 rounded-[20px] border border-[#deead2] bg-white/80 px-4 py-3 text-sm text-[#566452]">
                     {organization.settings.allow_external_project_invites
-                      ? 'Luá»“ng má»i liÃªn tá»• chá»©c Ä‘ang má»Ÿ.'
-                      : 'Má»i lá»i má»i dá»± Ã¡n má»›i Ä‘ang Ä‘Æ°á»£c giá»›i háº¡n trong ná»™i bá»™ tá»• chá»©c.'}
+                      ? 'Luồng mời liên tổ chức đang mở.'
+                      : 'Mọi lời mời dự án mới đang được giới hạn trong nội bộ tổ chức.'}
                   </p>
                 </div>
 
                 <div className="rounded-[26px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <Label className="text-base text-[#223021]">
-                        Nháº­n yÃªu cáº§u gia nháº­p
-                      </Label>
+                      <Label className="text-base text-[#223021]">Nhận yêu cầu gia nhập</Label>
                       <p className="mt-2 text-sm leading-6 text-[#65735f]">
-                        Báº­t náº¿u báº¡n muá»‘n ngÆ°á»i ngoÃ i cÃ³ thá»ƒ tÃ¬m tháº¥y workspace vÃ  gá»­i yÃªu cáº§u.
+                        Bật nếu bạn muốn người ngoài có thể tìm thấy workspace và gửi yêu cầu.
                       </p>
                     </div>
                     <Switch
                       checked={organization.settings.allow_join_requests}
-                      onCheckedChange={(value) =>
-                        handleOrganizationSettingChange('allow_join_requests', value)
-                      }
+                      onCheckedChange={(value) => handleOrganizationSettingChange('allow_join_requests', value)}
                       disabled={!canEditOrganization || updateOrganization.isPending}
                     />
                   </div>
                   <p className="mt-5 rounded-[20px] border border-[#deead2] bg-white/80 px-4 py-3 text-sm text-[#566452]">
                     {organization.settings.allow_join_requests
-                      ? 'Workspace Ä‘ang nháº­n yÃªu cáº§u gia nháº­p má»›i.'
-                      : 'Chá»‰ lá»i má»i trá»±c tiáº¿p má»›i cÃ³ thá»ƒ Ä‘Æ°a ngÆ°á»i dÃ¹ng vÃ o tá»• chá»©c.'}
+                      ? 'Workspace đang nhận yêu cầu gia nhập mới.'
+                      : 'Chỉ lời mời trực tiếp mới có thể đưa người dùng vào tổ chức.'}
                   </p>
                 </div>
               </div>
 
               <div className="mt-4 rounded-[22px] border border-[#e4ebdd] bg-[#fbfcf8] px-4 py-3 text-sm text-[#52614f]">
                 {currentUser?.vai_tro
-                  ? `Vai trÃ² hiá»‡n táº¡i cá»§a báº¡n: ${APP_ROLE_LABELS[currentUser.vai_tro]}.`
-                  : 'Äang xÃ¡c nháº­n quyá»n hiá»‡n táº¡i cá»§a báº¡n.'}
+                  ? `Vai trò hiện tại của bạn: ${APP_ROLE_LABELS[currentUser.vai_tro]}.`
+                  : 'Đang xác nhận quyền hiện tại của bạn.'}
                 {!canEditOrganization
-                  ? ' Chá»‰ owner hoáº·c admin má»›i cÃ³ thá»ƒ Ä‘á»•i cÃ¡c thiáº¿t láº­p chung.'
-                  : ' Báº¡n cÃ³ thá»ƒ cáº­p nháº­t ngay cÃ¡c quy táº¯c chung cá»§a workspace.'}
+                  ? ' Chỉ owner hoặc admin mới có thể đổi các thiết lập chung.'
+                  : ' Bạn có thể cập nhật ngay các quy tắc chung của workspace.'}
               </div>
             </DashboardSection>
 
-            <DashboardSection
-              title="PhÃ²ng ban"
-              description="Danh sÃ¡ch nÃ y dÃ¹ng chung cho thÃ nh viÃªn vÃ  lÃºc chia pháº§n dá»± Ã¡n."
-            >
+            <DashboardSection title="Phòng ban" description="Danh sách này dùng chung cho thành viên và lúc chia phần dự án.">
               <OrganizationDepartmentsPanel canManage={canEditOrganization} />
             </DashboardSection>
           </>
         ) : (
           <>
             <DashboardSection
-              title="KhÃ´ng gian lÃ m viá»‡c"
-              description="Táº¡o workspace má»›i hoáº·c tham gia workspace Ä‘ang cÃ³ Ä‘á»ƒ báº¯t Ä‘áº§u dÃ¹ng pháº§n quáº£n trá»‹."
+              title="Không gian làm việc"
+              description="Tạo workspace mới hoặc tham gia workspace đang có để bắt đầu dùng phần quản trị."
             >
               <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
                 <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
                   <div className="inline-flex items-center gap-2 rounded-full border border-[#d7e3ca] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
                     <Building2 className="h-3.5 w-3.5" />
-                    Báº¯t Ä‘áº§u tá»« Ä‘Ã¢y
+                    Bắt đầu từ đây
                   </div>
-                  <h3 className="mt-4 text-xl font-semibold text-[#223021]">
-                    Táº¡o má»™t khÃ´ng gian lÃ m viá»‡c riÃªng cho team cá»§a báº¡n.
-                  </h3>
+                  <h3 className="mt-4 text-xl font-semibold text-[#223021]">Tạo một không gian làm việc riêng cho team của bạn.</h3>
                   <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
-                    Sau khi cÃ³ workspace, báº¡n má»›i cÃ³ thá»ƒ Ä‘áº·t chÃ­nh sÃ¡ch chung, táº¡o phÃ²ng ban vÃ  váº­n hÃ nh thÃ nh viÃªn theo vai trÃ².
+                    Sau khi có workspace, bạn mới có thể đặt chính sách chung, tạo phòng ban và vận hành thành viên theo vai trò.
                   </p>
                   <div className="mt-5">
-                    <Button
-                      className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
-                      onClick={() => setCreateOrganizationOpen(true)}
-                    >
-                      Táº¡o tá»• chá»©c
+                    <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
+                      Tạo tổ chức
                     </Button>
                   </div>
                 </div>
 
                 <div className="rounded-[28px] border border-[#e6ebde] bg-[#fbfcf8] p-5">
-                  <p className="text-base font-semibold text-[#223021]">
-                    Hoáº·c tham gia workspace Ä‘Ã£ cÃ³ sáºµn
-                  </p>
+                  <p className="text-base font-semibold text-[#223021]">Hoặc tham gia workspace đã có sẵn</p>
                   <p className="mt-2 text-sm leading-6 text-[#65725f]">
-                    Náº¿u team cá»§a báº¡n Ä‘Ã£ dÃ¹ng há»‡ thá»‘ng, gá»­i yÃªu cáº§u gia nháº­p Ä‘á»ƒ vÃ o Ä‘Ãºng workspace thay vÃ¬ táº¡o má»›i.
+                    Nếu team của bạn đã dùng hệ thống, gửi yêu cầu gia nhập để vào đúng workspace thay vì tạo mới.
                   </p>
                   <div className="mt-5">
                     <OrganizationJoinDiscoveryPanel />
@@ -655,44 +570,29 @@ export default function SettingsPage() {
       {selectedScope === 'members' ? (
         organization ? (
           <>
-            <DashboardSection
-              title="ThÃ nh viÃªn vÃ  vai trÃ²"
-              description="Quáº£n lÃ½ ngÆ°á»i, vai trÃ² vÃ  phÃ²ng ban á»Ÿ má»™t chá»— riÃªng cho gá»n."
-            >
+            <DashboardSection title="Thành viên và vai trò" description="Quản lý người, vai trò và phòng ban ở một chỗ riêng cho gọn.">
               <OrganizationMembersPanel />
             </DashboardSection>
 
-            <DashboardSection
-              title="Lá»i má»i Ä‘ang má»Ÿ"
-              description="Theo dÃµi nhá»¯ng ngÆ°á»i Ä‘Ã£ Ä‘Æ°á»£c má»i nhÆ°ng chÆ°a vÃ o workspace."
-            >
+            <DashboardSection title="Lời mời đang mở" description="Theo dõi những người đã được mời nhưng chưa vào workspace.">
               <OrganizationInvitationsPanel />
             </DashboardSection>
 
-            <DashboardSection
-              title="YÃªu cáº§u cáº§n duyá»‡t"
-              description="CÃ¡c yÃªu cáº§u xin tham gia workspace sáº½ náº±m á»Ÿ Ä‘Ã¢y."
-            >
+            <DashboardSection title="Yêu cầu cần duyệt" description="Các yêu cầu xin tham gia workspace sẽ nằm ở đây.">
               <OrganizationJoinRequestsPanel />
             </DashboardSection>
           </>
         ) : (
           <EmptyWorkspaceState
-            title="Quáº£n lÃ½ thÃ nh viÃªn"
-            description="Khi Ä‘Ã£ cÃ³ workspace, báº¡n má»›i cÃ³ thá»ƒ má»i ngÆ°á»i, gÃ¡n vai trÃ² vÃ  duyá»‡t yÃªu cáº§u tham gia."
-            actionLabel="Sang khu tá»• chá»©c"
+            title="Quản lý thành viên"
+            description="Khi đã có workspace, bạn mới có thể mời người, gán vai trò và duyệt yêu cầu tham gia."
+            actionLabel="Sang khu tổ chức"
             onAction={() => setSelectedScope('organization')}
           />
         )
       ) : null}
 
-      <CreateOrganizationModal
-        open={createOrganizationOpen}
-        onOpenChange={setCreateOrganizationOpen}
-      />
+      <CreateOrganizationModal open={createOrganizationOpen} onOpenChange={setCreateOrganizationOpen} />
     </DashboardPageShell>
   );
 }
-
-
-

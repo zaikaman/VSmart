@@ -141,7 +141,7 @@ export function CreateTaskModal({
 
       const response = await fetch(`/api/projects/${projectId}`);
       if (!response.ok) {
-        throw new Error('KhÃƒÂ´ng thÃ¡Â»Æ’ tÃ¡ÂºÂ£i quyÃ¡Â»Ân dÃ¡Â»Â± ÃƒÂ¡n');
+        throw new Error('Không thể tải quyền dự án');
       }
       return response.json() as Promise<ProjectPermissionResponse>;
     },
@@ -184,9 +184,9 @@ export function CreateTaskModal({
         load_status: member.loadStatus,
         overloaded_warning:
           member.loadStatus === 'overloaded'
-            ? 'Äang quÃ¡ táº£i'
+            ? 'Đang quá tải'
             : member.loadStatus === 'stretched'
-              ? 'Äang sÃ¡t táº£i'
+              ? 'Đang sát tải'
               : undefined,
       })),
     [workloadResponse?.members]
@@ -249,7 +249,7 @@ export function CreateTaskModal({
       });
 
       if (!response.ok) {
-        throw new Error('KhÃ´ng thá»ƒ láº¥y gá»£i Ã½ tá»« AI');
+        throw new Error('Không thể lấy gợi ý từ AI');
       }
 
       const data: SuggestAssigneeResponse = await response.json();
@@ -262,8 +262,8 @@ export function CreateTaskModal({
         setSuggestionsError(data.error);
       }
     } catch (error) {
-      console.error('Lá»—i fetch suggestions:', error);
-      setSuggestionsError('KhÃ´ng thá»ƒ káº¿t ná»‘i AI. Vui lÃ²ng chá»n thá»§ cÃ´ng.');
+      console.error('Lỗi fetch suggestions:', error);
+      setSuggestionsError('Không thể kết nối AI. Vui lòng chọn thủ công.');
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -372,7 +372,7 @@ export function CreateTaskModal({
     setSelectedPriority(template.default_priority);
     setChecklistItems(
       (template.checklist_template || []).map((item, index) =>
-        createChecklistDraftItem(item.title || `BÆ°á»›c ${index + 1}`)
+        createChecklistDraftItem(item.title || `Bước ${index + 1}`)
       )
     );
   }, [selectedTemplateId, templates, taskName, taskDescription, setValue]);
@@ -399,7 +399,7 @@ export function CreateTaskModal({
 
   const handleGenerateChecklist = async () => {
     if (!taskName?.trim()) {
-      toast.error('Nháº­p tÃªn task trÆ°á»›c khi táº¡o checklist báº±ng AI');
+      toast.error('Nhập tên task trước khi tạo checklist bằng AI');
       return;
     }
 
@@ -415,13 +415,13 @@ export function CreateTaskModal({
       );
 
       if (result.error) {
-        toast.message('AI Ä‘Ã£ táº¡o checklist báº±ng phÆ°Æ¡ng Ã¡n fallback');
+        toast.message('AI đã tạo checklist bằng phương án fallback');
       } else {
-        toast.success('ÄÃ£ táº¡o checklist báº±ng AI');
+        toast.success('Đã tạo checklist bằng AI');
       }
     } catch (error) {
-      console.error('Lá»—i táº¡o checklist báº±ng AI:', error);
-      toast.error('KhÃ´ng thá»ƒ táº¡o checklist báº±ng AI');
+      console.error('Lỗi tạo checklist bằng AI:', error);
+      toast.error('Không thể tạo checklist bằng AI');
     }
   };
 
@@ -435,7 +435,7 @@ export function CreateTaskModal({
       .filter((item) => item.title.length > 0);
 
     if (!taskName?.trim()) {
-      toast.error('Nháº­p tÃªn task trÆ°á»›c khi lÆ°u template');
+      toast.error('Nhập tên task trước khi lưu template');
       return;
     }
 
@@ -446,17 +446,17 @@ export function CreateTaskModal({
         default_priority: selectedPriority as 'low' | 'medium' | 'high' | 'urgent',
         checklist_template: cleanedChecklist,
       });
-      toast.success('ÄÃ£ lÆ°u template');
+      toast.success('Đã lưu template');
     } catch (error) {
-      console.error('Lá»—i lÆ°u template:', error);
-      toast.error(error instanceof Error ? error.message : 'KhÃ´ng thá»ƒ lÆ°u template');
+      console.error('Lỗi lưu template:', error);
+      toast.error(error instanceof Error ? error.message : 'Không thể lưu template');
     }
   };
 
   const onSubmit = async (data: TaskFormData) => {
     try {
       if (!phanDuAnId || phanDuAnId.trim() === '') {
-        toast.error('ChÆ°a chá»n pháº§n dá»± Ã¡n');
+        toast.error('Chưa chọn phần dự án');
         return;
       }
 
@@ -492,7 +492,7 @@ export function CreateTaskModal({
           const suggestionsToTrack = suggestions.map((s) => ({
             nguoi_dung_id: s.nguoi_dung_id,
             diem_phu_hop: s.diem_phu_hop,
-            ly_do: s.ly_do || { chinh: 'Gá»£i Ã½ tá»« AI' },
+            ly_do: s.ly_do || { chinh: 'Gợi ý từ AI' },
             da_chap_nhan: s.nguoi_dung_id === selectedFromAI,
           }));
 
@@ -505,14 +505,14 @@ export function CreateTaskModal({
             }),
           });
         } catch (trackError) {
-          console.warn('Lá»—i track AI suggestion:', trackError);
+          console.warn('Lỗi track AI suggestion:', trackError);
         }
       }
 
       onOpenChange(false);
     } catch (error) {
-      console.error('Lá»—i táº¡o task:', error);
-      toast.error(error instanceof Error ? error.message : 'KhÃ´ng thá»ƒ táº¡o task');
+      console.error('Lỗi tạo task:', error);
+      toast.error(error instanceof Error ? error.message : 'Không thể tạo task');
     }
   };
 
@@ -543,14 +543,14 @@ export function CreateTaskModal({
       <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Táº¡o Task Má»›i
+            Tạo Task Mới
             <Sparkles className="w-4 h-4 text-[#b9ff66]" />
           </DialogTitle>
           <DialogDescription>
             {phanDuAnName ? (
-              <>Táº¡o task cho pháº§n dá»± Ã¡n: <strong>{phanDuAnName}</strong></>
+              <>Tạo task cho phần dự án: <strong>{phanDuAnName}</strong></>
             ) : (
-              'Äiá»n thÃ´ng tin task. AI sáº½ gá»£i Ã½ ngÆ°á»i phÃ¹ há»£p nháº¥t.'
+              'Điền thông tin task. AI sẽ gợi ý người phù hợp nhất.'
             )}
           </DialogDescription>
         </DialogHeader>
@@ -561,10 +561,10 @@ export function CreateTaskModal({
               <Label>Template</Label>
               <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chá»n template" />
+                  <SelectValue placeholder="Chọn template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="no-template">KhÃ´ng dÃ¹ng template</SelectItem>
+                  <SelectItem value="no-template">Không dùng template</SelectItem>
                   {templates.map((template) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.ten}
@@ -587,7 +587,7 @@ export function CreateTaskModal({
                 ) : (
                   <Wand2 className="w-4 h-4 mr-2" />
                 )}
-                Táº¡o checklist báº±ng AI
+                Tạo checklist bằng AI
               </Button>
               <Button
                 type="button"
@@ -605,37 +605,37 @@ export function CreateTaskModal({
           </div>
 
           <div>
-            <Label htmlFor="ten">TÃªn Task *</Label>
+            <Label htmlFor="ten">Tên Task *</Label>
             <Input
               id="ten"
-              {...register('ten', { required: 'Vui lÃ²ng nháº­p tÃªn task' })}
-              placeholder="VÃ­ dá»¥: Implement login API"
+              {...register('ten', { required: 'Vui lòng nhập tên task' })}
+              placeholder="Ví dụ: Implement login API"
             />
             {errors.ten && <p className="text-sm text-red-600 mt-1">{errors.ten.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="mo_ta">MÃ´ Táº£</Label>
+            <Label htmlFor="mo_ta">Mô tả</Label>
             <Textarea
               id="mo_ta"
               {...register('mo_ta')}
-              placeholder="MÃ´ táº£ chi tiáº¿t task..."
+              placeholder="Mô tả chi tiết task..."
               className="min-h-[90px]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="priority">Äá»™ Æ¯u TiÃªn</Label>
+              <Label htmlFor="priority">Độ ưu tiên</Label>
               <Select value={selectedPriority} onValueChange={setSelectedPriority}>
                 <SelectTrigger id="priority">
-                  <SelectValue placeholder="Chá»n Ä‘á»™ Æ°u tiÃªn" />
+                  <SelectValue placeholder="Chọn độ ưu tiên" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Tháº¥p</SelectItem>
-                  <SelectItem value="medium">Trung bÃ¬nh</SelectItem>
+                  <SelectItem value="low">Thấp</SelectItem>
+                  <SelectItem value="medium">Trung bình</SelectItem>
                   <SelectItem value="high">Cao</SelectItem>
-                  <SelectItem value="urgent">Kháº©n cáº¥p</SelectItem>
+                  <SelectItem value="urgent">Khẩn cấp</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -649,9 +649,9 @@ export function CreateTaskModal({
           <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <Label className="text-sm font-semibold text-[#253124]">Cáº§n duyá»‡t trÆ°á»›c khi hoÃ n thÃ nh</Label>
+                <Label className="text-sm font-semibold text-[#253124]">Cần duyệt trước khi hoàn thành</Label>
                 <p className="mt-1 text-sm text-[#64705f]">
-                  Báº­t cho nhá»¯ng task cÃ³ Ä‘áº§u ra cáº§n kiá»ƒm tra láº¡i trÆ°á»›c khi chá»‘t háº³n.
+                  Bật cho những task có đầu ra cần kiểm tra lại trước khi chốt hẳn.
                 </p>
               </div>
               <Switch checked={requiresReview} onCheckedChange={setRequiresReview} />
@@ -676,7 +676,7 @@ export function CreateTaskModal({
                     }`}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-[#191a23]">Deadline nÃ y cÃ³ váº» hÆ¡i gáº¯t</p>
+                    <p className="text-sm font-semibold text-[#191a23]">Deadline này có vẻ hơi gắt</p>
                     <p className="mt-1 text-sm text-[#5f6b59]">
                       {deadlineReviewMutation.data.result.ly_do}
                     </p>
@@ -709,13 +709,13 @@ export function CreateTaskModal({
                       });
                     }}
                   >
-                    DÃ¹ng má»‘c gá»£i Ã½
+                    Dùng mốc gợi ý
                   </Button>
                 ) : null}
               </div>
               {deadlineReviewMutation.data.result.suggested_deadline ? (
                 <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#7b846f]">
-                  Gá»£i Ã½ má»›i: {new Date(deadlineReviewMutation.data.result.suggested_deadline).toLocaleDateString('vi-VN')}
+                  Gợi ý mới: {new Date(deadlineReviewMutation.data.result.suggested_deadline).toLocaleDateString('vi-VN')}
                 </p>
               ) : null}
             </div>
@@ -724,20 +724,20 @@ export function CreateTaskModal({
           <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <Label className="font-semibold">Checklist thá»±c thi</Label>
+                <Label className="font-semibold">Checklist thực thi</Label>
                 <p className="text-xs text-gray-500 mt-1">
-                  Checklist sáº½ tá»± Ä‘á»“ng bá»™ tiáº¿n Ä‘á»™ task khi Ä‘Æ°á»£c táº¡o.
+                  Checklist sẽ tự đồng bộ tiến độ task khi được tạo.
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={handleAddChecklistItem}>
                 <Plus className="w-4 h-4 mr-1" />
-                ThÃªm má»¥c
+                Thêm mục
               </Button>
             </div>
 
             {checklistItems.length === 0 ? (
               <div className="text-sm text-gray-500 border border-dashed rounded-lg py-4 text-center">
-                ChÆ°a cÃ³ checklist. DÃ¹ng template hoáº·c AI Ä‘á»ƒ táº¡o nhanh.
+                Chưa có checklist. Dùng template hoặc AI để tạo nhanh.
               </div>
             ) : (
               <div className="space-y-2">
@@ -747,7 +747,7 @@ export function CreateTaskModal({
                     <Input
                       value={item.title}
                       onChange={(event) => handleChecklistChange(item.id, event.target.value)}
-                      placeholder={`BÆ°á»›c ${index + 1}`}
+                      placeholder={`Bước ${index + 1}`}
                     />
                     <Button
                       type="button"
@@ -768,7 +768,7 @@ export function CreateTaskModal({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#b9ff66]" />
-                <Label className="text-sm font-semibold">Gá»£i Ã½ phÃ¢n cÃ´ng tá»« AI</Label>
+                <Label className="text-sm font-semibold">Gợi ý phân công từ AI</Label>
                 {suggestionModel && suggestionModel !== 'fallback' && (
                   <Badge variant="outline" className="text-xs">
                     AI
@@ -793,7 +793,7 @@ export function CreateTaskModal({
                   className="border-[#d8dfcb] bg-white text-[#253124] hover:bg-[#f5f8ef]"
                 >
                   <Sparkles className="mr-1.5 h-3.5 w-3.5 text-[#7aa53a]" />
-                  {suggestions.length > 0 || suggestionModel ? 'Táº¡o láº¡i gá»£i Ã½' : 'Táº¡o gá»£i Ã½'}
+                  {suggestions.length > 0 || suggestionModel ? 'Tạo lại gợi ý' : 'Tạo gợi ý'}
                 </Button>
               </div>
             </div>
@@ -822,20 +822,20 @@ export function CreateTaskModal({
 
             {!isLoadingSuggestions && !suggestionsError && suggestions.length === 0 && taskName && taskName.length >= 3 && (
               <div className="text-sm text-gray-500 text-center py-4">
-                KhÃ´ng cÃ³ gá»£i Ã½ phÃ¹ há»£p. Vui lÃ²ng chá»n thá»§ cÃ´ng.
+                Không có gợi ý phù hợp. Vui lòng chọn thủ công.
               </div>
             )}
 
             {(!taskName || taskName.length < 3) && !isLoadingSuggestions && (
               <div className="text-sm text-gray-500 text-center py-4">
-                Nháº­p tÃªn task (Ã­t nháº¥t 3 kÃ½ tá»±) Ä‘á»ƒ nháº­n gá»£i Ã½ AI.
+                Nhập tên task (ít nhất 3 ký tự) để nhận gợi ý AI.
               </div>
             )}
 
             {!isLoadingSuggestions && suggestions.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[11px] text-gray-500">
-                  Äiá»ƒm bÃªn pháº£i lÃ  má»©c Ä‘á»™ phÃ¹ há»£p cá»§a tá»«ng ngÆ°á»i vá»›i task nÃ y, khÃ´ng pháº£i tá»· lá»‡ chia 100%.
+                  Điểm bên phải là mức độ phù hợp của từng người với task này, không phải tỷ lệ chia 100%.
                 </p>
                 {suggestions.map((suggestion, index) => (
                   <div
@@ -873,11 +873,11 @@ export function CreateTaskModal({
                         )}
                       </div>
                       <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
-                        {suggestion.ly_do?.chinh || 'PhÃ¹ há»£p vá»›i task'}
+                        {suggestion.ly_do?.chinh || 'Phù hợp với task'}
                       </p>
                       {suggestion.user?.so_task_dang_lam !== undefined && (
                         <p className="mt-1 text-[11px] text-gray-500">
-                          Äang má»Ÿ {suggestion.user.so_task_dang_lam} task
+                          Đang mở {suggestion.user.so_task_dang_lam} task
                         </p>
                       )}
                       {suggestion.ly_do?.ky_nang_phu_hop?.length > 0 && (
@@ -898,7 +898,7 @@ export function CreateTaskModal({
                     <Badge
                       className={`flex-shrink-0 whitespace-nowrap ${getScoreColor(suggestion.diem_phu_hop)}`}
                     >
-                      {Math.round(suggestion.diem_phu_hop)} Ä‘iá»ƒm
+                      {Math.round(suggestion.diem_phu_hop)} điểm
                     </Badge>
                   </div>
                 ))}
@@ -912,7 +912,7 @@ export function CreateTaskModal({
                 className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <User className="w-4 h-4" />
-                <span>Chá»n thá»§ cÃ´ng</span>
+                <span>Chọn thủ công</span>
                 <ChevronDown
                   className={`w-4 h-4 transition-transform ${showManualSelect ? 'rotate-180' : ''}`}
                 />
@@ -928,10 +928,10 @@ export function CreateTaskModal({
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Chá»n ngÆ°á»i thá»±c hiá»‡n" />
+                      <SelectValue placeholder="Chọn người thực hiện" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unassigned">ChÆ°a phÃ¢n cÃ´ng</SelectItem>
+                      <SelectItem value="unassigned">Chưa phân công</SelectItem>
                       {manualCandidates.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.ten}
@@ -950,7 +950,7 @@ export function CreateTaskModal({
                     return (
                       <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
                         <Badge className={capacity.className}>{capacity.label}</Badge>
-                        <span>{selectedCandidate.so_task_dang_lam || 0} task Ä‘ang má»Ÿ</span>
+                        <span>{selectedCandidate.so_task_dang_lam || 0} task đang mở</span>
                       </div>
                     );
                   })()}
@@ -961,9 +961,9 @@ export function CreateTaskModal({
           ) : (
             <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
               <div>
-                <Label className="text-sm font-semibold">NgÃ†Â°Ã¡Â»Âi thÃ¡Â»Â±c hiÃ¡Â»â€¡n</Label>
+                <Label className="text-sm font-semibold">Người thực hiện</Label>
                 <p className="mt-1 text-xs text-gray-500">
-                  BÃ¡ÂºÂ¡n cÃƒÂ³ thÃ¡Â»Æ’ tÃ¡Â»Â± nhÃ¡ÂºÂ­n task nÃƒÂ y hoÃ¡ÂºÂ·c Ã„â€˜Ã¡Â»Æ’ trÃ¡Â»â€˜ng Ã„â€˜Ã¡Â»Æ’ xÃ¡Â»Â­ lÃƒÂ½ sau.
+                  Bạn có thể tự nhận task này hoặc để trống để xử lý sau.
                 </p>
               </div>
 
@@ -975,10 +975,10 @@ export function CreateTaskModal({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="ChÃ¡Â»Ân ngÃ†Â°Ã¡Â»Âi thÃ¡Â»Â±c hiÃ¡Â»â€¡n" />
+                  <SelectValue placeholder="Chọn người thực hiện" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unassigned">ChÃ†Â°a phÃƒÂ¢n cÃƒÂ´ng</SelectItem>
+                  <SelectItem value="unassigned">Chưa phân công</SelectItem>
                   {selfAssignCandidates.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.ten}
@@ -993,7 +993,7 @@ export function CreateTaskModal({
             <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
               <Check className="w-4 h-4 text-green-600" />
               <span className="text-sm text-green-700">
-                ÄÃ£ chá»n:{' '}
+                Đã chọn:{' '}
                 <strong>
                   {suggestions.find((s) => s.nguoi_dung_id === selectedAssignee)?.user?.ten ||
                     selfAssignCandidates.find((c) => c.id === selectedAssignee)?.ten ||
@@ -1002,7 +1002,7 @@ export function CreateTaskModal({
                 </strong>
                 {selectedFromAI && (
                   <Badge variant="outline" className="ml-2 text-xs">
-                    Gá»£i Ã½ AI
+                    Gợi ý AI
                   </Badge>
                 )}
               </span>
@@ -1011,16 +1011,16 @@ export function CreateTaskModal({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Há»§y
+              Hủy
             </Button>
             <Button type="submit" disabled={createTaskMutation.isPending}>
               {createTaskMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Äang táº¡o...
+                  Đang tạo...
                 </>
               ) : (
-                'Táº¡o Task'
+                'Tạo Task'
               )}
             </Button>
           </DialogFooter>

@@ -157,7 +157,7 @@ export function usePresence() {
   const context = useContext(PresenceContext);
 
   if (!context) {
-    throw new Error('usePresence pháº£i Ä‘Æ°á»£c dÃ¹ng bÃªn trong PresenceProvider');
+    throw new Error('usePresence phải được dùng bên trong PresenceProvider');
   }
 
   return context;

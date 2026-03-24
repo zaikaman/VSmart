@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { z } from 'zod';
 import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notifications';
@@ -164,7 +164,7 @@ export async function PATCH(
       .single();
 
     if (!oldTask) {
-      return NextResponse.json({ error: 'KhÃ´ng tÃ¬m tháº¥y task' }, { status: 404 });
+      return NextResponse.json({ error: 'Không tìm thấy task' }, { status: 404 });
     }
 
     const currentProgressMode = oldTask?.progress_mode || 'manual';
@@ -187,7 +187,7 @@ export async function PATCH(
       })
     ) {
       return NextResponse.json(
-        { error: 'Báº¡n khÃ´ng cÃ³ quyá»n thay Ä‘á»•i ngÆ°á»i thá»±c hiá»‡n task nÃ y' },
+          { error: 'Bạn không có quyền thay đổi người thực hiện task này' },
         { status: 403 }
       );
     }
@@ -202,12 +202,12 @@ export async function PATCH(
         .maybeSingle();
 
       if (assigneeMembershipError) {
-        return NextResponse.json({ error: 'KhÃ´ng thá»ƒ kiá»ƒm tra ngÆ°á»i Ä‘Æ°á»£c giao' }, { status: 400 });
+        return NextResponse.json({ error: 'Không thể kiểm tra người được giao' }, { status: 400 });
       }
 
       if (!assigneeMembership) {
         return NextResponse.json(
-          { error: 'NgÆ°á»i Ä‘Æ°á»£c giao khÃ´ng thuá»™c dá»± Ã¡n nÃ y' },
+          { error: 'Người được giao không thuộc dự án này' },
           { status: 400 }
         );
       }

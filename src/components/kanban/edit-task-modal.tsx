@@ -52,13 +52,13 @@ interface TaskFormData {
 }
 
 const DAY_OPTIONS = [
-  { value: '1', label: 'Thá»© Hai' },
-  { value: '2', label: 'Thá»© Ba' },
-  { value: '3', label: 'Thá»© TÆ°' },
-  { value: '4', label: 'Thá»© NÄƒm' },
-  { value: '5', label: 'Thá»© SÃ¡u' },
-  { value: '6', label: 'Thá»© Báº£y' },
-  { value: '0', label: 'Chá»§ Nháº­t' },
+  { value: '1', label: 'Thứ Hai' },
+  { value: '2', label: 'Thứ Ba' },
+  { value: '3', label: 'Thứ Tư' },
+  { value: '4', label: 'Thứ Năm' },
+  { value: '5', label: 'Thứ Sáu' },
+  { value: '6', label: 'Thứ Bảy' },
+  { value: '0', label: 'Chủ Nhật' },
 ];
 
 export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) {
@@ -127,7 +127,7 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
         setWeeklyDay(String(parsed.dayOfWeek ?? 1));
       });
     } catch (error) {
-      console.error('KhÃ´ng parse Ä‘Æ°á»£c recurring rule:', error);
+      console.error('Không parse được recurring rule:', error);
       queueMicrotask(() => {
         setEnableRecurring(Boolean(recurringRule.is_active));
       });
@@ -159,19 +159,19 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
 
   const recurringSummary = useMemo(() => {
     if (!enableRecurring) {
-      return 'Task nÃ y khÃ´ng táº¡o láº·p láº¡i.';
+      return 'Task này không tạo lặp lại.';
     }
 
     if (recurringPattern === 'weekdays') {
-      return `Táº¡o task má»—i ngÃ y lÃ m viá»‡c lÃºc ${recurringTime}`;
+      return `Tạo task mỗi ngày làm việc lúc ${recurringTime}`;
     }
 
     if (recurringPattern === 'weekly') {
-      const dayLabel = DAY_OPTIONS.find((item) => item.value === weeklyDay)?.label || 'Thá»© Hai';
-      return `Táº¡o task má»—i ${dayLabel} lÃºc ${recurringTime}`;
+      const dayLabel = DAY_OPTIONS.find((item) => item.value === weeklyDay)?.label || 'Thứ Hai';
+      return `Tạo task mỗi ${dayLabel} lúc ${recurringTime}`;
     }
 
-    return `Táº¡o task má»—i ngÃ y lÃºc ${recurringTime}`;
+    return `Tạo task mỗi ngày lúc ${recurringTime}`;
   }, [enableRecurring, recurringPattern, recurringTime, weeklyDay]);
 
   const canAssignTasks = task?.canAssign ?? false;
@@ -246,11 +246,11 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
         await deleteRecurringRuleMutation.mutateAsync();
       }
 
-      toast.success('ÄÃ£ cáº­p nháº­t task thÃ nh cÃ´ng');
+      toast.success('Đã cập nhật task thành công');
       onOpenChange(false);
     } catch (error) {
-      console.error('Lá»—i cáº­p nháº­t task:', error);
-      toast.error(error instanceof Error ? error.message : 'KhÃ´ng thá»ƒ cáº­p nháº­t task');
+      console.error('Lỗi cập nhật task:', error);
+      toast.error(error instanceof Error ? error.message : 'Không thể cập nhật task');
     }
   };
 
@@ -265,45 +265,45 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Chá»‰nh Sá»­a Task</DialogTitle>
+          <DialogTitle>Chỉnh sửa Task</DialogTitle>
           <DialogDescription>
-            Cáº­p nháº­t thÃ´ng tin task vÃ  cáº¥u hÃ¬nh táº¡o láº·p láº¡i náº¿u cáº§n.
+            Cập nhật thông tin task và cấu hình tạo lặp lại nếu cần.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <Label htmlFor="ten">TÃªn Task *</Label>
+            <Label htmlFor="ten">Tên Task *</Label>
             <Input
               id="ten"
-              {...register('ten', { required: 'Vui lÃ²ng nháº­p tÃªn task' })}
-              placeholder="TÃªn task"
+              {...register('ten', { required: 'Vui lòng nhập tên task' })}
+              placeholder="Tên task"
             />
             {errors.ten && <p className="text-sm text-red-600 mt-1">{errors.ten.message}</p>}
           </div>
 
           <div>
-            <Label htmlFor="mo_ta">MÃ´ Táº£</Label>
+            <Label htmlFor="mo_ta">Mô tả</Label>
             <Textarea
               id="mo_ta"
               {...register('mo_ta')}
-              placeholder="MÃ´ táº£ chi tiáº¿t task..."
+              placeholder="Mô tả chi tiết task..."
               className="min-h-[90px]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="priority">Äá»™ Æ¯u TiÃªn</Label>
+              <Label htmlFor="priority">Độ ưu tiên</Label>
               <Select value={selectedPriority} onValueChange={setSelectedPriority}>
                 <SelectTrigger id="priority">
-                  <SelectValue placeholder="Chá»n Ä‘á»™ Æ°u tiÃªn" />
+                  <SelectValue placeholder="Chọn độ ưu tiên" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Tháº¥p</SelectItem>
-                  <SelectItem value="medium">Trung bÃ¬nh</SelectItem>
+                  <SelectItem value="low">Thấp</SelectItem>
+                  <SelectItem value="medium">Trung bình</SelectItem>
                   <SelectItem value="high">Cao</SelectItem>
-                  <SelectItem value="urgent">Kháº©n cáº¥p</SelectItem>
+                  <SelectItem value="urgent">Khẩn cấp</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -316,13 +316,13 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <Label htmlFor="assignee">NgÆ°á»i thá»±c hiá»‡n</Label>
+              <Label htmlFor="assignee">Người thực hiện</Label>
               <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
                 <SelectTrigger id="assignee">
-                  <SelectValue placeholder="Chá»n ngÆ°á»i thá»±c hiá»‡n" />
+                  <SelectValue placeholder="Chọn người thực hiện" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unassigned">ChÆ°a phÃ¢n cÃ´ng</SelectItem>
+                  <SelectItem value="unassigned">Chưa phân công</SelectItem>
                   {assigneeCandidates.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.ten}
@@ -331,28 +331,28 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
                 </SelectContent>
               </Select>
               {!canAssignTasks ? (
-                <p className="mt-1 text-xs text-slate-500">Báº¡n chá»‰ cÃ³ thá»ƒ tá»± nháº­n task hoáº·c Ä‘á»ƒ trá»‘ng.</p>
+                <p className="mt-1 text-xs text-slate-500">Bạn chỉ có thể tự nhận task hoặc để trống.</p>
               ) : null}
             </div>
 
             <div>
-              <Label htmlFor="status">Tráº¡ng thÃ¡i xá»­ lÃ½</Label>
+              <Label htmlFor="status">Trạng thái xử lý</Label>
               <Select
                 value={selectedStatus}
                 onValueChange={(value) => setSelectedStatus(value as 'todo' | 'in-progress' | 'done')}
                 disabled={(task.progressMode || 'manual') === 'checklist'}
               >
                 <SelectTrigger id="status">
-                  <SelectValue placeholder="Chá»n tráº¡ng thÃ¡i" />
+                  <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">Cáº§n lÃ m</SelectItem>
-                  <SelectItem value="in-progress">Äang lÃ m</SelectItem>
-                  <SelectItem value="done">HoÃ n thÃ nh</SelectItem>
+                  <SelectItem value="todo">Cần làm</SelectItem>
+                  <SelectItem value="in-progress">Đang làm</SelectItem>
+                  <SelectItem value="done">Hoàn thành</SelectItem>
                 </SelectContent>
               </Select>
               {(task.progressMode || 'manual') === 'checklist' ? (
-                <p className="mt-1 text-xs text-slate-500">Task checklist Ä‘á»•i tráº¡ng thÃ¡i theo checklist vÃ  luá»“ng duyá»‡t.</p>
+                <p className="mt-1 text-xs text-slate-500">Task checklist đổi trạng thái theo checklist và luồng duyệt.</p>
               ) : null}
             </div>
           </div>
@@ -360,9 +360,9 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
           <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] px-4 py-3">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <Label className="text-sm font-semibold text-[#253124]">Cáº§n duyá»‡t trÆ°á»›c khi hoÃ n thÃ nh</Label>
+                <Label className="text-sm font-semibold text-[#253124]">Cần duyệt trước khi hoàn thành</Label>
                 <p className="mt-1 text-sm text-slate-600">
-                  Khi báº­t, task sáº½ Ä‘i vÃ o chá» duyá»‡t thay vÃ¬ chá»‘t tháº³ng hoÃ n thÃ nh.
+                  Khi bật, task sẽ đi vào chờ duyệt thay vì chốt thẳng hoàn thành.
                 </p>
               </div>
               <Switch checked={requiresReview} onCheckedChange={setRequiresReview} />
@@ -387,7 +387,7 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
                     }`}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-[#191a23]">Má»‘c nÃ y hÆ¡i sÃ¡t so vá»›i nhá»‹p triá»ƒn khai</p>
+                    <p className="text-sm font-semibold text-[#191a23]">Mốc này hơi sát so với nhịp triển khai</p>
                     <p className="mt-1 text-sm text-[#5f6b59]">
                       {deadlineReviewMutation.data.result.ly_do}
                     </p>
@@ -412,13 +412,13 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
                       });
                     }}
                   >
-                    DÃ¹ng má»‘c gá»£i Ã½
+                    Dùng mốc gợi ý
                   </Button>
                 ) : null}
               </div>
               {deadlineReviewMutation.data.result.suggested_deadline ? (
                 <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#7b846f]">
-                  Gá»£i Ã½ má»›i: {new Date(deadlineReviewMutation.data.result.suggested_deadline).toLocaleDateString('vi-VN')}
+                  Gợi ý mới: {new Date(deadlineReviewMutation.data.result.suggested_deadline).toLocaleDateString('vi-VN')}
                 </p>
               ) : null}
             </div>
@@ -426,16 +426,16 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
 
           <div className="rounded-lg border border-[#e7ebdf] bg-[#fbfbf8] px-4 py-3 text-sm text-slate-600">
             {(task.progressMode || 'manual') === 'checklist'
-              ? 'Task nÃ y dÃ¹ng checklist Ä‘á»ƒ tá»± Ä‘á»“ng bá»™ tiáº¿n Ä‘á»™.'
-              : 'Task manual sáº½ tá»± suy ra tiáº¿n Ä‘á»™ tá»« tráº¡ng thÃ¡i xá»­ lÃ½ vÃ  luá»“ng duyá»‡t, khÃ´ng cáº§n nháº­p % thá»§ cÃ´ng.'}
+              ? 'Task này dùng checklist để tự đồng bộ tiến độ.'
+              : 'Task manual sẽ tự suy ra tiến độ từ trạng thái xử lý và luồng duyệt, không cần nhập % thủ công.'}
           </div>
 
           <div className="rounded-lg border p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-base">Task Ä‘á»‹nh ká»³</Label>
+                <Label className="text-base">Task định kỳ</Label>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Báº­t náº¿u muá»‘n há»‡ thá»‘ng tá»± táº¡o láº¡i task nÃ y theo lá»‹ch.
+                  Bật nếu muốn hệ thống tự tạo lại task này theo lịch.
                 </p>
               </div>
               <Switch checked={enableRecurring} onCheckedChange={setEnableRecurring} />
@@ -445,7 +445,7 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Kiá»ƒu láº·p láº¡i</Label>
+                    <Label>Kiểu lặp lại</Label>
                     <Select
                       value={recurringPattern}
                       onValueChange={(value) => setRecurringPattern(value as RecurringPattern)}
@@ -454,15 +454,15 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily">Má»—i ngÃ y</SelectItem>
-                        <SelectItem value="weekdays">NgÃ y lÃ m viá»‡c</SelectItem>
-                        <SelectItem value="weekly">HÃ ng tuáº§n</SelectItem>
+                        <SelectItem value="daily">Mỗi ngày</SelectItem>
+                        <SelectItem value="weekdays">Ngày làm việc</SelectItem>
+                        <SelectItem value="weekly">Hàng tuần</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <Label>Giá» táº¡o</Label>
+                    <Label>Giờ tạo</Label>
                     <Input
                       type="time"
                       value={recurringTime}
@@ -473,7 +473,7 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
 
                 {recurringPattern === 'weekly' && (
                   <div>
-                    <Label>NgÃ y láº·p láº¡i</Label>
+                    <Label>Ngày lặp lại</Label>
                     <Select value={weeklyDay} onValueChange={setWeeklyDay}>
                       <SelectTrigger>
                         <SelectValue />
@@ -498,16 +498,16 @@ export function EditTaskModal({ task, open, onOpenChange }: EditTaskModalProps) 
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Há»§y
+              Hủy
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Äang lÆ°u...
+                  Đang lưu...
                 </>
               ) : (
-                'LÆ°u Thay Äá»•i'
+                'Lưu thay đổi'
               )}
             </Button>
           </DialogFooter>

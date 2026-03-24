@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { sendProjectInvitationEmail } from '@/lib/email/project-invitation';
 import { logActivity } from '@/lib/activity/log';
 import { hasPermission } from '@/lib/auth/permissions';
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (projectError || !projectInfoWithOrg) {
-      return NextResponse.json({ error: 'KhÃ´ng tÃ¬m tháº¥y dá»± Ã¡n' }, { status: 404 });
+      return NextResponse.json({ error: 'Không tìm thấy dự án' }, { status: 404 });
     }
 
     const { data: organizationData } = await supabase
@@ -161,14 +161,14 @@ export async function POST(request: NextRequest) {
     if (!allowExternalProjectInvites) {
       if (!invitedUser?.id) {
         return NextResponse.json(
-          { error: 'Tá»• chá»©c hiá»‡n chÆ°a cho phÃ©p má»i email ngoÃ i tá»• chá»©c vÃ o dá»± Ã¡n' },
+          { error: 'Tổ chức hiện chưa cho phép mời email ngoài tổ chức vào dự án' },
           { status: 400 }
         );
       }
 
       if (invitedUser.to_chuc_id !== projectInfoWithOrg.to_chuc_id) {
         return NextResponse.json(
-          { error: 'NgÆ°á»i Ä‘Æ°á»£c má»i cáº§n thuá»™c cÃ¹ng tá»• chá»©c vá»›i dá»± Ã¡n nÃ y' },
+          { error: 'Người được mời cần thuộc cùng tổ chức với dự án này' },
           { status: 400 }
         );
       }

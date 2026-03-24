@@ -108,7 +108,7 @@ export function useOrganizationMembers() {
           return null;
         }
 
-        throw new Error('KhÃ´ng thá»ƒ láº¥y danh sÃ¡ch thÃ nh viÃªn tá»• chá»©c');
+        throw new Error('Không thể lấy danh sách thành viên tổ chức');
       }
 
       return response.json() as Promise<OrganizationMembersResponse>;
@@ -136,7 +136,7 @@ export function useUpdateOrganizationMemberRole() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'KhÃ´ng thá»ƒ cáº­p nháº­t role tá»• chá»©c');
+        throw new Error(error.error || 'Không thể cập nhật role tổ chức');
       }
 
       return response.json() as Promise<{ data: OrganizationMember }>;

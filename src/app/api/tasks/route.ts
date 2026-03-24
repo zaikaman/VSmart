@@ -398,7 +398,7 @@ export async function POST(request: NextRequest) {
       })
     ) {
       return NextResponse.json(
-        { error: 'Báº¡n chá»‰ cÃ³ thá»ƒ giao task cho chÃ­nh mÃ¬nh' },
+        { error: 'Bạn chỉ có thể giao task cho chính mình' },
         { status: 403 }
       );
     }
@@ -413,12 +413,12 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (assigneeMembershipError) {
-        return NextResponse.json({ error: 'KhÃ´ng thá»ƒ kiá»ƒm tra ngÆ°á»i Ä‘Æ°á»£c giao' }, { status: 400 });
+        return NextResponse.json({ error: 'Không thể kiểm tra người được giao' }, { status: 400 });
       }
 
       if (!assigneeMembership) {
         return NextResponse.json(
-          { error: 'NgÆ°á»i Ä‘Æ°á»£c giao khÃ´ng thuá»™c dá»± Ã¡n nÃ y' },
+          { error: 'Người được giao không thuộc dự án này' },
           { status: 400 }
         );
       }
