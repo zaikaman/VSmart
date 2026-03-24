@@ -65,12 +65,7 @@ export function SkillsMatrix({ skills, tongNguoiDung, tongKyNang, tongNamKinhNgh
   return (
     <section className="rounded-[30px] border border-[#dfe5d6] bg-white/90 px-5 py-5 shadow-[0_22px_65px_-48px_rgba(89,109,84,0.35)] backdrop-blur-sm">
       <div className="mb-5 flex flex-col gap-3 border-b border-[#edf1e8] pb-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-[#1f2b1f]">Ma trận kỹ năng</h2>
-          <p className="mt-1 text-sm leading-6 text-[#61705f]">
-            Mỗi dòng là một kỹ năng. Nhìn ngang để biết phân bố trình độ, bấm vào dòng để xem những ai đang sở hữu kỹ năng đó.
-          </p>
-        </div>
+        <h2 className="text-xl font-semibold text-[#1f2b1f]">Ma trận kỹ năng</h2>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[#dde5d5] bg-[#f7faf2] px-3 py-1 text-xs font-medium text-[#5d6a58]">
             {tongNguoiDung} thành viên
@@ -84,46 +79,31 @@ export function SkillsMatrix({ skills, tongNguoiDung, tongKyNang, tongNamKinhNgh
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[28px] border border-[#dce8ce] bg-[linear-gradient(135deg,#f8fbf4_0%,#eef7e2_100%)] p-5">
-          <div className="inline-flex rounded-full border border-[#d8e5ca] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
-            Dùng để phân công và phát triển đội ngũ
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Mật độ kỹ năng</p>
+            <Users className="h-4 w-4 text-[#56724d]" />
           </div>
-          <h3 className="mt-4 text-[clamp(1.4rem,2.2vw,2rem)] font-semibold leading-tight text-[#223021]">
-            Đây là bức ảnh chụp nhanh về năng lực thực tế của cả team.
-          </h3>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#5d6b58]">
-            Khi cần giao việc, thay người, mở dự án mới hoặc lập kế hoạch đào tạo, bạn có thể nhìn vào đây để biết đội đang có ai phù hợp, kỹ năng nào đang dư lực và kỹ năng nào còn thiếu người gánh.
-          </p>
+          <p className="mt-3 text-2xl font-semibold text-[#223021]">{matDoKyNang.toFixed(1)}</p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-          <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Mật độ kỹ năng</p>
-              <Users className="h-4 w-4 text-[#56724d]" />
-            </div>
-            <p className="mt-3 text-2xl font-semibold text-[#223021]">{matDoKyNang.toFixed(1)}</p>
-            <p className="mt-1 text-sm text-[#5f6d59]">Kỹ năng trung bình mỗi người.</p>
+        <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Tỷ lệ chuyên gia</p>
+            <Award className="h-4 w-4 text-[#56724d]" />
           </div>
+          <p className="mt-3 text-2xl font-semibold text-[#223021]">{tiLeChuyenGia.toFixed(0)}%</p>
+        </div>
 
-          <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Tỷ lệ chuyên gia</p>
-              <Award className="h-4 w-4 text-[#56724d]" />
-            </div>
-            <p className="mt-3 text-2xl font-semibold text-[#223021]">{tiLeChuyenGia.toFixed(0)}%</p>
-            <p className="mt-1 text-sm text-[#5f6d59]">{tongChuyenGia} hồ sơ đang ở mức chuyên gia.</p>
-          </div>
+        <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Hồ sơ chuyên gia</div>
+          <p className="mt-3 text-2xl font-semibold text-[#223021]">{tongChuyenGia}</p>
+        </div>
 
-          <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Cách đọc nhanh</p>
-              <Search className="h-4 w-4 text-[#56724d]" />
-            </div>
-            <p className="mt-3 text-base font-semibold text-[#223021]">Lọc theo tên kỹ năng rồi mở từng dòng.</p>
-            <p className="mt-1 text-sm text-[#5f6d59]">Bạn sẽ thấy ai đang có kỹ năng đó, trình độ hiện tại và số năm kinh nghiệm.</p>
-          </div>
+        <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Kinh nghiệm cộng dồn</div>
+          <p className="mt-3 text-2xl font-semibold text-[#223021]">{tongNamKinhNghiem}</p>
         </div>
       </div>
 
@@ -153,16 +133,12 @@ export function SkillsMatrix({ skills, tongNguoiDung, tongKyNang, tongNamKinhNgh
             {skills.length === 0 ? (
               <>
                 <p className="text-lg font-semibold text-[#223021]">Chưa có dữ liệu kỹ năng để hiển thị.</p>
-                <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#66735f]">
-                  Khi thành viên bắt đầu thêm kỹ năng, trình độ và số năm kinh nghiệm trong hồ sơ cá nhân, ma trận này sẽ giúp bạn nhìn ra người phù hợp cho từng đầu việc, khoảng trống cần đào tạo và nhu cầu tuyển mới.
-                </p>
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#66735f]">Thành viên cần bổ sung kỹ năng trong hồ sơ cá nhân để ma trận bắt đầu hiển thị dữ liệu.</p>
               </>
             ) : (
               <>
                 <p className="text-lg font-semibold text-[#223021]">Không có kỹ năng nào khớp với từ khóa này.</p>
-                <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#66735f]">
-                  Thử đổi cách viết hoặc bỏ bớt từ khóa để xem lại toàn bộ danh sách kỹ năng đang có trong tổ chức.
-                </p>
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#66735f]">Thử đổi cách viết hoặc bỏ bớt từ khóa.</p>
               </>
             )}
           </div>

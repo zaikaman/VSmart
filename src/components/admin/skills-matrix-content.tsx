@@ -107,13 +107,12 @@ export function SkillsMatrixPageContent() {
   const soNguoiDaKhaiBaoKyNang = new Set(skills.flatMap((skill) => skill.nguoi_dung.map((user) => user.id))).size;
   const doPhuKyNang = tongNguoiDung > 0 ? (soNguoiDaKhaiBaoKyNang / tongNguoiDung) * 100 : 0;
   const matDoKyNang = tongNguoiDung > 0 ? tongHoSoKyNang / tongNguoiDung : 0;
-  const kyNangPhoBienNhat = skills[0];
 
   return (
     <DashboardPageShell
       badge="Điều hành"
       title="Ma trận kỹ năng"
-      description="Nhìn nhanh đội ngũ đang mạnh ở đâu, thiếu gì và ai phù hợp cho từng đầu việc trên cùng một màn hình."
+      description="Tổng hợp kỹ năng của toàn bộ thành viên trong tổ chức."
       actions={
         <Link href="/dashboard">
           <Button variant="outline" className="border-[#dfe5d6] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
@@ -157,52 +156,6 @@ export function SkillsMatrixPageContent() {
         },
       ]}
     >
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <DashboardSection title="Trang này dùng để làm gì?" description="Đây là nơi gom toàn bộ kỹ năng của thành viên về một chỗ để bạn đọc năng lực đội ngũ theo chiều ngang thay vì mở từng hồ sơ riêng lẻ.">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-              <p className="text-sm font-semibold text-[#223021]">Xem đội ngũ đang mạnh ở đâu</p>
-              <p className="mt-2 text-sm leading-6 text-[#65725f]">Biết kỹ năng nào đang có nhiều người nắm tốt để tự tin giao việc hoặc mở rộng dự án.</p>
-            </div>
-            <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-              <p className="text-sm font-semibold text-[#223021]">Tìm đúng người cho đúng việc</p>
-              <p className="mt-2 text-sm leading-6 text-[#65725f]">Mỗi dòng cho thấy ai đang có kỹ năng đó, ở mức nào và đã tích lũy bao nhiêu năm kinh nghiệm.</p>
-            </div>
-            <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-              <p className="text-sm font-semibold text-[#223021]">Phát hiện chỗ còn thiếu</p>
-              <p className="mt-2 text-sm leading-6 text-[#65725f]">Khi một kỹ năng quá ít người sở hữu, bạn sẽ thấy ngay nhu cầu đào tạo thêm hoặc cần tuyển mới.</p>
-            </div>
-          </div>
-        </DashboardSection>
-
-        <DashboardSection title="Nhìn nhanh trước khi đọc ma trận" description="Ba chỉ số này giúp bạn hiểu bức tranh năng lực tổng quát chỉ trong vài giây.">
-          <div className="space-y-3">
-            <div className="rounded-[24px] border border-[#e4eadf] bg-[linear-gradient(135deg,#f8fbf4_0%,#eef6e6_100%)] p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Kỹ năng phổ biến nhất</div>
-              <p className="mt-3 text-lg font-semibold text-[#223021]">
-                {kyNangPhoBienNhat ? kyNangPhoBienNhat.ten_ky_nang : 'Chưa có dữ liệu'}
-              </p>
-              <p className="mt-1 text-sm text-[#5f6d59]">
-                {kyNangPhoBienNhat ? `${kyNangPhoBienNhat.so_nguoi} thành viên đang sở hữu kỹ năng này.` : 'Khi thành viên bắt đầu khai báo kỹ năng, mục này sẽ tự cập nhật.'}
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[22px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Mật độ kỹ năng</div>
-                <p className="mt-3 text-2xl font-semibold text-[#223021]">{matDoKyNang.toFixed(1)}</p>
-                <p className="mt-1 text-sm text-[#5f6d59]">Kỹ năng trung bình trên mỗi thành viên.</p>
-              </div>
-              <div className="rounded-[22px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Kinh nghiệm cộng dồn</div>
-                <p className="mt-3 text-2xl font-semibold text-[#223021]">{tongNamKinhNghiem}</p>
-                <p className="mt-1 text-sm text-[#5f6d59]">Tổng số năm kinh nghiệm từ toàn bộ kỹ năng đã khai báo.</p>
-              </div>
-            </div>
-          </div>
-        </DashboardSection>
-      </div>
-
       <SkillsMatrix
         skills={skills}
         tongNguoiDung={tongNguoiDung}
