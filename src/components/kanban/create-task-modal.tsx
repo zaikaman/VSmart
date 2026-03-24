@@ -242,18 +242,28 @@ export function CreateTaskModal({
     setSuggestionsError(null);
 
     try {
+      const payload = {
+        ten: taskName,
+        mo_ta: taskDescription || '',
+        priority: selectedPriority,
+        deadline: taskDeadline
+          ? new Date(taskDeadline).toISOString()
+          : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        phan_du_an_id: phanDuAnId,
+      };
+
+      console.log('[AI Suggest Assignee][Client] Request', payload);
+
       const response = await fetch('/api/ai/suggest-assignee', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ten: taskName,
-          mo_ta: taskDescription || '',
-          priority: selectedPriority,
-          deadline: taskDeadline
-            ? new Date(taskDeadline).toISOString()
-            : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          phan_du_an_id: phanDuAnId,
-        }),
+        body: JSON.stringify(payload),
+      });
+
+      console.log('[AI Suggest Assignee][Client] Response status', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
       });
 
       if (!response.ok) {
@@ -261,6 +271,7 @@ export function CreateTaskModal({
       }
 
       const data: SuggestAssigneeResponse = await response.json();
+      console.log('[AI Suggest Assignee][Client] Response payload', data);
       setSuggestions(data.suggestions || []);
       setAllCandidates(data.all_candidates || []);
       setSuggestionModel(data.model);
