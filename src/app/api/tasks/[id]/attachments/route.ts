@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { uploadFileToCloudinary } from '@/lib/cloudinary/config';
 import { getTaskAccessContext } from '@/lib/tasks/auth';
-
-const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+import { MAX_TASK_ATTACHMENT_SIZE } from '@/lib/tasks/attachments';
 
 export const runtime = 'nodejs';
 
@@ -56,7 +55,7 @@ export async function POST(
       return NextResponse.json({ error: 'Vui lòng chọn file' }, { status: 400 });
     }
 
-    if (file.size > MAX_ATTACHMENT_SIZE) {
+    if (file.size > MAX_TASK_ATTACHMENT_SIZE) {
       return NextResponse.json({ error: 'Kích thước file không được vượt quá 10MB' }, { status: 400 });
     }
 

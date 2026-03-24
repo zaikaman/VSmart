@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MAX_TASK_ATTACHMENT_SIZE } from '@/lib/tasks/attachments';
 
 export interface ChecklistItem {
   id: string;
@@ -358,6 +359,10 @@ export function useUploadTaskAttachment(taskId: string) {
 
   return useMutation({
     mutationFn: async (file: File) => {
+      if (file.size > MAX_TASK_ATTACHMENT_SIZE) {
+        throw new Error('File đính kèm chỉ được tối đa 10MB');
+      }
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -367,8 +372,12 @@ export function useUploadTaskAttachment(taskId: string) {
       });
 
       if (!response.ok) {
+        if (response.status === 413) {
+          throw new Error('File quá lớn hoặc request upload vượt giới hạn cho phép');
+        }
+
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Failed to upload attachment');
+        throw new Error(error.error || 'Không thể tải file đính kèm');
       }
 
       return response.json();

@@ -36,6 +36,7 @@ import {
 import { useApproveTask, useRejectTask, useSubmitTaskForReview } from '@/lib/hooks/use-governance';
 import { useDeleteTask, useTask, type Task as HookTask } from '@/lib/hooks/use-tasks';
 import { canTransitionReviewStatus } from '@/lib/auth/permissions';
+import { MAX_TASK_ATTACHMENT_SIZE } from '@/lib/tasks/attachments';
 import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task-progress';
 
 interface BaseTask {
@@ -503,6 +504,11 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
                 <Input type="file" onChange={async (event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
+                  if (file.size > MAX_TASK_ATTACHMENT_SIZE) {
+                    toast.error('File đính kèm chỉ được tối đa 10MB');
+                    event.target.value = '';
+                    return;
+                  }
                   try {
                     await uploadAttachmentMutation.mutateAsync(file);
                     toast.success('Đã tải file lên');
