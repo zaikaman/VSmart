@@ -1,17 +1,10 @@
 'use client';
 
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { useQuery } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { supabase } from '@/lib/supabase/client';
-
-interface PresenceUser {
-  id: string;
-  to_chuc?: {
-    id: string;
-  } | null;
-}
 
 interface PresencePayload {
   userId: string;
@@ -29,20 +22,6 @@ interface PresenceContextValue {
 }
 
 const PresenceContext = createContext<PresenceContextValue | undefined>(undefined);
-
-async function fetchPresenceUser() {
-  const response = await fetch('/api/users/me');
-
-  if (response.status === 401) {
-    return null;
-  }
-
-  if (!response.ok) {
-    throw new Error('Không thể lấy thông tin hiện diện');
-  }
-
-  return response.json() as Promise<PresenceUser>;
-}
 
 function normalizePresenceState(channel: RealtimeChannel) {
   const state = channel.presenceState<PresencePayload>();
@@ -67,12 +46,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
-  const { data: currentUser } = useQuery({
-    queryKey: ['presence-user'],
-    queryFn: fetchPresenceUser,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
+  const { data: currentUser } = useCurrentUser();
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -183,7 +157,7 @@ export function usePresence() {
   const context = useContext(PresenceContext);
 
   if (!context) {
-    throw new Error('usePresence phải được dùng bên trong PresenceProvider');
+    throw new Error('usePresence pháº£i Ä‘Æ°á»£c dÃ¹ng bÃªn trong PresenceProvider');
   }
 
   return context;

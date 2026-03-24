@@ -80,7 +80,7 @@ function canSelfAssignOnly(params: {
   );
 }
 
-async function getAccessiblePartIds({
+async function getAccessibleTaskScope({
   supabase,
   email,
   duAnId,
@@ -93,7 +93,7 @@ async function getAccessiblePartIds({
 }) {
   const { data: memberships, error: membershipError } = await supabase
     .from('thanh_vien_du_an')
-    .select('du_an_id')
+    .select('du_an_id, vai_tro')
     .eq('email', email)
     .eq('trang_thai', 'active');
 
@@ -101,14 +101,19 @@ async function getAccessiblePartIds({
     throw membershipError;
   }
 
-  let projectIds = memberships?.map((membership) => membership.du_an_id) || [];
-
-  if (duAnId) {
-    projectIds = projectIds.filter((projectId) => projectId === duAnId);
-  }
+  const filteredMemberships = (memberships || []).filter(
+    (membership) => !duAnId || membership.du_an_id === duAnId
+  );
+  const roleByProjectId = new Map(
+    filteredMemberships.map((membership) => [membership.du_an_id, membership.vai_tro])
+  );
+  const projectIds = Array.from(roleByProjectId.keys());
 
   if (projectIds.length === 0) {
-    return [];
+    return {
+      partIds: [] as string[],
+      roleByProjectId,
+    };
   }
 
   let partsQuery = supabase
@@ -127,7 +132,10 @@ async function getAccessiblePartIds({
     throw partsError;
   }
 
-  return projectParts?.map((part) => part.id) || [];
+  return {
+    partIds: projectParts?.map((part) => part.id) || [],
+    roleByProjectId,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -157,46 +165,20 @@ export async function GET(request: NextRequest) {
     const isStale = searchParams.get('isStale') === 'true';
     const viewMode = searchParams.get('viewMode');
 
-    const accessiblePartIds = await getAccessiblePartIds({
-      supabase,
-      email: user.email || '',
-      duAnId,
-      phanDuAnId,
-    });
+    const [accessibleScope, currentDbUserResult] = await Promise.all([
+      getAccessibleTaskScope({
+        supabase,
+        email: user.email || '',
+        duAnId,
+        phanDuAnId,
+      }),
+      supabase.from('nguoi_dung').select('id, vai_tro').eq('email', user.email).single(),
+    ]);
 
-    if (accessiblePartIds.length === 0) {
+    if (accessibleScope.partIds.length === 0) {
       return buildEmptyResponse(page, limit);
     }
-
-    const { data: currentDbUser } = await supabase
-      .from('nguoi_dung')
-      .select('id, vai_tro')
-      .eq('email', user.email)
-      .single();
-
-    const memberRoleMap = new Map<string, string>();
-    if (duAnId) {
-      const { data: membership } = await supabase
-        .from('thanh_vien_du_an')
-        .select('du_an_id, vai_tro')
-        .eq('email', user.email)
-        .eq('trang_thai', 'active')
-        .eq('du_an_id', duAnId);
-
-      for (const item of membership || []) {
-        memberRoleMap.set(item.du_an_id, item.vai_tro);
-      }
-    } else {
-      const { data: memberships } = await supabase
-        .from('thanh_vien_du_an')
-        .select('du_an_id, vai_tro')
-        .eq('email', user.email)
-        .eq('trang_thai', 'active');
-
-      for (const item of memberships || []) {
-        memberRoleMap.set(item.du_an_id, item.vai_tro);
-      }
-    }
+    const currentDbUser = currentDbUserResult.data;
 
     let query = supabase
       .from('task')
@@ -216,7 +198,7 @@ export async function GET(request: NextRequest) {
       `,
         { count: 'exact' }
       )
-      .in('phan_du_an_id', accessiblePartIds)
+      .in('phan_du_an_id', accessibleScope.partIds)
       .is('deleted_at', null)
       .order('ngay_tao', { ascending: false });
 
@@ -266,7 +248,9 @@ export async function GET(request: NextRequest) {
 
     const normalizedData = (data || []).map((task) => {
       const partRelation = Array.isArray(task.phan_du_an) ? task.phan_du_an[0] : task.phan_du_an;
-      const projectRole = partRelation?.du_an_id ? memberRoleMap.get(partRelation.du_an_id) || null : null;
+      const projectRole = partRelation?.du_an_id
+        ? accessibleScope.roleByProjectId.get(partRelation.du_an_id) || null
+        : null;
 
       return {
         ...task,

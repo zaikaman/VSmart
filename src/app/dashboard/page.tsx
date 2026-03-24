@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
   Building2,
@@ -26,6 +26,7 @@ import ProjectInvitations from '@/components/projects/project-invitations';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isLeadershipRole } from '@/lib/auth/permissions';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { useMyOrganizationInvitations, useOrganization } from '@/lib/hooks/use-organizations';
 import { useProjects, type Project } from '@/lib/hooks/use-projects';
 import { useStats } from '@/lib/hooks/use-stats';
@@ -42,19 +43,7 @@ export default function DashboardPage() {
   const { data: projectsData, isLoading: projectsLoading } = useProjects();
   const { data: stats, isLoading: statsLoading } = useStats({ enabled: Boolean(organization) });
   const { onlineCount, ready: presenceReady } = usePresence();
-  const { data: currentUser } = useQuery({
-    queryKey: ['dashboard-current-user'],
-    queryFn: async () => {
-      const response = await fetch('/api/users/me');
-      if (!response.ok) throw new Error('Không thể tải thông tin người dùng');
-
-      return response.json() as Promise<{
-        vai_tro?: string;
-        onboarding_completed?: boolean;
-        ten?: string;
-      }>;
-    },
-  });
+  const { data: currentUser } = useCurrentUser();
 
   const completeOnboardingMutation = useMutation({
     mutationFn: async () => {
@@ -66,14 +55,14 @@ export default function DashboardPage() {
 
       if (!response.ok) {
         const error = await response.json().catch(() => null);
-        throw new Error(error?.error || 'Không thể cập nhật trạng thái bắt đầu nhanh');
+        throw new Error(error?.error || 'KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i báº¯t Ä‘áº§u nhanh');
       }
 
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });
-      toast.success('Đã ẩn phần bắt đầu nhanh');
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      toast.success('ÄÃ£ áº©n pháº§n báº¯t Ä‘áº§u nhanh');
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -85,25 +74,25 @@ export default function DashboardPage() {
   const projects = projectsData?.data || [];
   const onboardingSteps = [
     {
-      title: 'Tạo dự án đầu tiên',
-      description: 'Dựng khung công việc, deadline và thành viên cốt lõi để team bắt đầu chạy thật.',
+      title: 'Táº¡o dá»± Ã¡n Ä‘áº§u tiÃªn',
+      description: 'Dá»±ng khung cÃ´ng viá»‡c, deadline vÃ  thÃ nh viÃªn cá»‘t lÃµi Ä‘á»ƒ team báº¯t Ä‘áº§u cháº¡y tháº­t.',
       completed: projects.length > 0,
       href: null as string | null,
-      cta: 'Tạo dự án ngay',
+      cta: 'Táº¡o dá»± Ã¡n ngay',
     },
     {
-      title: 'Đưa task vào guồng chạy',
-      description: 'Thêm task, checklist hoặc template để bảng Kanban có dữ liệu thật thay vì chỉ là khung trống.',
+      title: 'ÄÆ°a task vÃ o guá»“ng cháº¡y',
+      description: 'ThÃªm task, checklist hoáº·c template Ä‘á»ƒ báº£ng Kanban cÃ³ dá»¯ liá»‡u tháº­t thay vÃ¬ chá»‰ lÃ  khung trá»‘ng.',
       completed: (stats?.inProgressTasks || 0) > 0,
       href: '/dashboard/kanban',
-      cta: 'Mở Kanban',
+      cta: 'Má»Ÿ Kanban',
     },
     {
-      title: 'Chốt nhịp review và thông báo',
-      description: 'Thiết lập kênh nhắc việc, digest và hàng chờ duyệt để người quản lý bám sát tiến độ mỗi ngày.',
+      title: 'Chá»‘t nhá»‹p review vÃ  thÃ´ng bÃ¡o',
+      description: 'Thiáº¿t láº­p kÃªnh nháº¯c viá»‡c, digest vÃ  hÃ ng chá» duyá»‡t Ä‘á»ƒ ngÆ°á»i quáº£n lÃ½ bÃ¡m sÃ¡t tiáº¿n Ä‘á»™ má»—i ngÃ y.',
       completed: !!currentUser?.onboarding_completed,
       href: '/dashboard/settings',
-      cta: 'Mở cài đặt',
+      cta: 'Má»Ÿ cÃ i Ä‘áº·t',
     },
   ];
   const completedOnboardingSteps = onboardingSteps.filter((step) => step.completed).length;
@@ -124,33 +113,33 @@ export default function DashboardPage() {
   const shellMetrics = organization
     ? [
         {
-          label: 'Tổng số dự án',
+          label: 'Tá»•ng sá»‘ dá»± Ã¡n',
           value: stats?.totalProjects?.toString() || '0',
-          note: 'Toàn bộ không gian làm việc',
+          note: 'ToÃ n bá»™ khÃ´ng gian lÃ m viá»‡c',
           icon: <LayoutDashboard className="h-4 w-4 text-[#2f6052]" />,
           surfaceClassName: 'bg-[#eef6f0] border-[#d9eadf]',
           valueClassName: 'text-[#2f6052]',
         },
         {
-          label: 'Nhiệm vụ đang chạy',
+          label: 'Nhiá»‡m vá»¥ Ä‘ang cháº¡y',
           value: stats?.inProgressTasks?.toString() || '0',
-          note: 'Các task đang triển khai',
+          note: 'CÃ¡c task Ä‘ang triá»ƒn khai',
           icon: <TrendingUp className="h-4 w-4 text-[#b66944]" />,
           surfaceClassName: 'bg-[#fff1e8] border-[#f0ddd1]',
           valueClassName: 'text-[#b66944]',
         },
         {
-          label: 'Đang online',
+          label: 'Äang online',
           value: presenceReady ? onlineCount.toString() : '...',
-          note: 'Người đang mở VSmart lúc này',
+          note: 'NgÆ°á»i Ä‘ang má»Ÿ VSmart lÃºc nÃ y',
           icon: <Users className="h-4 w-4 text-[#39638d]" />,
           surfaceClassName: 'bg-[#edf5ff] border-[#d8e6f7]',
           valueClassName: 'text-[#39638d]',
         },
         {
-          label: 'Quá hạn mở',
+          label: 'QuÃ¡ háº¡n má»Ÿ',
           value: stats?.overdueTasks?.toString() || '0',
-          note: 'Điểm cần giữ sát hôm nay',
+          note: 'Äiá»ƒm cáº§n giá»¯ sÃ¡t hÃ´m nay',
           icon: <CheckCircle2 className="h-4 w-4 text-[#985c21]" />,
           surfaceClassName: 'bg-[#fff6df] border-[#eee1bb]',
           valueClassName: 'text-[#985c21]',
@@ -158,25 +147,25 @@ export default function DashboardPage() {
       ]
     : [
         {
-          label: 'Hồ sơ cá nhân',
-          value: currentUser?.ten ? 'Sẵn sàng' : 'Cần bổ sung',
-          note: 'Bạn đang ở chế độ làm việc cá nhân',
+          label: 'Há»“ sÆ¡ cÃ¡ nhÃ¢n',
+          value: currentUser?.ten ? 'Sáºµn sÃ ng' : 'Cáº§n bá»• sung',
+          note: 'Báº¡n Ä‘ang á»Ÿ cháº¿ Ä‘á»™ lÃ m viá»‡c cÃ¡ nhÃ¢n',
           icon: <CheckCircle2 className="h-4 w-4 text-[#2f6052]" />,
           surfaceClassName: 'bg-[#eef6f0] border-[#d9eadf]',
           valueClassName: 'text-xl text-[#2f6052]',
         },
         {
-          label: 'Không gian làm việc',
-          value: 'Chưa tạo',
-          note: 'Tạo khi cần mở dự án và mời team',
+          label: 'KhÃ´ng gian lÃ m viá»‡c',
+          value: 'ChÆ°a táº¡o',
+          note: 'Táº¡o khi cáº§n má»Ÿ dá»± Ã¡n vÃ  má»i team',
           icon: <Building2 className="h-4 w-4 text-[#39638d]" />,
           surfaceClassName: 'bg-[#edf5ff] border-[#d8e6f7]',
           valueClassName: 'text-xl text-[#39638d]',
         },
         {
-          label: 'Dự án hiện có',
+          label: 'Dá»± Ã¡n hiá»‡n cÃ³',
           value: projects.length.toString(),
-          note: 'Bạn chỉ có thể tạo dự án mới sau khi có tổ chức',
+          note: 'Báº¡n chá»‰ cÃ³ thá»ƒ táº¡o dá»± Ã¡n má»›i sau khi cÃ³ tá»• chá»©c',
           icon: <LayoutDashboard className="h-4 w-4 text-[#985c21]" />,
           surfaceClassName: 'bg-[#fff6df] border-[#eee1bb]',
           valueClassName: 'text-[#985c21]',
@@ -188,25 +177,25 @@ export default function DashboardPage() {
       badge={
         <>
           <Sparkles className="h-3.5 w-3.5 text-[#87ac63]" />
-          Tổng quan
+          Tá»•ng quan
         </>
       }
-      title={currentUser?.ten ? `Chào ${currentUser.ten}` : 'Tổng quan'}
+      title={currentUser?.ten ? `ChÃ o ${currentUser.ten}` : 'Tá»•ng quan'}
       description={
         organization
-          ? 'Theo dõi tiến độ chung, deadline sắp tới và các điểm cần chú ý.'
-          : 'Bạn đang dùng VSmart với hồ sơ cá nhân. Khi cần làm việc cùng team, hãy tạo tổ chức để bắt đầu dự án.'
+          ? 'Theo dÃµi tiáº¿n Ä‘á»™ chung, deadline sáº¯p tá»›i vÃ  cÃ¡c Ä‘iá»ƒm cáº§n chÃº Ã½.'
+          : 'Báº¡n Ä‘ang dÃ¹ng VSmart vá»›i há»“ sÆ¡ cÃ¡ nhÃ¢n. Khi cáº§n lÃ m viá»‡c cÃ¹ng team, hÃ£y táº¡o tá»• chá»©c Ä‘á»ƒ báº¯t Ä‘áº§u dá»± Ã¡n.'
       }
       actions={
         organization ? (
           <>
             <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
-              Dự án mới
+              Dá»± Ã¡n má»›i
             </Button>
             <Link href="/dashboard/projects">
               <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-                Xem toàn bộ dự án
+                Xem toÃ n bá»™ dá»± Ã¡n
               </Button>
             </Link>
           </>
@@ -214,11 +203,11 @@ export default function DashboardPage() {
           <>
             <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
               <Building2 className="mr-2 h-4 w-4" />
-              Tạo tổ chức
+              Táº¡o tá»• chá»©c
             </Button>
             <Link href="/dashboard/settings">
               <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-                Mở cài đặt
+                Má»Ÿ cÃ i Ä‘áº·t
               </Button>
             </Link>
           </>
@@ -228,26 +217,26 @@ export default function DashboardPage() {
     >
       {!organization ? (
         <DashboardSection
-          title="Sẵn sàng làm việc cùng team"
-          description="Bạn có thể bắt đầu từ hồ sơ cá nhân trước, rồi tạo tổ chức khi cần mở dự án chung."
+          title="Sáºµn sÃ ng lÃ m viá»‡c cÃ¹ng team"
+          description="Báº¡n cÃ³ thá»ƒ báº¯t Ä‘áº§u tá»« há»“ sÆ¡ cÃ¡ nhÃ¢n trÆ°á»›c, rá»“i táº¡o tá»• chá»©c khi cáº§n má»Ÿ dá»± Ã¡n chung."
         >
           <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
               <div className="inline-flex rounded-full border border-[#d6e3c9] bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
-                Bắt đầu nhẹ nhàng
+                Báº¯t Ä‘áº§u nháº¹ nhÃ ng
               </div>
-              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Khi cần làm việc cùng team, hãy tạo một tổ chức riêng.</h3>
+              <h3 className="mt-4 text-xl font-semibold text-[#223021]">Khi cáº§n lÃ m viá»‡c cÃ¹ng team, hÃ£y táº¡o má»™t tá»• chá»©c riÃªng.</h3>
               <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
-                Sau đó bạn có thể mở dự án, mời thành viên và quản lý mọi thứ ở cùng một nơi. Người tạo đầu tiên sẽ là <strong>owner</strong>.
+                Sau Ä‘Ã³ báº¡n cÃ³ thá»ƒ má»Ÿ dá»± Ã¡n, má»i thÃ nh viÃªn vÃ  quáº£n lÃ½ má»i thá»© á»Ÿ cÃ¹ng má»™t nÆ¡i. NgÆ°á»i táº¡o Ä‘áº§u tiÃªn sáº½ lÃ  <strong>owner</strong>.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
                   <Building2 className="mr-2 h-4 w-4" />
-                  Tạo tổ chức ngay
+                  Táº¡o tá»• chá»©c ngay
                 </Button>
                 <Link href="/dashboard/profile">
                   <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-                    Cập nhật hồ sơ
+                    Cáº­p nháº­t há»“ sÆ¡
                   </Button>
                 </Link>
               </div>
@@ -255,9 +244,9 @@ export default function DashboardPage() {
 
             <div className="space-y-3">
               {[
-                ['1', 'Cập nhật hồ sơ', 'Thêm họ tên, phòng ban, avatar hoặc kỹ năng để thông tin của bạn đầy đủ hơn.'],
-                ['2', 'Tạo tổ chức', 'Thiết lập không gian làm việc chung cho team khi bạn sẵn sàng.'],
-                ['3', 'Bắt đầu dự án', 'Tạo dự án đầu tiên và mời mọi người vào làm việc cùng nhau.'],
+                ['1', 'Cáº­p nháº­t há»“ sÆ¡', 'ThÃªm há» tÃªn, phÃ²ng ban, avatar hoáº·c ká»¹ nÄƒng Ä‘á»ƒ thÃ´ng tin cá»§a báº¡n Ä‘áº§y Ä‘á»§ hÆ¡n.'],
+                ['2', 'Táº¡o tá»• chá»©c', 'Thiáº¿t láº­p khÃ´ng gian lÃ m viá»‡c chung cho team khi báº¡n sáºµn sÃ ng.'],
+                ['3', 'Báº¯t Ä‘áº§u dá»± Ã¡n', 'Táº¡o dá»± Ã¡n Ä‘áº§u tiÃªn vÃ  má»i má»i ngÆ°á»i vÃ o lÃ m viá»‡c cÃ¹ng nhau.'],
               ].map(([index, title, description]) => (
                 <div key={index} className="rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-4">
                   <div className="flex items-start gap-3">
@@ -277,21 +266,21 @@ export default function DashboardPage() {
       ) : null}
 
       {!organization && (organizationInvitations?.length || 0) > 0 ? (
-        <DashboardSection title="Lời mời đang chờ" description="Nếu có ai đó đã mời bạn vào một tổ chức, bạn có thể phản hồi ngay tại đây.">
+        <DashboardSection title="Lá»i má»i Ä‘ang chá»" description="Náº¿u cÃ³ ai Ä‘Ã³ Ä‘Ã£ má»i báº¡n vÃ o má»™t tá»• chá»©c, báº¡n cÃ³ thá»ƒ pháº£n há»“i ngay táº¡i Ä‘Ã¢y.">
           <OrganizationInvitationsList />
         </DashboardSection>
       ) : null}
 
       {!organization ? (
-        <DashboardSection title="Tìm tổ chức để tham gia" description="Nếu team của bạn đã có workspace sẵn, bạn có thể gửi yêu cầu gia nhập tại đây.">
+        <DashboardSection title="TÃ¬m tá»• chá»©c Ä‘á»ƒ tham gia" description="Náº¿u team cá»§a báº¡n Ä‘Ã£ cÃ³ workspace sáºµn, báº¡n cÃ³ thá»ƒ gá»­i yÃªu cáº§u gia nháº­p táº¡i Ä‘Ã¢y.">
           <OrganizationJoinDiscoveryPanel />
         </DashboardSection>
       ) : null}
 
       {organization && !currentUser?.onboarding_completed ? (
-        <DashboardSection title="Bắt đầu nhanh" description="Hoàn thành vài bước cơ bản để bắt đầu làm việc thuận hơn.">
+        <DashboardSection title="Báº¯t Ä‘áº§u nhanh" description="HoÃ n thÃ nh vÃ i bÆ°á»›c cÆ¡ báº£n Ä‘á»ƒ báº¯t Ä‘áº§u lÃ m viá»‡c thuáº­n hÆ¡n.">
           <div className="mb-4 inline-flex rounded-full border border-[#d7e1cb] bg-[#f7fbef] px-3 py-1 text-sm font-medium text-[#50614f]">
-            {completedOnboardingSteps}/3 đã xong
+            {completedOnboardingSteps}/3 Ä‘Ã£ xong
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {onboardingSteps.map((step) => (
@@ -318,10 +307,10 @@ export default function DashboardPage() {
                   </button>
                 )}
 
-                {step.title === 'Chốt nhịp review và thông báo' ? (
+                {step.title === 'Chá»‘t nhá»‹p review vÃ  thÃ´ng bÃ¡o' ? (
                   <Link href="/dashboard/reviews" className="mt-2 flex items-center gap-2 text-sm text-[#6a7762] transition-colors hover:text-[#223021]">
                     <Settings2 className="h-4 w-4" />
-                    Mở hàng chờ duyệt
+                    Má»Ÿ hÃ ng chá» duyá»‡t
                   </Link>
                 ) : null}
               </div>
@@ -330,34 +319,34 @@ export default function DashboardPage() {
 
           <div className="mt-5 flex flex-wrap gap-2">
             <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateProjectOpen(true)}>
-              Tạo dự án ngay
+              Táº¡o dá»± Ã¡n ngay
             </Button>
             <Link href="/dashboard/settings">
               <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-                Mở cài đặt thông báo
+                Má»Ÿ cÃ i Ä‘áº·t thÃ´ng bÃ¡o
               </Button>
             </Link>
             <Button variant="ghost" className="text-[#5f6b58] hover:bg-[#f6f8f1]" disabled={completeOnboardingMutation.isPending} onClick={() => completeOnboardingMutation.mutate()}>
-              {completeOnboardingMutation.isPending ? 'Đang cập nhật...' : 'Đánh dấu đã sẵn sàng'}
+              {completeOnboardingMutation.isPending ? 'Äang cáº­p nháº­t...' : 'ÄÃ¡nh dáº¥u Ä‘Ã£ sáºµn sÃ ng'}
             </Button>
           </div>
         </DashboardSection>
       ) : null}
 
       {shouldShowExecutiveSummary ? (
-        <DashboardSection title="Tóm tắt hôm nay" description="Những điểm chính cần xem trước khi bắt đầu làm việc.">
+        <DashboardSection title="TÃ³m táº¯t hÃ´m nay" description="Nhá»¯ng Ä‘iá»ƒm chÃ­nh cáº§n xem trÆ°á»›c khi báº¯t Ä‘áº§u lÃ m viá»‡c.">
           <ExecutiveSummaryWidget />
-          {digestReference ? <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#7c8776]">Đang mở digest: {digestReference}</p> : null}
+          {digestReference ? <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#7c8776]">Äang má»Ÿ digest: {digestReference}</p> : null}
         </DashboardSection>
       ) : null}
 
       {organization ? (
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <DashboardSection title="Deadline và tải tuần này" description="Các mốc gần nhất và nơi có dấu hiệu dồn việc.">
+          <DashboardSection title="Deadline vÃ  táº£i tuáº§n nÃ y" description="CÃ¡c má»‘c gáº§n nháº¥t vÃ  nÆ¡i cÃ³ dáº¥u hiá»‡u dá»“n viá»‡c.">
             <div className="space-y-3">
               {(stats?.upcomingDeadlines || []).length === 0 ? (
                 <div className="rounded-[22px] border border-dashed border-[#dce4d3] bg-[#f8faf4] py-8 text-center text-sm text-[#72806c]">
-                  Chưa có deadline nổi bật trong 2 tuần tới.
+                  ChÆ°a cÃ³ deadline ná»•i báº­t trong 2 tuáº§n tá»›i.
                 </div>
               ) : (
                 (stats?.upcomingDeadlines || []).map((item) => (
@@ -365,7 +354,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="font-medium text-[#223021]">{item.ten}</p>
                       <p className="mt-1 text-sm text-[#65725f]">
-                        {item.projectName} · {item.assigneeName}
+                        {item.projectName} Â· {item.assigneeName}
                       </p>
                     </div>
                     <div className="rounded-full border border-[#e0e6d7] bg-white px-3 py-1 text-xs font-medium text-[#5f6b58]">
@@ -377,7 +366,7 @@ export default function DashboardPage() {
             </div>
           </DashboardSection>
 
-          <DashboardSection title="Dự án và thành viên cần chú ý" description="Những chỗ nên xem lại sớm để tránh trễ việc.">
+          <DashboardSection title="Dá»± Ã¡n vÃ  thÃ nh viÃªn cáº§n chÃº Ã½" description="Nhá»¯ng chá»— nÃªn xem láº¡i sá»›m Ä‘á»ƒ trÃ¡nh trá»… viá»‡c.">
             <div className="space-y-3">
               {(stats?.riskyProjects || []).slice(0, 2).map((project) => (
                 <div key={project.id} className="rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
@@ -385,7 +374,7 @@ export default function DashboardPage() {
                     <p className="font-medium text-[#223021]">{project.ten}</p>
                     <span className="text-sm font-semibold text-[#b66944]">{project.slipProbability}%</span>
                   </div>
-                  <p className="text-sm text-[#65725f]">{project.forecastStatus === 'slipping' ? 'Nguy cơ trễ cao' : 'Cần theo dõi sát'}</p>
+                  <p className="text-sm text-[#65725f]">{project.forecastStatus === 'slipping' ? 'Nguy cÆ¡ trá»… cao' : 'Cáº§n theo dÃµi sÃ¡t'}</p>
                 </div>
               ))}
 
@@ -393,7 +382,7 @@ export default function DashboardPage() {
                 <div key={member.userId} className="flex items-center justify-between rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
                   <div>
                     <p className="font-medium text-[#223021]">{member.ten}</p>
-                    <p className="mt-1 text-sm text-[#65725f]">{member.activeTasks} task đang mở</p>
+                    <p className="mt-1 text-sm text-[#65725f]">{member.activeTasks} task Ä‘ang má»Ÿ</p>
                   </div>
                   <span className="text-sm font-semibold text-[#b16442]">{Math.round(member.loadRatio * 100)}%</span>
                 </div>
@@ -403,12 +392,12 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <DashboardSection title="Khi có tổ chức, mọi thứ sẽ gọn hơn" description="Dự án, thành viên và cài đặt chung của team sẽ nằm cùng một chỗ.">
+          <DashboardSection title="Khi cÃ³ tá»• chá»©c, má»i thá»© sáº½ gá»n hÆ¡n" description="Dá»± Ã¡n, thÃ nh viÃªn vÃ  cÃ i Ä‘áº·t chung cá»§a team sáº½ náº±m cÃ¹ng má»™t chá»—.">
             <div className="space-y-3">
               {[
-                ['Mời người vào làm việc', 'Bạn có thể thêm thành viên và bắt đầu cộng tác ngay trong cùng một không gian.'],
-                ['Mở dự án mới', 'Mọi dự án mới sẽ được tạo đúng chỗ để cả team cùng theo dõi.'],
-                ['Quản lý cài đặt chung', 'Các thiết lập cho team sẽ nằm riêng, không lẫn với hồ sơ cá nhân của bạn.'],
+                ['Má»i ngÆ°á»i vÃ o lÃ m viá»‡c', 'Báº¡n cÃ³ thá»ƒ thÃªm thÃ nh viÃªn vÃ  báº¯t Ä‘áº§u cá»™ng tÃ¡c ngay trong cÃ¹ng má»™t khÃ´ng gian.'],
+                ['Má»Ÿ dá»± Ã¡n má»›i', 'Má»i dá»± Ã¡n má»›i sáº½ Ä‘Æ°á»£c táº¡o Ä‘Ãºng chá»— Ä‘á»ƒ cáº£ team cÃ¹ng theo dÃµi.'],
+                ['Quáº£n lÃ½ cÃ i Ä‘áº·t chung', 'CÃ¡c thiáº¿t láº­p cho team sáº½ náº±m riÃªng, khÃ´ng láº«n vá»›i há»“ sÆ¡ cÃ¡ nhÃ¢n cá»§a báº¡n.'],
               ].map(([title, description]) => (
                 <div key={title} className="rounded-[22px] border border-[#e4e9de] bg-[#fbfcf8] p-4">
                   <p className="font-medium text-[#223021]">{title}</p>
@@ -418,19 +407,19 @@ export default function DashboardPage() {
             </div>
           </DashboardSection>
 
-          <DashboardSection title="Tạo tổ chức bất cứ lúc nào" description="Ngay sau khi tạo xong, bạn có thể bắt đầu dự án đầu tiên cho team.">
+          <DashboardSection title="Táº¡o tá»• chá»©c báº¥t cá»© lÃºc nÃ o" description="Ngay sau khi táº¡o xong, báº¡n cÃ³ thá»ƒ báº¯t Ä‘áº§u dá»± Ã¡n Ä‘áº§u tiÃªn cho team.">
             <div className="rounded-[24px] border border-[#e4ebdd] bg-[#fbfcf8] p-5">
               <p className="text-sm leading-7 text-[#5d6b58]">
-                Bạn vẫn có thể dùng VSmart với hồ sơ cá nhân trước. Khi cần làm việc cùng team, chỉ cần tạo tổ chức là đủ để bắt đầu.
+                Báº¡n váº«n cÃ³ thá»ƒ dÃ¹ng VSmart vá»›i há»“ sÆ¡ cÃ¡ nhÃ¢n trÆ°á»›c. Khi cáº§n lÃ m viá»‡c cÃ¹ng team, chá»‰ cáº§n táº¡o tá»• chá»©c lÃ  Ä‘á»§ Ä‘á»ƒ báº¯t Ä‘áº§u.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
                   <Building2 className="mr-2 h-4 w-4" />
-                  Tạo tổ chức
+                  Táº¡o tá»• chá»©c
                 </Button>
                 <Link href="/dashboard/settings">
                   <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-                    Xem cài đặt
+                    Xem cÃ i Ä‘áº·t
                   </Button>
                 </Link>
               </div>
@@ -440,23 +429,23 @@ export default function DashboardPage() {
       )}
 
       {organization ? (
-        <DashboardSection title="Lời mời dự án" description="Các lời mời đang chờ bạn xác nhận.">
+        <DashboardSection title="Lá»i má»i dá»± Ã¡n" description="CÃ¡c lá»i má»i Ä‘ang chá» báº¡n xÃ¡c nháº­n.">
           <ProjectInvitations />
         </DashboardSection>
       ) : null}
 
       <DashboardSection
-        title={organization ? 'Dự án gần đây' : 'Dự án'}
+        title={organization ? 'Dá»± Ã¡n gáº§n Ä‘Ã¢y' : 'Dá»± Ã¡n'}
         description={
           organization
-            ? 'Các dự án bạn vừa làm việc hoặc mới được cập nhật.'
-            : 'Dự án chỉ được tạo sau khi bạn có một tổ chức để hệ thống gắn đúng quyền và phạm vi cộng tác.'
+            ? 'CÃ¡c dá»± Ã¡n báº¡n vá»«a lÃ m viá»‡c hoáº·c má»›i Ä‘Æ°á»£c cáº­p nháº­t.'
+            : 'Dá»± Ã¡n chá»‰ Ä‘Æ°á»£c táº¡o sau khi báº¡n cÃ³ má»™t tá»• chá»©c Ä‘á»ƒ há»‡ thá»‘ng gáº¯n Ä‘Ãºng quyá»n vÃ  pháº¡m vi cá»™ng tÃ¡c.'
         }
         actions={
           organization ? (
             <Link href="/dashboard/projects">
               <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]">
-                Xem tất cả
+                Xem táº¥t cáº£
               </Button>
             </Link>
           ) : null
@@ -465,7 +454,7 @@ export default function DashboardPage() {
         {projects.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-[#dce4d3] bg-[#f8faf4] py-12 text-center">
             <p className="mb-4 text-[#72806c]">
-              {organization ? 'Chưa có dự án nào.' : 'Bạn chưa có workspace để mở dự án mới.'}
+              {organization ? 'ChÆ°a cÃ³ dá»± Ã¡n nÃ o.' : 'Báº¡n chÆ°a cÃ³ workspace Ä‘á»ƒ má»Ÿ dá»± Ã¡n má»›i.'}
             </p>
             <Button
               className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
@@ -474,12 +463,12 @@ export default function DashboardPage() {
               {organization ? (
                 <>
                   <Plus className="mr-2 h-4 w-4" />
-                  Tạo dự án đầu tiên
+                  Táº¡o dá»± Ã¡n Ä‘áº§u tiÃªn
                 </>
               ) : (
                 <>
                   <Building2 className="mr-2 h-4 w-4" />
-                  Tạo tổ chức trước
+                  Táº¡o tá»• chá»©c trÆ°á»›c
                 </>
               )}
             </Button>
@@ -498,3 +487,4 @@ export default function DashboardPage() {
     </DashboardPageShell>
   );
 }
+

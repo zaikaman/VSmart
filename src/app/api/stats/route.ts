@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
   getCalendarPlanningData,
-  getProjectForecast,
+  getProjectHealthSummaries,
   getWorkloadPlanningData,
 } from '@/lib/planning/planning-service';
 
@@ -32,13 +32,7 @@ export async function GET() {
       );
     }
 
-    const [projectCountResult, membershipsResult, userCountResult] = await Promise.all([
-      supabase
-        .from('du_an')
-        .select('id, thanh_vien_du_an!inner(email, trang_thai)', { count: 'exact', head: true })
-        .eq('thanh_vien_du_an.email', user.email)
-        .eq('thanh_vien_du_an.trang_thai', 'active')
-        .is('deleted_at', null),
+    const [membershipsResult, userCountResult] = await Promise.all([
       supabase
         .from('thanh_vien_du_an')
         .select('du_an_id')
@@ -50,7 +44,7 @@ export async function GET() {
         .eq('to_chuc_id', userData.to_chuc_id),
     ]);
 
-    const projectIds = membershipsResult.data?.map((membership) => membership.du_an_id) || [];
+    const projectIds = Array.from(new Set(membershipsResult.data?.map((membership) => membership.du_an_id) || []));
 
     let inProgressTasks = 0;
     if (projectIds.length > 0) {
@@ -88,18 +82,7 @@ export async function GET() {
       getWorkloadPlanningData({
         email: user.email || '',
       }),
-      Promise.all(
-        projectIds.slice(0, 6).map(async (projectId) => {
-          try {
-            return await getProjectForecast({
-              email: user.email || '',
-              projectId,
-            });
-          } catch {
-            return null;
-          }
-        })
-      ),
+      getProjectHealthSummaries(projectIds.slice(0, 6)),
     ]);
 
     const riskTrends = planningCalendar.items.reduce(
@@ -133,12 +116,10 @@ export async function GET() {
       }));
 
     const normalizedRiskyProjects = riskyProjects
-      .filter((project): project is NonNullable<typeof project> => Boolean(project))
-      .sort((a, b) => b.slipProbability - a.slipProbability)
       .slice(0, 3)
       .map((project) => ({
-        id: project.project.id,
-        ten: project.project.ten,
+        id: project.id,
+        ten: project.ten,
         forecastStatus: project.forecastStatus,
         slipProbability: project.slipProbability,
       }));
@@ -156,7 +137,7 @@ export async function GET() {
 
     return NextResponse.json({
       data: {
-        totalProjects: projectCountResult.count || 0,
+        totalProjects: projectIds.length,
         inProgressTasks,
         totalUsers: userCountResult.count || 0,
         overdueTasks: planningCalendar.summary.overdueTasks,

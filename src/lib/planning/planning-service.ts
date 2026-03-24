@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabase/client';
+﻿import { supabaseAdmin } from '@/lib/supabase/client';
 import {
   DEFAULT_CAPACITY_POINTS,
   OVERLOAD_ACTIVE_TASK_THRESHOLD,
@@ -47,6 +47,7 @@ interface PlanningTaskRow {
 }
 
 interface MemberRow {
+  du_an_id: string;
   nguoi_dung_id: string | null;
   email: string;
   vai_tro: string;
@@ -168,6 +169,24 @@ export interface ProjectForecastResult {
   overloadedMembers: WorkloadMemberSummary[];
 }
 
+export interface ProjectHealthSummary {
+  id: string;
+  ten: string;
+  forecastStatus: ProjectForecastResult['forecastStatus'];
+  slipProbability: number;
+  projectedDelayDays: number;
+  completionRate: number;
+  overdueTasks: number;
+}
+
+interface ProjectRow {
+  id: string;
+  ten: string;
+  deadline: string;
+  trang_thai: string;
+  phan_tram_hoan_thanh: number | null;
+}
+
 function pickOne<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) {
     return value[0] || null;
@@ -212,6 +231,223 @@ async function getPartIdsForProjects(projectIds: string[]) {
   }
 
   return (data || []).map((item) => item.id);
+}
+
+function groupTasksByAssignee(tasks: PlanningTaskItem[]) {
+  const tasksByAssignee = new Map<string, PlanningTaskItem[]>();
+
+  for (const task of tasks) {
+    if (!task.assignee_id) {
+      continue;
+    }
+
+    const currentTasks = tasksByAssignee.get(task.assignee_id) || [];
+    currentTasks.push(task);
+    tasksByAssignee.set(task.assignee_id, currentTasks);
+  }
+
+  return tasksByAssignee;
+}
+
+function groupTasksByProject(tasks: PlanningTaskItem[]) {
+  const tasksByProject = new Map<string, PlanningTaskItem[]>();
+
+  for (const task of tasks) {
+    if (!task.project?.id) {
+      continue;
+    }
+
+    const currentTasks = tasksByProject.get(task.project.id) || [];
+    currentTasks.push(task);
+    tasksByProject.set(task.project.id, currentTasks);
+  }
+
+  return tasksByProject;
+}
+
+function summarizeMemberWorkload(memberRows: MemberRow[], activeTasks: PlanningTaskItem[]) {
+  const tasksByAssignee = groupTasksByAssignee(activeTasks);
+  const dedupedMembers = new Map<string, WorkloadMemberSummary>();
+
+  for (const row of memberRows) {
+    const user = pickOne(row.nguoi_dung);
+
+    if (!user?.id || dedupedMembers.has(user.id)) {
+      continue;
+    }
+
+    const userTasks = tasksByAssignee.get(user.id) || [];
+    const summary = summarizeWorkload(
+      userTasks.map((task) => ({
+        id: task.id,
+        priority: task.priority,
+        trang_thai: task.trang_thai,
+        deadline: task.deadline,
+        risk_score: task.risk_score,
+      })),
+      DEFAULT_CAPACITY_POINTS
+    );
+    const department = pickOne(user.phong_ban);
+
+    dedupedMembers.set(user.id, {
+      userId: user.id,
+      ten: user.ten,
+      email: user.email,
+      avatarUrl: user.avatar_url,
+      projectRole: row.vai_tro,
+      departmentName: department?.ten || null,
+      activeTasks: summary.activeTasks,
+      overdueTasks: summary.overdueTasks,
+      dueSoonTasks: summary.dueSoonTasks,
+      highRiskTasks: summary.highRiskTasks,
+      loadPoints: summary.loadPoints,
+      capacityPoints: summary.capacityPoints,
+      loadRatio: summary.loadRatio,
+      loadStatus: summary.loadStatus,
+      tasks: userTasks,
+    });
+  }
+
+  return Array.from(dedupedMembers.values()).sort((a, b) => b.loadRatio - a.loadRatio);
+}
+
+function summarizeWorkloadOverview(members: WorkloadMemberSummary[], totalActiveTasks: number) {
+  const overloadedMembers = members.filter((member) => member.loadStatus === 'overloaded').length;
+  const stretchedMembers = members.filter((member) => member.loadStatus === 'stretched').length;
+  const availableMembers = members.filter((member) => member.loadStatus === 'available').length;
+  const avgLoadRatio =
+    members.length > 0
+      ? Number((members.reduce((total, member) => total + member.loadRatio, 0) / members.length).toFixed(2))
+      : 0;
+
+  return {
+    totalMembers: members.length,
+    overloadedMembers,
+    stretchedMembers,
+    availableMembers,
+    totalActiveTasks,
+    avgLoadRatio,
+    overloadThreshold: OVERLOAD_ACTIVE_TASK_THRESHOLD,
+  };
+}
+
+function buildProjectForecast(project: ProjectRow, tasks: PlanningTaskItem[], members: WorkloadMemberSummary[]) {
+  const now = new Date();
+  const nextWeek = new Date();
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  const totalTasks = tasks.length;
+  const doneTasks = tasks.filter((task) => task.trang_thai === 'done').length;
+  const openTasks = tasks.filter((task) => task.trang_thai !== 'done').length;
+  const overdueTasks = tasks.filter(
+    (task) => task.trang_thai !== 'done' && new Date(task.deadline).getTime() < now.getTime()
+  );
+  const highRiskTasks = tasks.filter((task) => task.trang_thai !== 'done' && task.risk_score >= 70);
+  const unassignedTasks = tasks.filter((task) => task.trang_thai !== 'done' && !task.assignee_id);
+  const dueThisWeek = tasks.filter((task) => {
+    if (task.trang_thai === 'done') {
+      return false;
+    }
+
+    const deadline = new Date(task.deadline);
+    return deadline.getTime() >= now.getTime() && deadline.getTime() <= nextWeek.getTime();
+  });
+
+  const completionRate = totalTasks > 0 ? Number(((doneTasks / totalTasks) * 100).toFixed(1)) : 0;
+  const overloadedMembers = members.filter(
+    (member) => member.loadStatus === 'overloaded' || member.loadStatus === 'stretched'
+  );
+  const daysToDeadline = Math.ceil(
+    (new Date(project.deadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const overdueWeight = openTasks > 0 ? overdueTasks.length / openTasks : 0;
+  const riskWeight = openTasks > 0 ? highRiskTasks.length / openTasks : 0;
+  const staffingWeight = openTasks > 0 ? unassignedTasks.length / openTasks : 0;
+  const deadlinePressure =
+    daysToDeadline <= 0 ? 1 : Math.max(0, Number((1 - Math.min(daysToDeadline, 21) / 21).toFixed(2)));
+
+  const rawSlipProbability =
+    overdueWeight * 45 +
+    riskWeight * 28 +
+    staffingWeight * 18 +
+    (overloadedMembers.length / Math.max(members.length || 1, 1)) * 20 +
+    deadlinePressure * 14 -
+    (completionRate / 100) * 12;
+
+  const slipProbability = Math.max(8, Math.min(95, Math.round(rawSlipProbability)));
+  const forecastStatus: ProjectForecastResult['forecastStatus'] =
+    slipProbability >= 70 ? 'slipping' : slipProbability >= 45 ? 'watch' : 'on-track';
+
+  const averageOverdueDays =
+    overdueTasks.length > 0
+      ? overdueTasks.reduce((total, task) => {
+          const days = (now.getTime() - new Date(task.deadline).getTime()) / (1000 * 60 * 60 * 24);
+          return total + Math.max(0, days);
+        }, 0) / overdueTasks.length
+      : 0;
+
+  const projectedDelayDays =
+    forecastStatus === 'on-track'
+      ? 0
+      : Math.max(
+          1,
+          Math.round(averageOverdueDays * 0.7 + overloadedMembers.length * 1.4 + highRiskTasks.length * 0.5)
+        );
+
+  const confidence = Math.max(52, Math.min(92, Math.round(60 + Math.min(totalTasks, 20) * 1.4 + Math.min(members.length, 8))));
+  const reasons: string[] = [];
+
+  if (overdueTasks.length > 0) {
+    reasons.push(`${overdueTasks.length} task Ã„â€˜ÃƒÂ£ quÃƒÂ¡ hÃ¡ÂºÂ¡n nhÃ†Â°ng chÃ†Â°a hoÃƒÂ n thÃƒÂ nh`);
+  }
+
+  if (highRiskTasks.length > 0) {
+    reasons.push(`${highRiskTasks.length} task Ã„â€˜ang cÃƒÂ³ rÃ¡Â»Â§i ro cao`);
+  }
+
+  if (unassignedTasks.length > 0) {
+    reasons.push(`${unassignedTasks.length} task chÃ†Â°a cÃƒÂ³ ngÃ†Â°Ã¡Â»Âi phÃ¡Â»Â¥ trÃƒÂ¡ch`);
+  }
+
+  if (overloadedMembers.length > 0) {
+    reasons.push(`${overloadedMembers.length} thÃƒÂ nh viÃƒÂªn Ã„â€˜ang Ã¡Â»Å¸ trÃ¡ÂºÂ¡ng thÃƒÂ¡i sÃƒÂ¡t tÃ¡ÂºÂ£i hoÃ¡ÂºÂ·c quÃƒÂ¡ tÃ¡ÂºÂ£i`);
+  }
+
+  if (dueThisWeek.length >= 4) {
+    reasons.push('KhÃ¡Â»â€˜i lÃ†Â°Ã¡Â»Â£ng giao viÃ¡Â»â€¡c dÃ¡Â»â€œn vÃƒÂ o 7 ngÃƒÂ y tÃ¡Â»â€ºi khÃƒÂ¡ dÃƒÂ y');
+  }
+
+  if (reasons.length === 0) {
+    reasons.push('NhÃ¡Â»â€¹p Ã„â€˜Ã¡Â»â„¢ giao viÃ¡Â»â€¡c hiÃ¡Â»â€¡n vÃ¡ÂºÂ«n trong ngÃ†Â°Ã¡Â»Â¡ng kiÃ¡Â»Æ’m soÃƒÂ¡t');
+  }
+
+  return {
+    project: {
+      id: project.id,
+      ten: project.ten,
+      deadline: project.deadline,
+      trang_thai: project.trang_thai,
+      phan_tram_hoan_thanh: project.phan_tram_hoan_thanh || 0,
+    },
+    forecastStatus,
+    slipProbability,
+    projectedDelayDays,
+    confidence,
+    summary: {
+      totalTasks,
+      openTasks,
+      doneTasks,
+      overdueTasks: overdueTasks.length,
+      highRiskTasks: highRiskTasks.length,
+      unassignedTasks: unassignedTasks.length,
+      dueThisWeek: dueThisWeek.length,
+      overloadedMembers: overloadedMembers.length,
+      completionRate,
+    },
+    reasons,
+    topRisks: [...overdueTasks, ...highRiskTasks].slice(0, 5),
+    overloadedMembers: overloadedMembers.slice(0, 5),
+  } satisfies ProjectForecastResult;
 }
 
 function normalizePlanningTask(row: PlanningTaskRow): PlanningTaskItem {
@@ -428,6 +664,7 @@ export async function getWorkloadPlanningData({
     .from('thanh_vien_du_an')
     .select(
       `
+      du_an_id,
       nguoi_dung_id,
       email,
       vai_tro,
@@ -456,74 +693,10 @@ export async function getWorkloadPlanningData({
     throw new Error(memberError.message);
   }
 
-  const dedupedMembers = new Map<string, WorkloadMemberSummary>();
-
-  for (const row of (memberRows || []) as MemberRow[]) {
-    const user = pickOne(row.nguoi_dung);
-
-    if (!user?.id) {
-      continue;
-    }
-
-    if (dedupedMembers.has(user.id)) {
-      continue;
-    }
-
-    const userTasks = activeTasks.filter((task) => task.assignee_id === user.id);
-    const summary = summarizeWorkload(
-      userTasks.map((task) => ({
-        id: task.id,
-        priority: task.priority,
-        trang_thai: task.trang_thai,
-        deadline: task.deadline,
-        risk_score: task.risk_score,
-      })),
-      DEFAULT_CAPACITY_POINTS
-    );
-    const department = pickOne(user.phong_ban);
-
-    dedupedMembers.set(user.id, {
-      userId: user.id,
-      ten: user.ten,
-      email: user.email,
-      avatarUrl: user.avatar_url,
-      projectRole: row.vai_tro,
-      departmentName: department?.ten || null,
-      activeTasks: summary.activeTasks,
-      overdueTasks: summary.overdueTasks,
-      dueSoonTasks: summary.dueSoonTasks,
-      highRiskTasks: summary.highRiskTasks,
-      loadPoints: summary.loadPoints,
-      capacityPoints: summary.capacityPoints,
-      loadRatio: summary.loadRatio,
-      loadStatus: summary.loadStatus,
-      tasks: userTasks,
-    });
-  }
-
-  const members = Array.from(dedupedMembers.values()).sort((a, b) => b.loadRatio - a.loadRatio);
-  const overloadedMembers = members.filter((member) => member.loadStatus === 'overloaded').length;
-  const stretchedMembers = members.filter((member) => member.loadStatus === 'stretched').length;
-  const availableMembers = members.filter((member) => member.loadStatus === 'available').length;
-  const avgLoadRatio =
-    members.length > 0
-      ? Number(
-          (
-            members.reduce((total, member) => total + member.loadRatio, 0) / members.length
-          ).toFixed(2)
-        )
-      : 0;
+  const members = summarizeMemberWorkload((memberRows || []) as MemberRow[], activeTasks);
 
   return {
-    summary: {
-      totalMembers: members.length,
-      overloadedMembers,
-      stretchedMembers,
-      availableMembers,
-      totalActiveTasks: activeTasks.length,
-      avgLoadRatio,
-      overloadThreshold: OVERLOAD_ACTIVE_TASK_THRESHOLD,
-    },
+    summary: summarizeWorkloadOverview(members, activeTasks.length),
     members,
   };
 }
@@ -538,143 +711,124 @@ export async function getProjectForecast({
   const projectIds = await getAccessibleProjectIds(email, projectId);
 
   if (projectIds.length === 0) {
-    throw new Error('Bạn không có quyền truy cập dự án này');
+    throw new Error('Báº¡n khÃ´ng cÃ³ quyá»n truy cáº­p dá»± Ã¡n nÃ y');
   }
 
-  const { data: project, error: projectError } = await supabaseAdmin
-    .from('du_an')
-    .select('id, ten, deadline, trang_thai, phan_tram_hoan_thanh')
-    .eq('id', projectId)
-    .is('deleted_at', null)
-    .single();
-
-  if (projectError || !project) {
-    throw new Error('Không tìm thấy dự án');
-  }
-
-  const tasks = await getPlanningTasksForProjects({ projectIds: [projectId] });
-  const workload = await getWorkloadPlanningData({ email, projectId });
-  const now = new Date();
-  const nextWeek = new Date();
-  nextWeek.setDate(nextWeek.getDate() + 7);
-
-  const totalTasks = tasks.length;
-  const doneTasks = tasks.filter((task) => task.trang_thai === 'done').length;
-  const openTasks = tasks.filter((task) => task.trang_thai !== 'done').length;
-  const overdueTasks = tasks.filter(
-    (task) => task.trang_thai !== 'done' && new Date(task.deadline).getTime() < now.getTime()
-  );
-  const highRiskTasks = tasks.filter((task) => task.trang_thai !== 'done' && task.risk_score >= 70);
-  const unassignedTasks = tasks.filter((task) => task.trang_thai !== 'done' && !task.assignee_id);
-  const dueThisWeek = tasks.filter((task) => {
-    if (task.trang_thai === 'done') {
-      return false;
-    }
-
-    const deadline = new Date(task.deadline);
-    return deadline.getTime() >= now.getTime() && deadline.getTime() <= nextWeek.getTime();
-  });
-
-  const completionRate = totalTasks > 0 ? Number(((doneTasks / totalTasks) * 100).toFixed(1)) : 0;
-  const overloadedMembers = workload.members.filter(
-    (member) => member.loadStatus === 'overloaded' || member.loadStatus === 'stretched'
-  );
-  const daysToDeadline = Math.ceil(
-    (new Date(project.deadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const overdueWeight = openTasks > 0 ? overdueTasks.length / openTasks : 0;
-  const riskWeight = openTasks > 0 ? highRiskTasks.length / openTasks : 0;
-  const staffingWeight = openTasks > 0 ? unassignedTasks.length / openTasks : 0;
-  const deadlinePressure =
-    daysToDeadline <= 0 ? 1 : Math.max(0, Number((1 - Math.min(daysToDeadline, 21) / 21).toFixed(2)));
-
-  const rawSlipProbability =
-    overdueWeight * 45 +
-    riskWeight * 28 +
-    staffingWeight * 18 +
-    (overloadedMembers.length / Math.max(workload.members.length || 1, 1)) * 20 +
-    deadlinePressure * 14 -
-    (completionRate / 100) * 12;
-
-  const slipProbability = Math.max(8, Math.min(95, Math.round(rawSlipProbability)));
-  const forecastStatus: ProjectForecastResult['forecastStatus'] =
-    slipProbability >= 70 ? 'slipping' : slipProbability >= 45 ? 'watch' : 'on-track';
-
-  const averageOverdueDays =
-    overdueTasks.length > 0
-      ? overdueTasks.reduce((total, task) => {
-          const days =
-            (now.getTime() - new Date(task.deadline).getTime()) / (1000 * 60 * 60 * 24);
-          return total + Math.max(0, days);
-        }, 0) / overdueTasks.length
-      : 0;
-
-  const projectedDelayDays =
-    forecastStatus === 'on-track'
-      ? 0
-      : Math.max(
-          1,
-          Math.round(
-            averageOverdueDays * 0.7 + overloadedMembers.length * 1.4 + highRiskTasks.length * 0.5
+  const [projectResult, tasks, memberRowsResult] = await Promise.all([
+    supabaseAdmin
+      .from('du_an')
+      .select('id, ten, deadline, trang_thai, phan_tram_hoan_thanh')
+      .eq('id', projectId)
+      .is('deleted_at', null)
+      .single(),
+    getPlanningTasksForProjects({ projectIds: [projectId] }),
+    supabaseAdmin
+      .from('thanh_vien_du_an')
+      .select(
+        `
+        du_an_id,
+        nguoi_dung_id,
+        email,
+        vai_tro,
+        nguoi_dung:nguoi_dung_id (
+          id,
+          ten,
+          email,
+          avatar_url,
+          phong_ban:phong_ban_id (
+            ten
           )
-        );
+        )
+      `
+      )
+      .eq('du_an_id', projectId)
+      .eq('trang_thai', 'active')
+      .not('nguoi_dung_id', 'is', null),
+  ]);
 
-  const confidence = Math.max(
-    52,
-    Math.min(92, Math.round(60 + Math.min(totalTasks, 20) * 1.4 + Math.min(workload.members.length, 8)))
-  );
-
-  const reasons: string[] = [];
-
-  if (overdueTasks.length > 0) {
-    reasons.push(`${overdueTasks.length} task đã quá hạn nhưng chưa hoàn thành`);
+  if (projectResult.error || !projectResult.data) {
+    throw new Error('KhÃ´ng tÃ¬m tháº¥y dá»± Ã¡n');
   }
 
-  if (highRiskTasks.length > 0) {
-    reasons.push(`${highRiskTasks.length} task đang có rủi ro cao`);
+  if (memberRowsResult.error) {
+    throw new Error(memberRowsResult.error.message);
   }
 
-  if (unassignedTasks.length > 0) {
-    reasons.push(`${unassignedTasks.length} task chưa có người phụ trách`);
+  const activeTasks = tasks.filter((task) => task.trang_thai !== 'done');
+  const members = summarizeMemberWorkload((memberRowsResult.data || []) as MemberRow[], activeTasks);
+
+  return buildProjectForecast(projectResult.data as ProjectRow, tasks, members);
+}
+
+export async function getProjectHealthSummaries(projectIds: string[]): Promise<ProjectHealthSummary[]> {
+  if (projectIds.length === 0) {
+    return [];
   }
 
-  if (overloadedMembers.length > 0) {
-    reasons.push(`${overloadedMembers.length} thành viên đang ở trạng thái sát tải hoặc quá tải`);
+  const [projectsResult, tasks, memberRowsResult] = await Promise.all([
+    supabaseAdmin
+      .from('du_an')
+      .select('id, ten, deadline, trang_thai, phan_tram_hoan_thanh')
+      .in('id', projectIds)
+      .is('deleted_at', null),
+    getPlanningTasksForProjects({ projectIds }),
+    supabaseAdmin
+      .from('thanh_vien_du_an')
+      .select(
+        `
+        du_an_id,
+        nguoi_dung_id,
+        email,
+        vai_tro,
+        nguoi_dung:nguoi_dung_id (
+          id,
+          ten,
+          email,
+          avatar_url,
+          phong_ban:phong_ban_id (
+            ten
+          )
+        )
+      `
+      )
+      .in('du_an_id', projectIds)
+      .eq('trang_thai', 'active')
+      .not('nguoi_dung_id', 'is', null),
+  ]);
+
+  if (projectsResult.error) {
+    throw new Error(projectsResult.error.message);
   }
 
-  if (dueThisWeek.length >= 4) {
-    reasons.push(`Khối lượng giao việc dồn vào 7 ngày tới khá dày`);
+  if (memberRowsResult.error) {
+    throw new Error(memberRowsResult.error.message);
   }
 
-  if (reasons.length === 0) {
-    reasons.push('Nhịp độ giao việc hiện vẫn trong ngưỡng kiểm soát');
+  const tasksByProject = groupTasksByProject(tasks);
+  const memberRowsByProject = new Map<string, MemberRow[]>();
+
+  for (const row of (memberRowsResult.data || []) as MemberRow[]) {
+    const currentRows = memberRowsByProject.get(row.du_an_id) || [];
+    currentRows.push(row);
+    memberRowsByProject.set(row.du_an_id, currentRows);
   }
 
-  return {
-    project: {
-      id: project.id,
-      ten: project.ten,
-      deadline: project.deadline,
-      trang_thai: project.trang_thai,
-      phan_tram_hoan_thanh: project.phan_tram_hoan_thanh || 0,
-    },
-    forecastStatus,
-    slipProbability,
-    projectedDelayDays,
-    confidence,
-    summary: {
-      totalTasks,
-      openTasks,
-      doneTasks,
-      overdueTasks: overdueTasks.length,
-      highRiskTasks: highRiskTasks.length,
-      unassignedTasks: unassignedTasks.length,
-      dueThisWeek: dueThisWeek.length,
-      overloadedMembers: overloadedMembers.length,
-      completionRate,
-    },
-    reasons,
-    topRisks: [...overdueTasks, ...highRiskTasks].slice(0, 5),
-    overloadedMembers: overloadedMembers.slice(0, 5),
-  };
+  return ((projectsResult.data || []) as ProjectRow[])
+    .map((project) => {
+      const projectTasks = tasksByProject.get(project.id) || [];
+      const activeProjectTasks = projectTasks.filter((task) => task.trang_thai !== 'done');
+      const members = summarizeMemberWorkload(memberRowsByProject.get(project.id) || [], activeProjectTasks);
+      const forecast = buildProjectForecast(project, projectTasks, members);
+
+      return {
+        id: forecast.project.id,
+        ten: forecast.project.ten,
+        forecastStatus: forecast.forecastStatus,
+        slipProbability: forecast.slipProbability,
+        projectedDelayDays: forecast.projectedDelayDays,
+        completionRate: forecast.summary.completionRate,
+        overdueTasks: forecast.summary.overdueTasks,
+      };
+    })
+    .sort((left, right) => right.slipProbability - left.slipProbability);
 }
