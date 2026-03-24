@@ -1,25 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { Award, ChevronDown, ChevronUp, Search, Users } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Search, 
-  Users, 
-  Award, 
-  ChevronDown, 
-  ChevronUp,
-  User
-} from 'lucide-react';
 
 const TRINH_DO_COLORS: Record<string, string> = {
-  beginner: 'bg-gray-100 text-gray-700',
-  intermediate: 'bg-blue-100 text-blue-700',
-  advanced: 'bg-[#b9ff66]/30 text-[#191a23]',
-  expert: 'bg-[#191a23] text-white',
+  beginner: 'bg-stone-100 text-stone-700',
+  intermediate: 'bg-sky-100 text-sky-700',
+  advanced: 'bg-[#dff3bf] text-[#29411f]',
+  expert: 'bg-[#1f2b1f] text-white',
 };
 
 const TRINH_DO_LABELS: Record<string, string> = {
@@ -53,220 +45,215 @@ interface SkillsMatrixProps {
   skills: SkillMatrixEntry[];
   tongNguoiDung: number;
   tongKyNang: number;
+  tongNamKinhNghiem: number;
+  matDoKyNang: number;
 }
 
-export function SkillsMatrix({ skills, tongNguoiDung, tongKyNang }: SkillsMatrixProps) {
+export function SkillsMatrix({ skills, tongNguoiDung, tongKyNang, tongNamKinhNghiem, matDoKyNang }: SkillsMatrixProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
 
-  // Lọc skills theo search term
-  const filteredSkills = skills.filter(skill =>
-    skill.ten_ky_nang.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSkills = skills.filter((skill) => skill.ten_ky_nang.toLowerCase().includes(searchTerm.toLowerCase()));
+  const tongChuyenGia = skills.reduce((sum, skill) => sum + skill.expert, 0);
+  const tongNguoiSoHuuKyNang = skills.reduce((sum, skill) => sum + skill.so_nguoi, 0);
+  const tiLeChuyenGia = tongNguoiSoHuuKyNang > 0 ? (tongChuyenGia / tongNguoiSoHuuKyNang) * 100 : 0;
 
   const toggleExpand = (skillName: string) => {
     setExpandedSkill(expandedSkill === skillName ? null : skillName);
   };
 
   return (
-    <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-[#191a23] to-[#2a2b35]">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">Tổng thành viên</p>
-                <p className="text-3xl font-bold text-white mt-1">{tongNguoiDung}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center">
-                <Users className="h-6 w-6 text-[#b9ff66]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <section className="rounded-[30px] border border-[#dfe5d6] bg-white/90 px-5 py-5 shadow-[0_22px_65px_-48px_rgba(89,109,84,0.35)] backdrop-blur-sm">
+      <div className="mb-5 flex flex-col gap-3 border-b border-[#edf1e8] pb-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-[#1f2b1f]">Ma trận kỹ năng</h2>
+          <p className="mt-1 text-sm leading-6 text-[#61705f]">
+            Mỗi dòng là một kỹ năng. Nhìn ngang để biết phân bố trình độ, bấm vào dòng để xem những ai đang sở hữu kỹ năng đó.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-[#dde5d5] bg-[#f7faf2] px-3 py-1 text-xs font-medium text-[#5d6a58]">
+            {tongNguoiDung} thành viên
+          </span>
+          <span className="rounded-full border border-[#dde5d5] bg-[#f7faf2] px-3 py-1 text-xs font-medium text-[#5d6a58]">
+            {tongKyNang} kỹ năng
+          </span>
+          <span className="rounded-full border border-[#dde5d5] bg-[#f7faf2] px-3 py-1 text-xs font-medium text-[#5d6a58]">
+            {tongNamKinhNghiem} năm kinh nghiệm cộng dồn
+          </span>
+        </div>
+      </div>
 
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-[#b9ff66] to-[#a8e55a]">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-[#191a23]/70">Tổng kỹ năng</p>
-                <p className="text-3xl font-bold text-[#191a23] mt-1">{tongKyNang}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-[#191a23]/10 flex items-center justify-center">
-                <Award className="h-6 w-6 text-[#191a23]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-[28px] border border-[#dce8ce] bg-[linear-gradient(135deg,#f8fbf4_0%,#eef7e2_100%)] p-5">
+          <div className="inline-flex rounded-full border border-[#d8e5ca] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#62705b]">
+            Dùng để phân công và phát triển đội ngũ
+          </div>
+          <h3 className="mt-4 text-[clamp(1.4rem,2.2vw,2rem)] font-semibold leading-tight text-[#223021]">
+            Đây là bức ảnh chụp nhanh về năng lực thực tế của cả team.
+          </h3>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#5d6b58]">
+            Khi cần giao việc, thay người, mở dự án mới hoặc lập kế hoạch đào tạo, bạn có thể nhìn vào đây để biết đội đang có ai phù hợp, kỹ năng nào đang dư lực và kỹ năng nào còn thiếu người gánh.
+          </p>
+        </div>
 
-        <Card className="border-0 shadow-sm">
-          <CardContent className="pt-6">
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Trung bình/người</p>
-                <p className="text-3xl font-bold text-[#191a23] mt-1">
-                  {tongNguoiDung > 0 
-                    ? (skills.reduce((sum, s) => sum + s.so_nguoi, 0) / tongNguoiDung).toFixed(1)
-                    : 0
-                  }
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Mật độ kỹ năng</p>
+              <Users className="h-4 w-4 text-[#56724d]" />
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[#223021]">{matDoKyNang.toFixed(1)}</p>
+            <p className="mt-1 text-sm text-[#5f6d59]">Kỹ năng trung bình mỗi người.</p>
+          </div>
+
+          <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Tỷ lệ chuyên gia</p>
+              <Award className="h-4 w-4 text-[#56724d]" />
+            </div>
+            <p className="mt-3 text-2xl font-semibold text-[#223021]">{tiLeChuyenGia.toFixed(0)}%</p>
+            <p className="mt-1 text-sm text-[#5f6d59]">{tongChuyenGia} hồ sơ đang ở mức chuyên gia.</p>
+          </div>
+
+          <div className="rounded-[24px] border border-[#e4eadf] bg-[#fbfcf8] p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#70806a]">Cách đọc nhanh</p>
+              <Search className="h-4 w-4 text-[#56724d]" />
+            </div>
+            <p className="mt-3 text-base font-semibold text-[#223021]">Lọc theo tên kỹ năng rồi mở từng dòng.</p>
+            <p className="mt-1 text-sm text-[#5f6d59]">Bạn sẽ thấy ai đang có kỹ năng đó, trình độ hiện tại và số năm kinh nghiệm.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-[24px] border border-[#e5eadf] bg-[#fbfcf8] p-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a9483]" />
+          <Input
+            placeholder="Tìm kỹ năng như React, Figma, quản lý dự án..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-11 border-[#dfe6d7] bg-white pl-10 text-[#223021] placeholder:text-[#8a9483]"
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {Object.entries(TRINH_DO_LABELS).map(([value, label]) => (
+            <span key={value} className={`rounded-full px-3 py-1 text-xs font-medium ${TRINH_DO_COLORS[value]}`}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 overflow-x-auto">
+        {filteredSkills.length === 0 ? (
+          <div className="rounded-[26px] border border-dashed border-[#dce4d3] bg-[#f8faf4] px-6 py-12 text-center">
+            {skills.length === 0 ? (
+              <>
+                <p className="text-lg font-semibold text-[#223021]">Chưa có dữ liệu kỹ năng để hiển thị.</p>
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#66735f]">
+                  Khi thành viên bắt đầu thêm kỹ năng, trình độ và số năm kinh nghiệm trong hồ sơ cá nhân, ma trận này sẽ giúp bạn nhìn ra người phù hợp cho từng đầu việc, khoảng trống cần đào tạo và nhu cầu tuyển mới.
                 </p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
-                <User className="h-6 w-6 text-gray-600" />
-              </div>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-semibold text-[#223021]">Không có kỹ năng nào khớp với từ khóa này.</p>
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#66735f]">
+                  Thử đổi cách viết hoặc bỏ bớt từ khóa để xem lại toàn bộ danh sách kỹ năng đang có trong tổ chức.
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="min-w-[860px] space-y-2">
+            <div className="grid grid-cols-12 gap-2 rounded-[20px] bg-[#f4f7f0] px-4 py-3 text-sm font-semibold text-[#647160]">
+              <div className="col-span-4">Kỹ năng</div>
+              <div className="col-span-1 text-center">Số người</div>
+              <div className="col-span-2 text-center">Mới bắt đầu</div>
+              <div className="col-span-2 text-center">Trung bình</div>
+              <div className="col-span-1 text-center">Nâng cao</div>
+              <div className="col-span-1 text-center">Chuyên gia</div>
+              <div className="col-span-1" />
             </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder="Tìm kiếm kỹ năng..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+            {filteredSkills.map((skill) => {
+              const isExpanded = expandedSkill === skill.ten_ky_nang;
 
-      {/* Skills Matrix Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Ma trận kỹ năng</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredSkills.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>Không tìm thấy kỹ năng nào</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Header */}
-              <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50 rounded-lg text-sm font-medium text-gray-600">
-                <div className="col-span-4">Kỹ năng</div>
-                <div className="col-span-1 text-center">Số người</div>
-                <div className="col-span-2 text-center">Mới bắt đầu</div>
-                <div className="col-span-2 text-center">Trung bình</div>
-                <div className="col-span-1 text-center">Nâng cao</div>
-                <div className="col-span-1 text-center">Chuyên gia</div>
-                <div className="col-span-1"></div>
-              </div>
-
-              {/* Rows */}
-              {filteredSkills.map((skill) => {
-                const isExpanded = expandedSkill === skill.ten_ky_nang;
-                
-                return (
-                  <div key={skill.ten_ky_nang}>
-                    <div 
-                      className={`
-                        grid grid-cols-12 gap-2 px-4 py-3 rounded-lg border transition-all cursor-pointer
-                        ${isExpanded 
-                          ? 'border-[#b9ff66] bg-[#b9ff66]/5' 
-                          : 'border-gray-100 hover:border-gray-200 bg-white'
-                        }
-                      `}
-                      onClick={() => toggleExpand(skill.ten_ky_nang)}
-                    >
-                      <div className="col-span-4 font-medium text-[#191a23]">
-                        {skill.ten_ky_nang}
-                      </div>
-                      <div className="col-span-1 text-center">
-                        <Badge className="bg-[#191a23] text-white border-0">
-                          {skill.so_nguoi}
-                        </Badge>
-                      </div>
-                      <div className="col-span-2 text-center">
-                        {skill.beginner > 0 && (
-                          <Badge className="bg-gray-100 text-gray-700 border-0">
-                            {skill.beginner}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="col-span-2 text-center">
-                        {skill.intermediate > 0 && (
-                          <Badge className="bg-blue-100 text-blue-700 border-0">
-                            {skill.intermediate}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="col-span-1 text-center">
-                        {skill.advanced > 0 && (
-                          <Badge className="bg-[#b9ff66]/30 text-[#191a23] border-0">
-                            {skill.advanced}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="col-span-1 text-center">
-                        {skill.expert > 0 && (
-                          <Badge className="bg-[#191a23] text-white border-0">
-                            {skill.expert}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="col-span-1 flex justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                        >
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
+              return (
+                <div key={skill.ten_ky_nang}>
+                  <div
+                    className={`grid grid-cols-12 gap-2 rounded-[22px] border px-4 py-3 transition-all ${
+                      isExpanded
+                        ? 'border-[#cadeb7] bg-[#f7fbf0] shadow-[0_18px_40px_-34px_rgba(89,109,84,0.4)]'
+                        : 'border-[#e6ebdf] bg-white hover:border-[#d6dfcb] hover:bg-[#fcfdf9]'
+                    } cursor-pointer`}
+                    onClick={() => toggleExpand(skill.ten_ky_nang)}
+                  >
+                    <div className="col-span-4 flex items-center">
+                      <div>
+                        <p className="font-medium text-[#1f2b1f]">{skill.ten_ky_nang}</p>
+                        <p className="mt-1 text-xs text-[#7b8675]">
+                          {skill.tong_nam_kinh_nghiem} năm kinh nghiệm cộng dồn
+                        </p>
                       </div>
                     </div>
-
-                    {/* Expanded Section - User List */}
-                    {isExpanded && skill.nguoi_dung.length > 0 && (
-                      <div className="ml-8 mt-2 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                        <p className="text-sm font-medium text-gray-600 mb-3">
-                          Danh sách thành viên có kỹ năng này:
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {skill.nguoi_dung.map((user) => (
-                            <div 
-                              key={user.id}
-                              className="flex items-center gap-3 p-2 bg-white rounded-lg border border-gray-100"
-                            >
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={user.avatar_url || undefined} />
-                                <AvatarFallback className="bg-[#191a23] text-white text-xs">
-                                  {user.ten.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {user.ten}
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">
-                                  {user.email}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge className={`${TRINH_DO_COLORS[user.trinh_do]} border-0 text-xs`}>
-                                  {TRINH_DO_LABELS[user.trinh_do]}
-                                </Badge>
-                                <span className="text-xs text-gray-500">
-                                  {user.nam_kinh_nghiem} năm
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <div className="col-span-1 flex items-center justify-center">
+                      <Badge className="border-0 bg-[#1f2b1f] text-white">{skill.so_nguoi}</Badge>
+                    </div>
+                    <div className="col-span-2 flex items-center justify-center">
+                      {skill.beginner > 0 ? <Badge className="border-0 bg-stone-100 text-stone-700">{skill.beginner}</Badge> : <span className="text-sm text-[#b0b7ab]">-</span>}
+                    </div>
+                    <div className="col-span-2 flex items-center justify-center">
+                      {skill.intermediate > 0 ? <Badge className="border-0 bg-sky-100 text-sky-700">{skill.intermediate}</Badge> : <span className="text-sm text-[#b0b7ab]">-</span>}
+                    </div>
+                    <div className="col-span-1 flex items-center justify-center">
+                      {skill.advanced > 0 ? <Badge className="border-0 bg-[#dff3bf] text-[#29411f]">{skill.advanced}</Badge> : <span className="text-sm text-[#b0b7ab]">-</span>}
+                    </div>
+                    <div className="col-span-1 flex items-center justify-center">
+                      {skill.expert > 0 ? <Badge className="border-0 bg-[#1f2b1f] text-white">{skill.expert}</Badge> : <span className="text-sm text-[#b0b7ab]">-</span>}
+                    </div>
+                    <div className="col-span-1 flex items-center justify-end">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#5e6a59] hover:bg-[#eef3e7]">
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+
+                  {isExpanded && skill.nguoi_dung.length > 0 ? (
+                    <div className="mx-3 mt-2 mb-4 rounded-[22px] border border-[#e6ebdf] bg-[#fafcf7] p-4">
+                      <p className="mb-3 text-sm font-medium text-[#5f6d59]">Những thành viên đang có kỹ năng này</p>
+                      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                        {skill.nguoi_dung.map((user) => (
+                          <div key={user.id} className="flex items-center gap-3 rounded-[18px] border border-[#e7ece1] bg-white p-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={user.avatar_url || undefined} />
+                              <AvatarFallback className="bg-[#1f2b1f] text-xs text-white">
+                                {user.ten.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-[#223021]">{user.ten}</p>
+                              <p className="truncate text-xs text-[#7d8777]">{user.email}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={`${TRINH_DO_COLORS[user.trinh_do] || 'bg-stone-100 text-stone-700'} border-0 text-xs`}>
+                                {TRINH_DO_LABELS[user.trinh_do] || user.trinh_do}
+                              </Badge>
+                              <span className="text-xs text-[#7d8777]">{user.nam_kinh_nghiem} năm</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
