@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState } from 'react';
+import { RealtimeDataProvider } from '@/lib/providers/realtime-data-provider';
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => {
@@ -57,5 +58,9 @@ export function QueryProvider({ children }: { children: ReactNode }) {
     return client;
   });
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RealtimeDataProvider>{children}</RealtimeDataProvider>
+    </QueryClientProvider>
+  );
 }

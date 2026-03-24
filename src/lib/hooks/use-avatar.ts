@@ -84,7 +84,7 @@ export function useDeleteAvatar() {
 }
 
 // Hook để get current user với avatar
-export function useCurrentUser() {
+export function useAvatarCache() {
   const queryClient = useQueryClient();
   
   return {

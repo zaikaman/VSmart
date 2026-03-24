@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle2, XCircle, Clock, Mail } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, Clock, Mail, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ProjectInvitation {
   id: string;
@@ -28,34 +28,30 @@ interface ProjectInvitation {
 }
 
 export default function ProjectInvitations() {
-  const [invitations, setInvitations] = useState<ProjectInvitation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { data: invitations = [], isLoading: loading } = useQuery<ProjectInvitation[]>({
+    queryKey: ['project-invitations'],
+    queryFn: async () => {
+      const response = await fetch('/api/project-members/invitations', {
+        cache: 'no-store',
+      });
 
-  useEffect(() => {
-    loadInvitations();
-  }, []);
-
-  const loadInvitations = async () => {
-    try {
-      const response = await fetch('/api/project-members/invitations');
-
-      if (response.ok) {
-        const data = await response.json();
-        setInvitations(data);
+      if (!response.ok) {
+        throw new Error('Không thể tải danh sách lời mời');
       }
-    } catch (error) {
-      console.error('Error loading invitations:', error);
-      toast.error('Không thể tải danh sách lời mời');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleInvitation = async (invitationId: string, action: 'accept' | 'decline') => {
-    setProcessingId(invitationId);
+      return response.json() as Promise<ProjectInvitation[]>;
+    },
+  });
 
-    try {
+  const invitationMutation = useMutation({
+    mutationFn: async ({
+      invitationId,
+      action,
+    }: {
+      invitationId: string;
+      action: 'accept' | 'decline';
+    }) => {
       const response = await fetch('/api/project-members/invitations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,19 +63,29 @@ export default function ProjectInvitations() {
 
       const result = await response.json();
 
-      if (response.ok) {
-        toast.success(result.message);
-        // Xóa invitation khỏi danh sách
-        setInvitations(prev => prev.filter(inv => inv.id !== invitationId));
-      } else {
-        toast.error(result.error || 'Có lỗi xảy ra');
+      if (!response.ok) {
+        throw new Error(result.error || 'Có lỗi xảy ra');
       }
-    } catch (error) {
-      console.error('Error handling invitation:', error);
-      toast.error('Không thể xử lý lời mời');
-    } finally {
-      setProcessingId(null);
-    }
+
+      return result as { message: string };
+    },
+    onSuccess: (result) => {
+      toast.success(result.message);
+      queryClient.invalidateQueries({ queryKey: ['project-invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['project-members'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Không thể xử lý lời mời');
+    },
+  });
+
+  const processingId = invitationMutation.variables?.invitationId || null;
+
+  const handleInvitation = (invitationId: string, action: 'accept' | 'decline') => {
+    invitationMutation.mutate({ invitationId, action });
   };
 
   const getRoleBadge = (role: string) => {
@@ -104,13 +110,17 @@ export default function ProjectInvitations() {
 
     if (diffMins < 60) {
       return `${diffMins} phút trước`;
-    } else if (diffHours < 24) {
-      return `${diffHours} giờ trước`;
-    } else if (diffDays < 7) {
-      return `${diffDays} ngày trước`;
-    } else {
-      return date.toLocaleDateString('vi-VN');
     }
+
+    if (diffHours < 24) {
+      return `${diffHours} giờ trước`;
+    }
+
+    if (diffDays < 7) {
+      return `${diffDays} ngày trước`;
+    }
+
+    return date.toLocaleDateString('vi-VN');
   };
 
   if (loading) {
@@ -133,7 +143,7 @@ export default function ProjectInvitations() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-            <Mail className="h-12 w-12 mb-4 opacity-50" />
+            <Mail className="mb-4 h-12 w-12 opacity-50" />
             <p>Không có lời mời nào</p>
           </div>
         </CardContent>
@@ -145,31 +155,25 @@ export default function ProjectInvitations() {
     <Card>
       <CardHeader>
         <CardTitle>Lời mời dự án</CardTitle>
-        <CardDescription>
-          Bạn có {invitations.length} lời mời đang chờ xử lý
-        </CardDescription>
+        <CardDescription>Bạn có {invitations.length} lời mời đang chờ xử lý</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {invitations.map((invitation) => (
           <div
             key={invitation.id}
-            className="flex items-start gap-4 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+            className="flex items-start gap-4 rounded-lg border p-4 transition-colors hover:bg-accent/50"
           >
             <Avatar className="h-12 w-12">
               <AvatarImage src={invitation.nguoi_moi.avatar_url || undefined} />
-              <AvatarFallback>
-                {invitation.nguoi_moi.ten.charAt(0).toUpperCase()}
-              </AvatarFallback>
+              <AvatarFallback>{invitation.nguoi_moi.ten.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
 
             <div className="flex-1 space-y-2">
               <div>
-                <h4 className="font-semibold text-base">{invitation.du_an.ten}</h4>
-                {invitation.du_an.mo_ta && (
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {invitation.du_an.mo_ta}
-                  </p>
-                )}
+                <h4 className="text-base font-semibold">{invitation.du_an.ten}</h4>
+                {invitation.du_an.mo_ta ? (
+                  <p className="line-clamp-2 text-sm text-muted-foreground">{invitation.du_an.mo_ta}</p>
+                ) : null}
               </div>
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">

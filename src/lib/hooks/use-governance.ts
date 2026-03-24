@@ -89,7 +89,7 @@ export function useReviewQueue(enabled = true) {
     enabled,
     staleTime: 20 * 1000,
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 20 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
 

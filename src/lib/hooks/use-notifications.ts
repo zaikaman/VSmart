@@ -102,9 +102,7 @@ export function useNotifications(options?: { unreadOnly?: boolean; limit?: numbe
     placeholderData: keepPreviousData,
     staleTime: 15 * 1000,
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 30 * 1000,
-    refetchOnWindowFocus: false,
-    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const markAsReadMutation = useMutation({

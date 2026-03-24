@@ -161,9 +161,7 @@ export function useTasks(params?: TasksParams) {
     placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
-    refetchInterval: 30 * 1000,
-    refetchOnWindowFocus: false,
-    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 }
 

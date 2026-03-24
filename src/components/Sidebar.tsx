@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import {
   Award,
   BarChart3,
@@ -16,11 +15,12 @@ import {
   Settings,
   User,
 } from "lucide-react";
-import { isLeadershipRole } from "@/lib/auth/permissions";
-import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogoutButton } from "@/components/LogoutButton";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { isLeadershipRole } from "@/lib/auth/permissions";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import { cn } from "@/lib/utils";
 
 const ChatButton = dynamic(
   () => import("@/components/chat/chat-button").then((mod) => ({ default: mod.ChatButton })),
@@ -41,43 +41,32 @@ interface NavItem {
 
 const mainNavGroups: Array<{ title: string; items: NavItem[] }> = [
   {
-    title: "Không gian làm việc",
+    title: "KhÃ´ng gian lÃ m viá»‡c",
     items: [
-      { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Dự án", href: "/dashboard/projects", icon: List },
-      { name: "Bảng Kanban", href: "/dashboard/kanban", icon: ClipboardList },
+      { name: "Tá»•ng quan", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Dá»± Ã¡n", href: "/dashboard/projects", icon: List },
+      { name: "Báº£ng Kanban", href: "/dashboard/kanban", icon: ClipboardList },
       { name: "Planning", href: "/dashboard/planning", icon: CalendarRange },
     ],
   },
   {
-    title: "Tài khoản",
+    title: "TÃ i khoáº£n",
     items: [
-      { name: "Hồ sơ", href: "/dashboard/profile", icon: User },
-      { name: "Cài đặt", href: "/dashboard/settings", icon: Settings },
+      { name: "Há»“ sÆ¡", href: "/dashboard/profile", icon: User },
+      { name: "CÃ i Ä‘áº·t", href: "/dashboard/settings", icon: Settings },
     ],
   },
   {
-    title: "Trợ lý",
+    title: "Trá»£ lÃ½",
     items: [{ name: "Chat AI", href: "/dashboard/chat-ai", icon: Command, isChatTrigger: true }],
   },
 ];
 
 const adminNavItems: NavItem[] = [
-  { name: "Hàng chờ duyệt", href: "/dashboard/reviews", icon: ClipboardCheck },
+  { name: "HÃ ng chá» duyá»‡t", href: "/dashboard/reviews", icon: ClipboardCheck },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { name: "Ma trận kỹ năng", href: "/dashboard/admin/skills-matrix", icon: Award },
+  { name: "Ma tráº­n ká»¹ nÄƒng", href: "/dashboard/admin/skills-matrix", icon: Award },
 ];
-
-interface UserInfo {
-  id: string;
-  username: string;
-  email: string;
-  displayName?: string;
-  vai_tro?: string;
-  extendedData?: {
-    avatarUrl?: string;
-  };
-}
 
 function SidebarSectionLabel({ children }: { children: string }) {
   return (
@@ -110,32 +99,9 @@ function SidebarNavLink({ item, isActive }: { item: NavItem; isActive: boolean }
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<UserInfo | null>(null);
-
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch("/api/users/me");
-        if (res.ok) {
-          const data = await res.json();
-          setUser({
-            id: data.id,
-            username: data.email?.split("@")[0] || "User",
-            email: data.email,
-            displayName: data.ten,
-            vai_tro: data.vai_tro,
-            extendedData: {
-              avatarUrl: data.avatar_url,
-            },
-          });
-        }
-      } catch {
-        // Giữ sidebar ổn định nếu request người dùng lỗi.
-      }
-    }
-    fetchUser();
-  }, []);
-
+  const { data: user } = useCurrentUser();
+  const username = user?.email?.split("@")[0] || "User";
+  const displayName = user?.ten || username;
   const isManagerView = isLeadershipRole(user?.vai_tro);
 
   return (
@@ -171,7 +137,7 @@ export function Sidebar({ className }: { className?: string }) {
 
           {isManagerView ? (
             <section className="space-y-1 border-t border-[#e2e8d9] pt-4">
-              <SidebarSectionLabel>Điều hành</SidebarSectionLabel>
+              <SidebarSectionLabel>Äiá»u hÃ nh</SidebarSectionLabel>
               <div className="space-y-1">
                 {adminNavItems.map((item) => {
                   const isActive = pathname === item.href;
@@ -187,11 +153,11 @@ export function Sidebar({ className }: { className?: string }) {
         <div className="flex items-center justify-between rounded-[24px] border border-[#e1e7d8] bg-white/85 p-3 shadow-[0_16px_32px_-28px_rgba(95,112,88,0.28)]">
           <div className="flex items-center space-x-3">
             <Avatar className="border border-[#dce5d2] bg-[#f7f9f2] text-[#223021]">
-              <AvatarImage src={user?.extendedData?.avatarUrl} />
-              <AvatarFallback>{user?.displayName?.[0] || user?.username?.[0] || "U"}</AvatarFallback>
+              <AvatarImage src={user?.avatar_url || undefined} />
+              <AvatarFallback>{displayName[0] || "U"}</AvatarFallback>
             </Avatar>
             <div className="flex max-w-[150px] flex-col">
-              <span className="truncate text-sm font-medium text-[#223021]">{user?.displayName || user?.username || "Đang tải..."}</span>
+              <span className="truncate text-sm font-medium text-[#223021]">{displayName || "Đang tải..."}</span>
               <span className="truncate text-xs text-[#7b8775]">{user?.email || "..."}</span>
             </div>
           </div>
