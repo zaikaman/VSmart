@@ -26,6 +26,7 @@ function buildProjectPermissions(auth: Awaited<ReturnType<typeof getProjectAcces
     canManageProject,
     canDeleteProject,
     canManageMembers: hasPermission(context, 'manageMembers'),
+    canCreateTasks: hasPermission(context, 'createTask'),
     canAssignTasks: hasPermission(context, 'assignTask'),
     canViewAnalytics: hasPermission(context, 'viewAnalytics'),
   };

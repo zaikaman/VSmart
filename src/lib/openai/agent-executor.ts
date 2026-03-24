@@ -5,6 +5,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sendProjectInvitationEmail } from '@/lib/email/project-invitation';
+import { hasPermission } from '@/lib/auth/permissions';
 import type {
   TaoDuAnParams,
   MoiThanhVienDuAnParams,
@@ -422,9 +423,25 @@ export class AgentToolExecutor {
 
     const { data: userData } = await this.supabase
       .from('nguoi_dung')
-      .select('id')
+      .select('id, vai_tro')
       .eq('email', this.userEmail)
       .single();
+
+    if (
+      !userData ||
+      !hasPermission(
+        {
+          appRole: userData.vai_tro as 'admin' | 'manager' | 'member',
+          projectRole: memberCheck.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+        },
+        'createTask'
+      )
+    ) {
+      return {
+        success: false,
+        error: 'Bạn không có quyền tạo task trong dự án này',
+      };
+    }
 
     const { data, error } = await this.supabase
       .from('task')

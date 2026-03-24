@@ -74,7 +74,7 @@ export const PERMISSION_MATRIX = {
   member: {
     manageProjects: false,
     manageMembers: false,
-    createTask: true,
+    createTask: false,
     assignTask: false,
     updateTask: true,
     deleteTask: false,

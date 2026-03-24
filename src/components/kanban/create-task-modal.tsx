@@ -101,6 +101,7 @@ interface DraftChecklistItem {
 
 interface ProjectPermissionResponse {
   permissions?: {
+    canCreateTasks?: boolean;
     canAssignTasks?: boolean;
   };
 }
@@ -132,7 +133,7 @@ export function CreateTaskModal({
     enabled: open && !!projectId,
   });
   const { data: currentUser } = useCurrentUser(open);
-  const { data: projectPermissionData } = useQuery<ProjectPermissionResponse>({
+  const { data: projectPermissionData, isLoading: projectPermissionsLoading } = useQuery<ProjectPermissionResponse>({
     queryKey: ['project-permissions', projectId],
     queryFn: async () => {
       if (!projectId) {
@@ -207,6 +208,7 @@ export function CreateTaskModal({
     [currentUser]
   );
   const canAssignTasks = projectPermissionData?.permissions?.canAssignTasks ?? false;
+  const canCreateTasks = projectPermissionData?.permissions?.canCreateTasks ?? false;
   const selfAssignCandidates = useMemo(
     () => (selfCandidate ? [selfCandidate] : []),
     [selfCandidate]
@@ -455,6 +457,11 @@ export function CreateTaskModal({
 
   const onSubmit = async (data: TaskFormData) => {
     try {
+      if (!canCreateTasks) {
+        toast.error('Bạn không có quyền tạo task trong dự án này');
+        return;
+      }
+
       if (!phanDuAnId || phanDuAnId.trim() === '') {
         toast.error('Chưa chọn phần dự án');
         return;
@@ -554,6 +561,24 @@ export function CreateTaskModal({
             )}
           </DialogDescription>
         </DialogHeader>
+
+        {projectPermissionsLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-10 w-24 rounded-xl" />
+          </div>
+        ) : !canCreateTasks ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              Chỉ quản lý hoặc admin của dự án mới có thể tạo task chính thức. Nếu cần đầu việc mới, hãy trao đổi để người phụ trách tạo giúp.
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Đóng
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1025,6 +1050,7 @@ export function CreateTaskModal({
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

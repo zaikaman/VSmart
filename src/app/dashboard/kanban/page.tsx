@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHotkeys } from '@/lib/hooks/use-hotkeys';
 import { useProjectParts, type ProjectPart } from '@/lib/hooks/use-project-parts';
-import { useProjects } from '@/lib/hooks/use-projects';
+import { useProject, useProjects } from '@/lib/hooks/use-projects';
 import { useSavedViews } from '@/lib/hooks/use-saved-views';
 import { useTasks } from '@/lib/hooks/use-tasks';
 
@@ -39,11 +39,17 @@ export default function KanbanPage() {
 
   const { data: projects, isLoading: projectsLoading } = useProjects({ page: 1, limit: 100 });
   const projectList = projects?.data || [];
-  const effectiveProjectId = projectList.some((project) => project.id === selectedProjectId) ? selectedProjectId : (projectList[0]?.id ?? '');
+  const effectiveProjectId = projectList.some((project) => project.id === selectedProjectId)
+    ? selectedProjectId
+    : (projectList[0]?.id ?? '');
 
   const { data: parts, isLoading: partsLoading } = useProjectParts(effectiveProjectId);
+  const { data: projectDetails } = useProject(effectiveProjectId);
   const partList = parts || [];
-  const effectivePartId = partList.some((part) => part.id === selectedPartId) ? selectedPartId : (partList[0]?.id ?? '');
+  const effectivePartId = partList.some((part) => part.id === selectedPartId)
+    ? selectedPartId
+    : (partList[0]?.id ?? '');
+  const canCreateTasks = projectDetails?.permissions?.canCreateTasks ?? false;
   const selectedProjectName = projectList.find((project) => project.id === effectiveProjectId)?.ten || 'Chưa chọn dự án';
   const selectedPartName = partList.find((part) => part.id === effectivePartId)?.ten || '';
   const riskFilterLabel =
@@ -82,7 +88,7 @@ export default function KanbanPage() {
     {
       key: 'c',
       action: (event) => {
-        if (!effectivePartId) return;
+        if (!effectivePartId || !canCreateTasks) return;
         event.preventDefault();
         setInitialStatus('todo');
         setCreateTaskOpen(true);
@@ -106,6 +112,11 @@ export default function KanbanPage() {
   ]);
 
   const handleAddTask = (columnId: string) => {
+    if (!canCreateTasks) {
+      toast.error('Bạn không có quyền tạo task trong dự án này');
+      return;
+    }
+
     if (!effectivePartId) {
       toast.error('Vui lòng chọn phần dự án trước khi tạo task');
       return;
@@ -169,21 +180,27 @@ export default function KanbanPage() {
       description="Theo dõi task theo trạng thái, lọc nhanh theo dự án và mức rủi ro."
       actions={
         <>
+          {canCreateTasks ? (
+            <Button
+              className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+              onClick={() => {
+                if (!effectivePartId) {
+                  toast.error('Vui lòng chọn phần dự án trước khi tạo task');
+                  return;
+                }
+                setInitialStatus('todo');
+                setCreateTaskOpen(true);
+              }}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Tạo task
+            </Button>
+          ) : null}
           <Button
-            className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
-            onClick={() => {
-              if (!effectivePartId) {
-                toast.error('Vui lòng chọn phần dự án trước khi tạo task');
-                return;
-              }
-              setInitialStatus('todo');
-              setCreateTaskOpen(true);
-            }}
+            variant="outline"
+            className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]"
+            onClick={() => setShortcutOpen(true)}
           >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Tạo task
-          </Button>
-          <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={() => setShortcutOpen(true)}>
             <Keyboard className="mr-2 h-4 w-4" />
             Phím tắt
           </Button>
@@ -381,7 +398,14 @@ export default function KanbanPage() {
         </div>
       ) : null}
 
-      <DashboardSection title="Bảng task" description="Kéo thả và mở chi tiết task như bình thường.">
+      <DashboardSection
+        title="Bảng task"
+        description={
+          canCreateTasks
+            ? 'Kéo thả và mở chi tiết task như bình thường.'
+            : 'Bạn vẫn xem và xử lý task được giao, nhưng không thể tạo task mới trong dự án này.'
+        }
+      >
         <KanbanBoard tasks={tasks} onTaskClick={handleTaskClick} onAddTask={handleAddTask} />
       </DashboardSection>
 
@@ -401,7 +425,7 @@ export default function KanbanPage() {
         onOpenChange={setShortcutOpen}
         title="Phím tắt Kanban"
         items={[
-          { keyLabel: 'C', description: 'Mở nhanh modal tạo task mới' },
+          ...(canCreateTasks ? [{ keyLabel: 'C', description: 'Mở nhanh modal tạo task mới' }] : []),
           { keyLabel: '1', description: 'Đặt bộ lọc rủi ro về tất cả' },
           { keyLabel: '2', description: 'Lọc nhanh nhóm task rủi ro cao' },
           { keyLabel: '?', description: 'Mở bảng phím tắt' },

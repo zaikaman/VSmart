@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase/client';
+import { hasPermission } from '@/lib/auth/permissions';
 import { createTaskWithRelations } from '@/lib/tasks/create-task';
 import { getAuthenticatedUserContext, getPartAccessContext } from '@/lib/tasks/auth';
 import { normalizeChecklistItems } from '@/lib/tasks/checklist';
@@ -23,7 +24,19 @@ export async function POST(
     const auth = await getAuthenticatedUserContext();
     const body = await request.json();
     const validated = instantiateTemplateSchema.parse(body);
-    await getPartAccessContext(validated.phan_du_an_id);
+    const partAccess = await getPartAccessContext(validated.phan_du_an_id);
+
+    if (
+      !hasPermission(
+        {
+          appRole: auth.dbUser.vai_tro as 'admin' | 'manager' | 'member',
+          projectRole: partAccess.membership.vai_tro as 'owner' | 'admin' | 'member' | 'viewer',
+        },
+        'createTask'
+      )
+    ) {
+      return NextResponse.json({ error: 'Bạn không có quyền tạo task trong dự án này' }, { status: 403 });
+    }
 
     const { data: template, error } = await supabaseAdmin
       .from('task_template')

@@ -4,6 +4,7 @@ export interface ProjectPermissions {
   canManageProject: boolean;
   canDeleteProject: boolean;
   canManageMembers: boolean;
+  canCreateTasks: boolean;
   canViewAnalytics: boolean;
 }
 
