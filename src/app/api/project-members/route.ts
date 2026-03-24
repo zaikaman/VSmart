@@ -43,6 +43,26 @@ function getProjectName(value: unknown) {
     : null;
 }
 
+async function hasPendingOrganizationInvitation(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  organizationId: string,
+  email: string
+) {
+  const { data, error } = await supabase
+    .from('loi_moi_to_chuc')
+    .select('id')
+    .eq('to_chuc_id', organizationId)
+    .eq('email', email)
+    .eq('trang_thai', 'pending')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data?.id);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { authUser } = await getAuthenticatedUserContext();
@@ -91,8 +111,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
     const { du_an_id, email, vai_tro = 'member' } = body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!du_an_id || !email) {
+    if (!du_an_id || !normalizedEmail) {
       return NextResponse.json({ error: 'du_an_id và email là bắt buộc' }, { status: 400 });
     }
 
@@ -114,7 +135,7 @@ export async function POST(request: NextRequest) {
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json({ error: 'Email không hợp lệ' }, { status: 400 });
     }
 
@@ -122,7 +143,7 @@ export async function POST(request: NextRequest) {
       .from('thanh_vien_du_an')
       .select('id')
       .eq('du_an_id', du_an_id)
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .single();
 
     if (existingMember) {
@@ -155,18 +176,26 @@ export async function POST(request: NextRequest) {
     const { data: invitedUser } = await supabase
       .from('nguoi_dung')
       .select('id, to_chuc_id')
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .maybeSingle();
 
+    const invitedViaOrganization = !allowExternalProjectInvites
+      ? await hasPendingOrganizationInvitation(supabase, projectInfoWithOrg.to_chuc_id, normalizedEmail)
+      : false;
+
     if (!allowExternalProjectInvites) {
-      if (!invitedUser?.id) {
+      if (!invitedUser?.id && !invitedViaOrganization) {
         return NextResponse.json(
           { error: 'Tổ chức hiện chưa cho phép mời email ngoài tổ chức vào dự án' },
           { status: 400 }
         );
       }
 
-      if (invitedUser.to_chuc_id !== projectInfoWithOrg.to_chuc_id) {
+      if (
+        invitedUser?.id &&
+        invitedUser.to_chuc_id !== projectInfoWithOrg.to_chuc_id &&
+        !invitedViaOrganization
+      ) {
         return NextResponse.json(
           { error: 'Người được mời cần thuộc cùng tổ chức với dự án này' },
           { status: 400 }
@@ -179,7 +208,7 @@ export async function POST(request: NextRequest) {
       .insert({
         du_an_id,
         nguoi_dung_id: invitedUser?.id || null,
-        email,
+        email: normalizedEmail,
         vai_tro,
         trang_thai: 'pending',
         nguoi_moi_id: dbUser.id,
@@ -221,7 +250,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         projectId: du_an_id,
         projectName: projectInfo?.ten || null,
-        invitedEmail: email,
+        invitedEmail: normalizedEmail,
         invitedRole: vai_tro,
       },
     });
@@ -229,7 +258,7 @@ export async function POST(request: NextRequest) {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       await sendProjectInvitationEmail({
-        to: email,
+        to: normalizedEmail,
         projectName: projectInfo?.ten || 'Dự án',
         inviterName: dbUser.ten,
         inviterEmail: authUser.email,
