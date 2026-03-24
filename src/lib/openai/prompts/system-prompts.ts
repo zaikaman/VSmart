@@ -5,38 +5,43 @@
 
 /**
  * System prompt cho gợi ý phân công task
- * AI sẽ phân tích task và danh sách candidates để đưa ra top 3 gợi ý
  */
 export const ASSIGNMENT_SUGGESTION_PROMPT = `Bạn là trợ lý AI chuyên về quản lý dự án và phân công công việc.
 
 NHIỆM VỤ:
 Dựa trên thông tin task và danh sách thành viên, hãy gợi ý TOP 3 người phù hợp nhất để thực hiện task.
 
-TIÊU CHÍ ĐÁNH GIÁ (theo thứ tự ưu tiên):
-1. **Kỹ năng phù hợp** (40%): So khớp skills với yêu cầu của task (dựa trên tên, mô tả task)
-2. **Tỷ lệ hoàn thành** (30%): Ưu tiên người có tỷ lệ hoàn thành task cao
-3. **Khối lượng công việc** (20%): Ưu tiên người đang có ít task in-progress
-4. **Kinh nghiệm** (10%): Số năm kinh nghiệm với skill liên quan
+TIÊU CHÍ ĐÁNH GIÁ:
+1. Kỹ năng và kinh nghiệm liên quan đến task.
+2. Tỷ lệ hoàn thành công việc gần đây.
+3. Khối lượng công việc hiện tại, đặc biệt tránh xếp người đang quá tải lên đầu nếu vẫn còn lựa chọn hợp lý.
+4. Mức độ ưu tiên và deadline của task.
 
 ĐỊNH DẠNG OUTPUT:
-Trả về JSON array với đúng 3 objects, mỗi object có:
+Trả về JSON object có key "suggestions".
+
+Ví dụ:
 {
-  "nguoi_dung_id": "uuid của người được gợi ý",
-  "diem_phu_hop": 0-100 (điểm đánh giá tổng hợp),
-  "ly_do": {
-    "chinh": "Lý do chính ngắn gọn (1-2 câu)",
-    "ky_nang_phu_hop": ["skill1", "skill2"],
-    "ty_le_hoan_thanh": "x%",
-    "khoi_luong_hien_tai": "y tasks đang làm"
-  }
+  "suggestions": [
+    {
+      "nguoi_dung_id": "uuid",
+      "diem_phu_hop": 84,
+      "ly_do": {
+        "chinh": "Lý do chính ngắn gọn trong 1-2 câu",
+        "ky_nang_phu_hop": ["React", "Supabase"],
+        "ty_le_hoan_thanh": "92.0%",
+        "khoi_luong_hien_tai": "2 task đang làm"
+      }
+    }
+  ]
 }
 
 QUAN TRỌNG:
-- Chỉ trả về JSON, không có text khác
-- Luôn trả về đúng 3 gợi ý nếu có đủ candidates
-- Nếu không đủ 3 candidates, trả về tất cả với điểm phù hợp thực tế
-- Nếu không có candidate nào, trả về array rỗng []
-- Điểm phù hợp phải thực tế, không vượt quá 95 trừ khi match hoàn hảo`;
+- Chỉ trả về JSON, không có text khác.
+- Luôn trả về tối đa 3 gợi ý, sắp theo độ phù hợp giảm dần.
+- Nếu không đủ 3 candidates, trả về tất cả candidates phù hợp.
+- Nếu không có candidate nào, trả về {"suggestions":[]}.
+- Điểm phù hợp phải thực tế, trong khoảng 0-100.`;
 
 /**
  * Tạo user prompt cho request gợi ý phân công
@@ -57,14 +62,23 @@ export function createAssignmentUserPrompt(params: {
     }>;
     ty_le_hoan_thanh: number;
     so_task_dang_lam: number;
+    load_ratio?: number;
+    load_status?: string;
+    overloaded_warning?: string;
   }>;
 }): string {
-  const candidatesInfo = params.candidates.map((c) => ({
-    id: c.id,
-    ten: c.ten,
-    skills: c.skills.map(s => `${s.ten_ky_nang} (${s.trinh_do}, ${s.nam_kinh_nghiem} năm)`).join(', ') || 'Chưa cập nhật',
-    ty_le_hoan_thanh: `${c.ty_le_hoan_thanh.toFixed(1)}%`,
-    so_task_dang_lam: c.so_task_dang_lam,
+  const candidatesInfo = params.candidates.map((candidate) => ({
+    id: candidate.id,
+    ten: candidate.ten,
+    skills:
+      candidate.skills
+        .map((skill) => `${skill.ten_ky_nang} (${skill.trinh_do}, ${skill.nam_kinh_nghiem} năm)`)
+        .join(', ') || 'Chưa cập nhật',
+    ty_le_hoan_thanh: `${candidate.ty_le_hoan_thanh.toFixed(1)}%`,
+    so_task_dang_lam: candidate.so_task_dang_lam,
+    load_ratio: candidate.load_ratio ?? null,
+    load_status: candidate.load_status ?? 'balanced',
+    overloaded_warning: candidate.overloaded_warning ?? null,
   }));
 
   return `THÔNG TIN TASK:
@@ -154,17 +168,19 @@ export function createRiskPredictionUserPrompt(params: {
 - Tổng thời gian dự kiến: ${totalDays} ngày
 
 THÔNG TIN NGƯỜI ĐƯỢC GIAO:
-${params.assignee 
-  ? `- Tên: ${params.assignee.ten}
+${
+  params.assignee
+    ? `- Tên: ${params.assignee.ten}
 - Tỷ lệ hoàn thành: ${params.assignee.ty_le_hoan_thanh.toFixed(1)}%
 - Số task đang làm: ${params.assignee.so_task_dang_lam}`
-  : '- Chưa có người được giao (RỦI RO CAO!)'}
+    : '- Chưa có người được giao (RỦI RO CAO!)'
+}
 
 Hãy phân tích và đánh giá rủi ro trễ hạn của task này.`;
 }
 
 /**
- * System prompt cho chat AI (chuẩn bị cho Phase 6)
+ * System prompt cho chat AI
  */
 export const CHAT_ASSISTANT_PROMPT = `Bạn là trợ lý AI của hệ thống quản lý công việc VSmart.
 

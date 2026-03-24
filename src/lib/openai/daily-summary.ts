@@ -57,7 +57,7 @@ function buildFallback(dataset: InsightDataset): DailySummaryResult {
       ? `Chốt phương án xử lý ${dataset.overdue_tasks.length} task đã quá hạn trước cuối ngày.`
       : null,
     workloadAlerts.length > 0
-      ? `Cân lại tải cho ${workloadAlerts[0]?.member_name || 'nhóm đang quá tải'} để giảm dồn việc.`
+      ? `Tái cân bằng cho ${workloadAlerts[0]?.member_name || 'nhóm đang quá tải'} để giảm dồn việc.`
       : null,
     dataset.due_soon_tasks.length > 0
       ? `Rà lại ${Math.min(dataset.due_soon_tasks.length, 5)} task sắp tới hạn trong tuần này.`

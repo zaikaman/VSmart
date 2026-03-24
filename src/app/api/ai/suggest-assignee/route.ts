@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import {
-  goiYPhanCongAI,
+  goiYPhanCong,
   type AssignmentCandidate,
   type TaskForSuggestion,
 } from '@/lib/openai/assignment-suggestion';
@@ -218,7 +218,9 @@ export async function POST(request: NextRequest) {
       })),
     });
 
-    const suggestions = goiYPhanCongAI(taskInfo, candidates)
+    const aiResult = await goiYPhanCong(taskInfo, candidates);
+
+    const suggestions = aiResult.suggestions
       .map((suggestion) => {
         const loadStatus = suggestion.user?.load_status;
         const penalty = loadStatus === 'overloaded' ? 15 : loadStatus === 'stretched' ? 8 : 0;
@@ -263,8 +265,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       suggestions,
       latency_ms,
-      model: 'algorithm',
+      model: aiResult.model,
       all_candidates: candidates,
+      error: aiResult.error,
     });
   } catch (error) {
     console.error('Lỗi trong /api/ai/suggest-assignee:', error);

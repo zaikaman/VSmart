@@ -17,7 +17,7 @@ interface RebalancePanelProps {
 
 export function RebalancePanel({
   projectId,
-  title = 'Gợi ý cân lại tải công việc',
+  title = 'Gợi ý tái cân bằng công việc',
   compact = false,
 }: RebalancePanelProps) {
   const rebalanceMutation = useRebalanceSuggestions();
