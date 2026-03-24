@@ -47,7 +47,10 @@ function getColumnId(task: Task): WorkflowColumnId {
   return 'todo';
 }
 
-function getManualProgressFromColumn(columnId: Extract<WorkflowColumnId, 'todo' | 'in-progress' | 'done'>, currentProgress: number) {
+function getManualProgressFromColumn(
+  columnId: Extract<WorkflowColumnId, 'todo' | 'in-progress' | 'done'>,
+  currentProgress: number
+) {
   if (columnId === 'todo') return 0;
   if (columnId === 'done') return 100;
 
@@ -125,9 +128,15 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
     const overId = over.id as string;
     const task = optimisticTasks.find((item) => item.id === taskId);
     const overTask = optimisticTasks.find((item) => item.id === overId);
-    const newColumnId = (columns.find((column) => column.id === overId)?.id || (overTask ? getColumnId(overTask) : null)) as Exclude<WorkflowColumnId, 'pending_review'> | null;
+    const newColumnId = (columns.find((column) => column.id === overId)?.id ||
+      (overTask ? getColumnId(overTask) : null)) as Exclude<WorkflowColumnId, 'pending_review'> | null;
 
     if (!task || !newColumnId) return;
+
+    if (task.permissions?.canUpdateExecution === false) {
+      toast.error('Bạn không có quyền đổi trạng thái task này.');
+      return;
+    }
 
     if (task.progress_mode === 'checklist') {
       toast.error('Task dùng checklist, hãy cập nhật từng mục để đổi trạng thái.');
@@ -152,7 +161,8 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
               ...item,
               trang_thai: newColumnId,
               progress: shouldRouteToReview ? 90 : nextProgress,
-              review_status: shouldRouteToReview ? 'pending_review' : newColumnId === 'done' ? item.review_status : 'draft',
+              review_status:
+                shouldRouteToReview ? 'pending_review' : newColumnId === 'done' ? item.review_status : 'draft',
             }
           : item
       )
@@ -219,7 +229,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid gap-4 xl:grid-cols-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {columns.map((column) => (
             <KanbanColumn
               key={column.id}

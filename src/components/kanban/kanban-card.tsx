@@ -54,6 +54,7 @@ function KanbanCardFrame({
   const riskScore = task.risk_score || 0;
   const isHighRisk = riskLevel === 'high';
   const isStale = task.is_stale || false;
+  const cannotExecute = task.permissions?.canUpdateExecution === false;
   const effectiveProgress = getEffectiveTaskProgress({
     progress: task.progress,
     progressMode: task.progress_mode,
@@ -176,9 +177,11 @@ function KanbanCardFrame({
 
       {dragDisabled ? (
         <p className="mt-3 text-[11px] leading-5 text-[#7a846f]">
-          {task.review_status === 'pending_review'
-            ? 'Đang nằm trong hàng chờ duyệt nên xử lý ở luồng review.'
-            : 'Task checklist đổi trạng thái theo các mục công việc.'}
+          {cannotExecute
+            ? 'Task này đang ở chế độ chỉ xem với vai trò hiện tại.'
+            : task.review_status === 'pending_review'
+              ? 'Đang nằm trong hàng chờ duyệt nên xử lý ở luồng review.'
+              : 'Task checklist đổi trạng thái theo các mục công việc.'}
         </p>
       ) : null}
     </article>
@@ -186,7 +189,10 @@ function KanbanCardFrame({
 }
 
 export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
-  const dragDisabled = task.progress_mode === 'checklist' || task.review_status === 'pending_review';
+  const dragDisabled =
+    task.progress_mode === 'checklist' ||
+    task.review_status === 'pending_review' ||
+    task.permissions?.canUpdateExecution === false;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     disabled: dragDisabled,
@@ -211,7 +217,10 @@ export function KanbanCard({ task, onTaskClick }: KanbanCardProps) {
 }
 
 export function KanbanCardPreview({ task }: { task: Task }) {
-  const dragDisabled = task.progress_mode === 'checklist' || task.review_status === 'pending_review';
+  const dragDisabled =
+    task.progress_mode === 'checklist' ||
+    task.review_status === 'pending_review' ||
+    task.permissions?.canUpdateExecution === false;
 
   return (
     <KanbanCardFrame

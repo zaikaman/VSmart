@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase/client';
+import { canManageTaskChecklist, canToggleTaskChecklist } from '@/lib/auth/permissions';
 import { getTaskAccessContext } from '@/lib/tasks/auth';
 import { syncTaskProgressFromChecklist } from '@/lib/tasks/progress';
 
@@ -31,7 +32,7 @@ export async function PATCH(
 ) {
   try {
     const { id, checklistId } = await params;
-    await getTaskAccessContext(id);
+    const auth = await getTaskAccessContext(id);
     const checklistItem = await ensureChecklistOwnership(id, checklistId);
 
     if (!checklistItem) {
@@ -40,6 +41,26 @@ export async function PATCH(
 
     const body = await request.json();
     const validated = updateChecklistSchema.parse(body);
+    const requestedFields = Object.keys(validated);
+
+    if (requestedFields.length === 0) {
+      return NextResponse.json({ error: 'Không có thay đổi nào để cập nhật' }, { status: 400 });
+    }
+
+    const permissionContext = {
+      appRole: auth.dbUser.vai_tro,
+      projectRole: auth.membership.vai_tro,
+      isAssignee: auth.taskData.assignee_id === auth.dbUser.id,
+    };
+    const isToggleOnlyUpdate = requestedFields.every((field) => field === 'is_done');
+
+    if (isToggleOnlyUpdate) {
+      if (!canToggleTaskChecklist(permissionContext)) {
+        return NextResponse.json({ error: 'Bạn không có quyền cập nhật tiến độ checklist này' }, { status: 403 });
+      }
+    } else if (!canManageTaskChecklist(permissionContext)) {
+      return NextResponse.json({ error: 'Bạn không có quyền chỉnh checklist của task này' }, { status: 403 });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('task_checklist_item')
@@ -71,11 +92,21 @@ export async function DELETE(
 ) {
   try {
     const { id, checklistId } = await params;
-    await getTaskAccessContext(id);
+    const auth = await getTaskAccessContext(id);
     const checklistItem = await ensureChecklistOwnership(id, checklistId);
 
     if (!checklistItem) {
       return NextResponse.json({ error: 'Không tìm thấy checklist item' }, { status: 404 });
+    }
+
+    if (
+      !canManageTaskChecklist({
+        appRole: auth.dbUser.vai_tro,
+        projectRole: auth.membership.vai_tro,
+        isAssignee: auth.taskData.assignee_id === auth.dbUser.id,
+      })
+    ) {
+      return NextResponse.json({ error: 'Bạn không có quyền xóa checklist của task này' }, { status: 403 });
     }
 
     const { error } = await supabaseAdmin

@@ -3,7 +3,10 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 export interface TaskPermissions {
   canAssign: boolean;
   canUpdate: boolean;
+  canUpdateExecution: boolean;
   canDelete: boolean;
+  canManageChecklist: boolean;
+  canToggleChecklist: boolean;
   canSubmitReview: boolean;
   canApprove: boolean;
   canReject: boolean;

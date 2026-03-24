@@ -5,7 +5,12 @@ import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notif
 import { createTaskWithRelations } from '@/lib/tasks/create-task';
 import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
 import { normalizeChecklistItems } from '@/lib/tasks/checklist';
-import { hasPermission } from '@/lib/auth/permissions';
+import {
+  canManageTaskChecklist,
+  canToggleTaskChecklist,
+  canUpdateTaskExecution,
+  hasPermission,
+} from '@/lib/auth/permissions';
 
 const taskSchema = z.object({
   ten: z.string().min(1).max(200),
@@ -255,72 +260,37 @@ export async function GET(request: NextRequest) {
       return {
         ...task,
         permissions: {
-          canAssign: Boolean(
-            currentDbUser &&
-              hasPermission(
-                {
+          ...(currentDbUser
+            ? (() => {
+                const permissionContext = {
                   appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
                   projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
                   isAssignee: task.assignee_id === currentDbUser.id,
-                },
-                'assignTask'
-              )
-          ),
-          canUpdate: Boolean(
-            currentDbUser &&
-              hasPermission(
-                {
-                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
-                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
-                  isAssignee: task.assignee_id === currentDbUser.id,
-                },
-                'updateTask'
-              )
-          ),
-          canDelete: Boolean(
-            currentDbUser &&
-              hasPermission(
-                {
-                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
-                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
-                  isAssignee: task.assignee_id === currentDbUser.id,
-                },
-                'deleteTask'
-              )
-          ),
-          canSubmitReview: Boolean(
-            currentDbUser &&
-              hasPermission(
-                {
-                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
-                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
-                  isAssignee: task.assignee_id === currentDbUser.id,
-                },
-                'submitReview'
-              )
-          ),
-          canApprove: Boolean(
-            currentDbUser &&
-              hasPermission(
-                {
-                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
-                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
-                  isAssignee: task.assignee_id === currentDbUser.id,
-                },
-                'approveTask'
-              )
-          ),
-          canReject: Boolean(
-            currentDbUser &&
-              hasPermission(
-                {
-                  appRole: currentDbUser.vai_tro as 'admin' | 'manager' | 'member',
-                  projectRole: projectRole as 'owner' | 'admin' | 'member' | 'viewer' | null,
-                  isAssignee: task.assignee_id === currentDbUser.id,
-                },
-                'rejectTask'
-              )
-          ),
+                };
+
+                return {
+                  canAssign: hasPermission(permissionContext, 'assignTask'),
+                  canUpdate: hasPermission(permissionContext, 'updateTask'),
+                  canUpdateExecution: canUpdateTaskExecution(permissionContext),
+                  canDelete: hasPermission(permissionContext, 'deleteTask'),
+                  canManageChecklist: canManageTaskChecklist(permissionContext),
+                  canToggleChecklist: canToggleTaskChecklist(permissionContext),
+                  canSubmitReview: hasPermission(permissionContext, 'submitReview'),
+                  canApprove: hasPermission(permissionContext, 'approveTask'),
+                  canReject: hasPermission(permissionContext, 'rejectTask'),
+                };
+              })()
+            : {
+                canAssign: false,
+                canUpdate: false,
+                canUpdateExecution: false,
+                canDelete: false,
+                canManageChecklist: false,
+                canToggleChecklist: false,
+                canSubmitReview: false,
+                canApprove: false,
+                canReject: false,
+              }),
         },
       };
     });

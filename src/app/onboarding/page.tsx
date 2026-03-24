@@ -14,12 +14,16 @@ import { useCreateOrganization, useMyOrganizationInvitations } from '@/lib/hooks
 
 type WorkspaceChoice = 'create' | 'later';
 
+type OnboardingUser = {
+  ten?: string | null;
+  to_chuc?: { ten?: string | null } | null;
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [workspaceChoice, setWorkspaceChoice] = useState<WorkspaceChoice>('create');
   const [hoTen, setHoTen] = useState('');
-  const [tenPhongBan, setTenPhongBan] = useState('');
   const [tenToChuc, setTenToChuc] = useState('');
   const [moTaToChuc, setMoTaToChuc] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,11 +38,7 @@ export default function OnboardingPage() {
         throw new Error('Không thể tải thông tin người dùng');
       }
 
-      return response.json() as Promise<{
-        ten?: string | null;
-        ten_phong_ban?: string | null;
-        to_chuc?: { ten?: string | null } | null;
-      }>;
+      return response.json() as Promise<OnboardingUser>;
     },
   });
 
@@ -48,7 +48,6 @@ export default function OnboardingPage() {
     }
 
     setHoTen((currentValue) => currentValue || currentUser.ten || '');
-    setTenPhongBan((currentValue) => currentValue || currentUser.ten_phong_ban || '');
     setTenToChuc((currentValue) => currentValue || currentUser.to_chuc?.ten || '');
 
     if (currentUser.to_chuc) {
@@ -93,7 +92,6 @@ export default function OnboardingPage() {
         },
         body: JSON.stringify({
           ten: hoTen.trim(),
-          ten_phong_ban: tenPhongBan.trim() || null,
           onboarding_completed: true,
         }),
       });
@@ -131,14 +129,16 @@ export default function OnboardingPage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/78">
               Thiết lập ban đầu
             </div>
-            <h1 className="mt-5 text-[clamp(2rem,4vw,3.4rem)] font-semibold leading-tight">Thiết lập vài thông tin để bắt đầu gọn gàng hơn.</h1>
+            <h1 className="mt-5 text-[clamp(2rem,4vw,3.4rem)] font-semibold leading-tight">
+              Thiết lập vài thông tin để bắt đầu gọn gàng hơn.
+            </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-white/76">
               Hoàn thiện hồ sơ cá nhân trước, rồi chọn tạo không gian làm việc ngay hoặc để sau. Mọi thứ sẽ được sắp đúng chỗ ngay từ đầu.
             </p>
 
             <div className="mt-8 grid gap-3">
               {[
-                ['1', 'Điền thông tin cá nhân', 'Tên hiển thị và phòng ban của bạn có thể chỉnh lại bất cứ lúc nào.'],
+                ['1', 'Điền thông tin cá nhân', 'Tên hiển thị của bạn có thể chỉnh lại bất cứ lúc nào.'],
                 ['2', 'Chọn cách bắt đầu', 'Tạo không gian làm việc ngay hoặc vào sản phẩm trước rồi làm sau.'],
               ].map(([index, title, description]) => (
                 <div key={index} className="rounded-[24px] border border-white/12 bg-white/8 px-4 py-4">
@@ -185,18 +185,6 @@ export default function OnboardingPage() {
                     onChange={(event) => setHoTen(event.target.value)}
                     className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
                   />
-                </div>
-
-                <div>
-                  <Label htmlFor="tenPhongBan">Phòng ban</Label>
-                  <Input
-                    id="tenPhongBan"
-                    placeholder="Ví dụ: Sản phẩm, Kỹ thuật, Vận hành"
-                    value={tenPhongBan}
-                    onChange={(event) => setTenPhongBan(event.target.value)}
-                    className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
-                  />
-                  <p className="mt-2 text-sm text-[#6f7c69]">Thông tin này thuộc hồ sơ cá nhân của bạn và có thể chỉnh lại sau.</p>
                 </div>
 
                 {error ? <div className="rounded-[20px] border border-[#f0ddd1] bg-[#fff5ef] px-4 py-3 text-sm text-[#a05735]">{error}</div> : null}

@@ -4,6 +4,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
 import { KanbanCard } from './kanban-card';
+import type { TaskPermissions } from '@/lib/hooks/use-tasks';
 
 export interface Task {
   id: string;
@@ -21,6 +22,7 @@ export interface Task {
   risk_level?: 'low' | 'medium' | 'high';
   is_stale?: boolean;
   review_status?: 'draft' | 'pending_review' | 'approved' | 'changes_requested';
+  permissions?: TaskPermissions;
   nguoi_dung?: {
     id: string;
     ten: string;

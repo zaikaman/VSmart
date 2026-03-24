@@ -31,6 +31,10 @@ function getTimelineTone(task: PlanningTaskItem) {
   return 'from-[#b9ff66] to-[#8fd843]';
 }
 
+function clampPercentage(value: number) {
+  return Math.min(100, Math.max(0, value));
+}
+
 export function TimelineView({
   data,
   onShiftRange,
@@ -88,7 +92,8 @@ export function TimelineView({
           tasks.map((task) => {
             const deadline = parseISO(task.deadline);
             const offset = Math.max(0, differenceInCalendarDays(deadline, rangeStart));
-            const width = `${Math.max(12, ((offset + 1) / span) * 100)}%`;
+            const progressWidth = `${clampPercentage(task.progress)}%`;
+            const deadlinePosition = clampPercentage(((offset + 1) / span) * 100);
 
             return (
               <article
@@ -134,13 +139,25 @@ export function TimelineView({
                 </div>
 
                 <div className="rounded-[22px] bg-[#f1f4eb] p-3">
-                  <div className="relative h-4 overflow-hidden rounded-full bg-white">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#73806c]">
+                    <span>Tiến độ thực tế</span>
+                    <span>Mốc deadline trong khung tuần</span>
+                  </div>
+                  <div className="relative h-5 overflow-hidden rounded-full bg-white">
                     <div
                       className={cn(
-                        'h-full rounded-full bg-gradient-to-r shadow-[0_8px_24px_-12px_rgba(25,26,35,0.45)]',
+                        'h-full rounded-full bg-gradient-to-r shadow-[0_8px_24px_-12px_rgba(25,26,35,0.45)] transition-[width] duration-500',
                         getTimelineTone(task)
                       )}
-                      style={{ width }}
+                      style={{ width: progressWidth }}
+                    />
+                    <div
+                      className="pointer-events-none absolute inset-y-0 z-10 w-[2px] -translate-x-1/2 rounded-full bg-[#191a23]/50"
+                      style={{ left: `${deadlinePosition}%` }}
+                    />
+                    <div
+                      className="pointer-events-none absolute top-1/2 z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#191a23]"
+                      style={{ left: `${deadlinePosition}%` }}
                     />
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-[#62705d]">

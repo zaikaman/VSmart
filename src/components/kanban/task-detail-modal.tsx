@@ -34,7 +34,7 @@ import {
   useUploadTaskAttachment,
 } from '@/lib/hooks/use-task-execution';
 import { useApproveTask, useRejectTask, useSubmitTaskForReview } from '@/lib/hooks/use-governance';
-import { useDeleteTask, useTask, type Task as HookTask } from '@/lib/hooks/use-tasks';
+import { useDeleteTask, useTask, type Task as HookTask, type TaskPermissions } from '@/lib/hooks/use-tasks';
 import { canTransitionReviewStatus } from '@/lib/auth/permissions';
 import { MAX_TASK_ATTACHMENT_SIZE } from '@/lib/tasks/attachments';
 import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task-progress';
@@ -62,6 +62,7 @@ interface BaseTask {
   review_request_comment?: string | null;
   reviewComment?: string | null;
   review_comment?: string | null;
+  permissions?: TaskPermissions;
 }
 
 interface Comment {
@@ -124,6 +125,7 @@ function normalizeTask(task: BaseTask | null, details?: HookTask | null): HookTa
     submitted_for_review_at: task.submitted_for_review_at ?? null,
     review_request_comment: task.reviewRequestComment ?? task.review_request_comment ?? null,
     review_comment: task.reviewComment ?? task.review_comment ?? null,
+    permissions: task.permissions,
     risk_level: 'low',
     risk_updated_at: null,
     is_stale: false,
@@ -221,7 +223,10 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
 
   if (!task || !resolvedTask) return null;
 
-  const canEdit = resolvedTask.permissions?.canUpdate ?? true;
+  const canEdit = resolvedTask.permissions?.canUpdate ?? false;
+  const canUpdateExecution = resolvedTask.permissions?.canUpdateExecution ?? canEdit;
+  const canManageChecklist = resolvedTask.permissions?.canManageChecklist ?? canEdit;
+  const canToggleChecklist = resolvedTask.permissions?.canToggleChecklist ?? canUpdateExecution;
   const canSubmitReview = resolvedTask.permissions?.canSubmitReview ?? false;
   const canApprove = resolvedTask.permissions?.canApprove ?? false;
   const canReject = resolvedTask.permissions?.canReject ?? false;
@@ -447,7 +452,7 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
                 </Badge>
               </div>
 
-              <div className="flex gap-2">
+              {canManageChecklist ? <div className="flex gap-2">
                 <Input value={newChecklistTitle} onChange={(event) => setNewChecklistTitle(event.target.value)} placeholder="Thêm checklist item..." />
                 <Button
                   type="button"
@@ -465,7 +470,13 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
                 >
                   Thêm
                 </Button>
-              </div>
+              </div> : (
+                <p className="text-sm text-slate-500">
+                  {canToggleChecklist
+                    ? 'Bạn có thể tick tiến độ, còn việc thêm hoặc xóa mục sẽ do quản lý xử lý.'
+                    : 'Checklist đang ở chế độ chỉ xem.'}
+                </p>
+              )}
 
               <div className="mt-4 space-y-2">
                 {checklistLoading ? (
@@ -478,13 +489,17 @@ export function TaskDetailModal({ task, open, onOpenChange }: Props) {
                       <input
                         type="checkbox"
                         checked={item.is_done}
-                        onChange={(event) => updateChecklistMutation.mutate({ checklistId: item.id, is_done: event.target.checked })}
+                        onChange={(event) => {
+                          if (!canToggleChecklist) return;
+                          updateChecklistMutation.mutate({ checklistId: item.id, is_done: event.target.checked });
+                        }}
                         className="h-4 w-4"
+                        disabled={!canToggleChecklist}
                       />
                       <span className={`flex-1 text-sm ${item.is_done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{item.title}</span>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => deleteChecklistMutation.mutate(item.id)} disabled={deleteChecklistMutation.isPending}>
+                      {canManageChecklist ? <Button type="button" variant="ghost" size="sm" onClick={() => deleteChecklistMutation.mutate(item.id)} disabled={deleteChecklistMutation.isPending}>
                         Xóa
-                      </Button>
+                      </Button> : null}
                     </div>
                   ))
                 )}

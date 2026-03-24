@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { getTaskAccessContext } from '@/lib/tasks/auth';
+import { canManageTaskChecklist } from '@/lib/auth/permissions';
 import { normalizeChecklistItems } from '@/lib/tasks/checklist';
 import { syncTaskProgressFromChecklist } from '@/lib/tasks/progress';
 
@@ -42,7 +43,18 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    await getTaskAccessContext(id);
+    const auth = await getTaskAccessContext(id);
+
+    if (
+      !canManageTaskChecklist({
+        appRole: auth.dbUser.vai_tro,
+        projectRole: auth.membership.vai_tro,
+        isAssignee: auth.taskData.assignee_id === auth.dbUser.id,
+      })
+    ) {
+      return NextResponse.json({ error: 'Bạn không có quyền thêm checklist cho task này' }, { status: 403 });
+    }
+
     const body = await request.json();
     const validated = createChecklistSchema.parse(body);
 

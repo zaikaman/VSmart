@@ -3,7 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase/client';
 import { z } from 'zod';
 import { sendTaskAssignedEmail, shouldSendNotification } from '@/lib/email/notifications';
 import { logTaskActivity } from '@/lib/activity/log';
-import { hasPermission } from '@/lib/auth/permissions';
+import {
+  canManageTaskChecklist,
+  canToggleTaskChecklist,
+  canUpdateTaskExecution,
+  hasPermission,
+} from '@/lib/auth/permissions';
 import { getTaskAccessContext } from '@/lib/tasks/auth';
 import { syncTaskProgressFromChecklist, updatePhanDuAnProgress } from '@/lib/tasks/progress';
 
@@ -50,7 +55,10 @@ function buildTaskPermissions(auth: Awaited<ReturnType<typeof getTaskAccessConte
   return {
     canAssign: hasPermission(context, 'assignTask'),
     canUpdate: hasPermission(context, 'updateTask'),
+    canUpdateExecution: canUpdateTaskExecution(context),
     canDelete: hasPermission(context, 'deleteTask'),
+    canManageChecklist: canManageTaskChecklist(context),
+    canToggleChecklist: canToggleTaskChecklist(context),
     canSubmitReview: hasPermission(context, 'submitReview'),
     canApprove: hasPermission(context, 'approveTask'),
     canReject: hasPermission(context, 'rejectTask'),
@@ -125,13 +133,18 @@ export async function PATCH(
 
     const body = await request.json();
     const validated = updateTaskSchema.parse(body);
+    const requestedFields = Object.keys(validated);
+    const executionOnlyFields = new Set(['trang_thai', 'progress']);
+    const isExecutionOnlyUpdate =
+      requestedFields.length > 0 && requestedFields.every((field) => executionOnlyFields.has(field));
 
-    const updatePayload = {
-      ...validated,
-      ...(validated.progress !== undefined && !validated.progress_mode
-        ? { progress_mode: 'manual' as const }
-        : {}),
-    };
+    if (isExecutionOnlyUpdate) {
+      if (!permissions.canUpdateExecution) {
+        return NextResponse.json({ error: 'Bạn không có quyền cập nhật tiến độ task này' }, { status: 403 });
+      }
+    } else if (!permissions.canUpdate) {
+      return NextResponse.json({ error: 'Bạn không có quyền cập nhật task này' }, { status: 403 });
+    }
 
     const { data: oldTask } = await supabaseAdmin
       .from('task')
@@ -175,6 +188,15 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    const updatePayload = {
+      ...validated,
+      ...(validated.progress !== undefined &&
+      !validated.progress_mode &&
+      currentProgressMode === 'manual'
+        ? { progress_mode: 'manual' as const }
+        : {}),
+    };
 
     if (
       validated.assignee_id !== undefined &&

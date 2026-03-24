@@ -131,6 +131,36 @@ export function canManageOrganizationTarget(actorRole: AppRole, targetRole: AppR
   return false;
 }
 
+export function canManageTaskDefinition(context: PermissionContext) {
+  if (context.projectRole === 'viewer') {
+    return false;
+  }
+
+  return (
+    context.appRole === 'owner' ||
+    context.appRole === 'admin' ||
+    context.appRole === 'manager' ||
+    context.projectRole === 'owner' ||
+    context.projectRole === 'admin'
+  );
+}
+
+export function canUpdateTaskExecution(context: PermissionContext) {
+  if (context.projectRole === 'viewer') {
+    return false;
+  }
+
+  return canManageTaskDefinition(context) || context.isAssignee === true;
+}
+
+export function canManageTaskChecklist(context: PermissionContext) {
+  return canManageTaskDefinition(context);
+}
+
+export function canToggleTaskChecklist(context: PermissionContext) {
+  return canUpdateTaskExecution(context);
+}
+
 export function hasPermission(context: PermissionContext, permission: PermissionName) {
   const base = PERMISSION_MATRIX[context.appRole][permission];
 
@@ -143,11 +173,7 @@ export function hasPermission(context: PermissionContext, permission: Permission
   }
 
   if (permission === 'updateTask') {
-    if (context.projectRole === 'viewer') {
-      return false;
-    }
-
-    return base;
+    return base && canManageTaskDefinition(context);
   }
 
   if (permission === 'assignTask') {
