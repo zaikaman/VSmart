@@ -41,31 +41,31 @@ interface NavItem {
 
 const mainNavGroups: Array<{ title: string; items: NavItem[] }> = [
   {
-    title: "KhÃ´ng gian lÃ m viá»‡c",
+    title: "Không gian làm việc",
     items: [
-      { name: "Tá»•ng quan", href: "/dashboard", icon: LayoutDashboard },
-      { name: "Dá»± Ã¡n", href: "/dashboard/projects", icon: List },
-      { name: "Báº£ng Kanban", href: "/dashboard/kanban", icon: ClipboardList },
+      { name: "Tổng quan", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Dự án", href: "/dashboard/projects", icon: List },
+      { name: "Bảng Kanban", href: "/dashboard/kanban", icon: ClipboardList },
       { name: "Planning", href: "/dashboard/planning", icon: CalendarRange },
     ],
   },
   {
-    title: "TÃ i khoáº£n",
+    title: "Tài khoản",
     items: [
-      { name: "Há»“ sÆ¡", href: "/dashboard/profile", icon: User },
-      { name: "CÃ i Ä‘áº·t", href: "/dashboard/settings", icon: Settings },
+      { name: "Hồ sơ", href: "/dashboard/profile", icon: User },
+      { name: "Cài đặt", href: "/dashboard/settings", icon: Settings },
     ],
   },
   {
-    title: "Trá»£ lÃ½",
+    title: "Trợ lý",
     items: [{ name: "Chat AI", href: "/dashboard/chat-ai", icon: Command, isChatTrigger: true }],
   },
 ];
 
 const adminNavItems: NavItem[] = [
-  { name: "HÃ ng chá» duyá»‡t", href: "/dashboard/reviews", icon: ClipboardCheck },
+  { name: "Hàng chờ duyệt", href: "/dashboard/reviews", icon: ClipboardCheck },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { name: "Ma tráº­n ká»¹ nÄƒng", href: "/dashboard/admin/skills-matrix", icon: Award },
+  { name: "Ma trận kỹ năng", href: "/dashboard/admin/skills-matrix", icon: Award },
 ];
 
 function SidebarSectionLabel({ children }: { children: string }) {
@@ -137,7 +137,7 @@ export function Sidebar({ className }: { className?: string }) {
 
           {isManagerView ? (
             <section className="space-y-1 border-t border-[#e2e8d9] pt-4">
-              <SidebarSectionLabel>Äiá»u hÃ nh</SidebarSectionLabel>
+              <SidebarSectionLabel>Điều hành</SidebarSectionLabel>
               <div className="space-y-1">
                 {adminNavItems.map((item) => {
                   const isActive = pathname === item.href;
