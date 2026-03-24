@@ -11,6 +11,10 @@ export interface HotkeyDefinition {
 export function useHotkeys(definitions: HotkeyDefinition[]) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (typeof event.key !== 'string') {
+        return;
+      }
+
       const target = event.target as HTMLElement | null;
       const isTypingTarget =
         target &&
@@ -19,7 +23,7 @@ export function useHotkeys(definitions: HotkeyDefinition[]) {
           target.getAttribute('contenteditable') === 'true');
 
       for (const item of definitions) {
-        if (item.enabled === false) {
+        if (!item || item.enabled === false || typeof item.key !== 'string') {
           continue;
         }
 
