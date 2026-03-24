@@ -273,8 +273,18 @@ export function ExecutiveSummaryWidget() {
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[22px] border border-[#ecefe6] bg-[#191a23] p-4 text-white">
-                  <p className="text-xs tracking-[0.2em] text-white/55 uppercase">Brief</p>
+                <div className="overflow-hidden rounded-[22px] border border-[#e1e6d7] bg-[linear-gradient(180deg,#f8f7f1_0%,#f1f0e7_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs tracking-[0.2em] text-[#6b765f] uppercase">Brief</p>
+                    <span
+                      className={`text-[10px] tracking-[0.26em] text-[#8aa05f] uppercase ${jetbrains.className}`}
+                    >
+                      Tín hiệu nhanh
+                    </span>
+                  </div>
+                  <p className="mt-3 max-w-xs text-sm leading-6 text-[#586551]">
+                    Các ý chính đã được gom lại để nhìn nhanh mức độ lệch nhịp và hướng xử lý ưu tiên.
+                  </p>
                   <div className="mt-3 space-y-2">
                     {(tab === 'daily'
                       ? dailyQuery.data?.result.executive_brief
@@ -282,7 +292,7 @@ export function ExecutiveSummaryWidget() {
                     )?.map(item => (
                       <div
                         key={item}
-                        className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/82"
+                        className="rounded-2xl border border-[#dde4d0] bg-white/80 px-3 py-2 text-sm text-[#2f372c] shadow-[0_10px_24px_rgba(108,122,84,0.08)]"
                       >
                         {item}
                       </div>
