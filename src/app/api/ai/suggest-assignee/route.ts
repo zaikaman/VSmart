@@ -1,8 +1,3 @@
-/**
- * API endpoint để gợi ý phân công task bằng AI
- * POST /api/ai/suggest-assignee
- */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -20,6 +15,27 @@ const suggestAssigneeSchema = z.object({
   deadline: z.string().datetime(),
   phan_du_an_id: z.string().uuid('Phần dự án ID không hợp lệ'),
 });
+
+type MemberUser = {
+  id: string;
+  ten: string;
+  email: string;
+  avatar_url: string | null;
+  ty_le_hoan_thanh: number | null;
+};
+
+type ProjectMemberRow = {
+  nguoi_dung_id: string | null;
+  nguoi_dung: MemberUser | MemberUser[] | null;
+};
+
+function pickSingleRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -92,32 +108,28 @@ export async function POST(request: NextRequest) {
     if (!members || members.length === 0) {
       return NextResponse.json({
         suggestions: [],
-        message: 'Không có thành viên nào trong dự án',
+        all_candidates: [],
         latency_ms: Date.now() - startTime,
+        error: 'Không có thành viên nào trong dự án để gợi ý phân công.',
       });
     }
 
-    const membersData = members as unknown as Array<{
-      nguoi_dung_id: string | null;
-      nguoi_dung: {
-        id: string;
-        ten: string;
-        email: string;
-        avatar_url: string | null;
-        ty_le_hoan_thanh: number | null;
-      }[] | null;
-    }>;
-
+    const membersData = members as ProjectMemberRow[];
     const userIds = membersData
-      .map((member) => (Array.isArray(member.nguoi_dung) ? member.nguoi_dung[0]?.id : undefined))
+      .map((member) => pickSingleRelation(member.nguoi_dung)?.id)
       .filter((value): value is string => Boolean(value));
 
     if (userIds.length === 0) {
+      console.warn('[AI Suggest Assignee] Empty userIds after relation normalization', {
+        project_part_id: validated.phan_du_an_id,
+        members_preview: membersData.slice(0, 3),
+      });
+
       return NextResponse.json({
         suggestions: [],
-        message: 'Không có thành viên nào trong dự án',
-        latency_ms: Date.now() - startTime,
         all_candidates: [],
+        latency_ms: Date.now() - startTime,
+        error: 'Không đọc được dữ liệu thành viên dự án để tạo gợi ý.',
       });
     }
 
@@ -161,8 +173,7 @@ export async function POST(request: NextRequest) {
     });
 
     const candidates: AssignmentCandidate[] = membersData.flatMap((member) => {
-      const userData = Array.isArray(member.nguoi_dung) ? member.nguoi_dung[0] : null;
-
+      const userData = pickSingleRelation(member.nguoi_dung);
       if (!userData?.id) {
         return [];
       }
@@ -175,6 +186,7 @@ export async function POST(request: NextRequest) {
             trinh_do: skill.trinh_do as 'beginner' | 'intermediate' | 'advanced' | 'expert',
             nam_kinh_nghiem: skill.nam_kinh_nghiem || 0,
           })) || [];
+
       const workload = summarizeWorkload(taskGroups.get(userData.id) || []);
 
       return [
@@ -236,9 +248,7 @@ export async function POST(request: NextRequest) {
           diem_phu_hop: Math.max(0, suggestion.diem_phu_hop - penalty),
           ly_do: {
             ...suggestion.ly_do,
-            chinh: loadWarning
-              ? `${suggestion.ly_do.chinh}. ${loadWarning}`
-              : suggestion.ly_do.chinh,
+            chinh: loadWarning ? `${suggestion.ly_do.chinh}. ${loadWarning}` : suggestion.ly_do.chinh,
             khoi_luong_hien_tai: suggestion.user?.overloaded_warning
               ? `${suggestion.user.overloaded_warning} • ${suggestion.user.so_task_dang_lam} task`
               : suggestion.ly_do.khoi_luong_hien_tai,
@@ -254,6 +264,7 @@ export async function POST(request: NextRequest) {
       candidates_count: candidates.length,
       suggestions_count: suggestions.length,
       latency_ms,
+      model: aiResult.model,
       suggestions_details: suggestions.map((suggestion) => ({
         nguoi_dung_id: suggestion.nguoi_dung_id,
         diem_phu_hop: suggestion.diem_phu_hop,
