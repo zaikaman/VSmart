@@ -247,7 +247,7 @@ export default function PlanningPage() {
         </section>
 
         <div className="mt-6">
-          <RebalancePanel projectId={projectFilter} title={projectFilter ? 'Gợi ý cân tải cho dự án này' : 'Gợi ý cân tải cho toàn đội'} compact />
+          <RebalancePanel projectId={projectFilter} title={projectFilter ? 'Gợi ý tái cân bằng dự án này' : 'Gợi ý tái cân bằng cho toàn đội'} compact />
         </div>
 
         <div className="mt-6">
