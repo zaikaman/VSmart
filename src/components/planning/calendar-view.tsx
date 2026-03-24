@@ -115,7 +115,7 @@ export function CalendarView({
             <div
               key={key}
               className={cn(
-                'min-h-[320px] rounded-[24px] border border-[#d7dfcf] bg-white p-3 transition-colors',
+                'min-h-[320px] min-w-0 rounded-[24px] border border-[#d7dfcf] bg-white p-3 transition-colors',
                 isToday(day) && 'border-[#b9ff66] shadow-[0_0_0_1px_rgba(185,255,102,0.55)]'
               )}
               onDragOver={(event) => event.preventDefault()}
@@ -133,8 +133,8 @@ export function CalendarView({
                 setDraggedTaskId(null);
               }}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <div>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="min-w-0">
                   <div className="text-xs uppercase tracking-[0.18em] text-[#6f7b6a]">
                     {format(day, 'EEE', { locale: vi })}
                   </div>
@@ -143,11 +143,13 @@ export function CalendarView({
                   </div>
                 </div>
                 {isToday(day) && (
-                  <Badge className="border-[#d9efb3] bg-[#effccf] text-[#3d4a36]">Hôm nay</Badge>
+                  <Badge className="shrink-0 border-[#d9efb3] bg-[#effccf] text-[#3d4a36]">
+                    Hôm nay
+                  </Badge>
                 )}
               </div>
 
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3">
                 {dayTasks.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-[#d7dfcf] px-3 py-6 text-center text-sm text-[#88947f]">
                     Không có task nào ghim ở ngày này.
@@ -160,28 +162,34 @@ export function CalendarView({
                       onDragStart={() => setDraggedTaskId(task.id)}
                       onDragEnd={() => setDraggedTaskId(null)}
                       className={cn(
-                        'rounded-2xl border border-[#e5eadf] bg-[#fbfcf8] p-3 transition-transform hover:-translate-y-0.5',
+                        'min-w-0 overflow-hidden rounded-2xl border border-[#e5eadf] bg-[#fbfcf8] p-3 transition-transform hover:-translate-y-0.5',
                         'border-l-4',
                         priorityAccent[task.priority],
                         reschedulingTaskId === task.id && 'opacity-60'
                       )}
                     >
-                      <div className="mb-2 flex items-start justify-between gap-3">
-                        <div>
+                      <div className="mb-2 flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
                           <h3 className="line-clamp-2 text-sm font-semibold text-[#191a23]">
                             {task.ten}
                           </h3>
-                          <p className="mt-1 text-xs text-[#6c7765]">
+                          <p className="mt-1 truncate text-xs text-[#6c7765]">
                             {task.assignee?.ten || 'Chưa phân công'}
                           </p>
                         </div>
-                        <GripVertical className="mt-0.5 h-4 w-4 text-[#a2ad9a]" />
+                        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-[#a2ad9a]" />
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">{task.part?.ten || 'Chưa rõ phần việc'}</Badge>
+                      <div className="flex min-w-0 flex-wrap gap-2">
+                        <Badge
+                          variant="outline"
+                          className="max-w-full min-w-0 truncate"
+                          title={task.part?.ten || 'Chưa rõ phần việc'}
+                        >
+                          {task.part?.ten || 'Chưa rõ phần việc'}
+                        </Badge>
                         {task.risk_score >= 70 && (
-                          <Badge className="border-rose-200 bg-rose-50 text-rose-700">
+                          <Badge className="shrink-0 border-rose-200 bg-rose-50 text-rose-700">
                             Rủi ro cao
                           </Badge>
                         )}

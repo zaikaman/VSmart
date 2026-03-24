@@ -49,7 +49,7 @@ export default function ProjectsPage() {
       metrics={[
         {
           label: 'Không gian dự án',
-          value: organization ? 'Sáng hơn' : 'Đang chờ',
+          value: organization ? 'Dễ theo dõi' : 'Đang chờ',
           note: organization ? 'Tập trung vào những gì đang chạy' : 'Cần một workspace trước khi mở dự án',
           icon: <FolderKanban className="h-4 w-4 text-[#2f6052]" />,
           surfaceClassName: 'bg-[#eef6f0] border-[#d9eadf]',
@@ -57,8 +57,8 @@ export default function ProjectsPage() {
         },
         {
           label: 'Nhịp quản lý',
-          value: organization ? 'Liền mạch' : 'Tách tầng quyền',
-          note: organization ? 'Đi từ danh sách sang planning dễ hơn' : 'Role tổ chức và role dự án được tách riêng',
+          value: organization ? 'Mượt hơn' : 'Tách tầng quyền',
+          note: organization ? 'Chuyển từ danh sách sang planning tự nhiên hơn' : 'Role tổ chức và role dự án được tách riêng',
           icon: <ListFilter className="h-4 w-4 text-[#985c21]" />,
           surfaceClassName: 'bg-[#fff6df] border-[#eee1bb]',
           valueClassName: 'text-xl text-[#985c21]',
@@ -70,15 +70,23 @@ export default function ProjectsPage() {
           <ProjectList />
         </DashboardSection>
       ) : (
-        <DashboardSection title="Tạo tổ chức trước khi bắt đầu dự án" description="Khi có tổ chức, bạn có thể mở dự án cho team ở đúng một nơi chung.">
+        <DashboardSection
+          title="Tạo tổ chức trước khi bắt đầu dự án"
+          description="Khi có tổ chức, bạn có thể mở dự án cho team ở đúng một nơi chung."
+        >
           <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-[28px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] p-5">
-              <h3 className="text-xl font-semibold text-[#223021]">Chỉ cần tạo một tổ chức là bạn có thể bắt đầu dự án cho cả team.</h3>
+              <h3 className="text-xl font-semibold text-[#223021]">
+                Chỉ cần tạo một tổ chức là bạn có thể bắt đầu dự án cho cả team.
+              </h3>
               <p className="mt-3 text-sm leading-7 text-[#5d6b58]">
                 Sau đó bạn có thể tạo dự án, mời thành viên và sắp xếp công việc ngay trong cùng một không gian làm việc.
               </p>
               <div className="mt-5">
-                <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => setCreateOrganizationOpen(true)}>
+                <Button
+                  className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+                  onClick={() => setCreateOrganizationOpen(true)}
+                >
                   <Building2 className="mr-2 h-4 w-4" />
                   Tạo tổ chức
                 </Button>
