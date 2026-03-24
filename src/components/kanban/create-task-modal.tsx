@@ -848,6 +848,9 @@ export function CreateTaskModal({
 
             {!isLoadingSuggestions && suggestions.length > 0 && (
               <div className="space-y-2">
+                <p className="text-[11px] text-gray-500">
+                  Điểm bên phải là mức độ phù hợp của từng người với task này, không phải tỷ lệ chia 100%.
+                </p>
                 {suggestions.map((suggestion, index) => (
                   <div
                     key={suggestion.nguoi_dung_id}
@@ -906,8 +909,10 @@ export function CreateTaskModal({
                       )}
                     </div>
 
-                    <Badge className={`flex-shrink-0 ${getScoreColor(suggestion.diem_phu_hop)}`}>
-                      {Math.round(suggestion.diem_phu_hop)}%
+                    <Badge
+                      className={`flex-shrink-0 whitespace-nowrap ${getScoreColor(suggestion.diem_phu_hop)}`}
+                    >
+                      {Math.round(suggestion.diem_phu_hop)} điểm
                     </Badge>
                   </div>
                 ))}
