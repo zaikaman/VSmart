@@ -229,7 +229,6 @@ export function CreateTaskModal({
     [selfCandidate]
   );
 
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const deadlineReviewTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchSuggestions = useCallback(async () => {
@@ -288,26 +287,6 @@ export function CreateTaskModal({
   }, [canAssignTasks, taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
 
   useEffect(() => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-
-    if (canAssignTasks && taskName && taskName.length >= 3 && phanDuAnId) {
-      const timer = setTimeout(() => {
-        fetchSuggestions();
-      }, 800);
-      setDebounceTimer(timer);
-    }
-
-    return () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAssignTasks, taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
-
-  useEffect(() => {
     if (!open) {
       setSuggestions([]);
       setAllCandidates([]);
@@ -346,6 +325,17 @@ export function CreateTaskModal({
       }
     }
   }, [open, canAssignTasks, currentUser?.id, selectedAssignee]);
+
+  useEffect(() => {
+    if (!open || !canAssignTasks) {
+      return;
+    }
+
+    setSuggestions([]);
+    setSuggestionsError(null);
+    setSuggestionModel('');
+    setSelectedFromAI(null);
+  }, [open, canAssignTasks, taskName, taskDescription, selectedPriority, taskDeadline, phanDuAnId]);
 
   useEffect(() => {
     if (deadlineReviewTimerRef.current) {
@@ -807,9 +797,22 @@ export function CreateTaskModal({
                   </Badge>
                 )}
               </div>
-              {isLoadingSuggestions && (
-                <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
-              )}
+              <div className="flex items-center gap-2">
+                {isLoadingSuggestions && (
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={fetchSuggestions}
+                  disabled={!phanDuAnId || !taskName || taskName.trim().length < 3 || isLoadingSuggestions}
+                  className="border-[#d8dfcb] bg-white text-[#253124] hover:bg-[#f5f8ef]"
+                >
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-[#7aa53a]" />
+                  {suggestions.length > 0 || suggestionModel ? 'Tạo lại gợi ý' : 'Tạo gợi ý'}
+                </Button>
+              </div>
             </div>
 
             {isLoadingSuggestions && (
