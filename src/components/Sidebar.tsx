@@ -26,7 +26,7 @@ const ChatButton = dynamic(
   () => import("@/components/chat/chat-button").then((mod) => ({ default: mod.ChatButton })),
   {
     ssr: false,
-    loading: () => <div className="h-10 rounded-2xl border border-[#dce5d2] bg-white/70" />,
+    loading: () => <div className="h-9 rounded-xl border border-[#dce5d2] bg-white/70" />,
   }
 );
 
@@ -70,8 +70,8 @@ const adminNavItems: NavItem[] = [
 
 function SidebarSectionLabel({ children }: { children: string }) {
   return (
-    <div className="px-3 pb-2 pt-1">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8f9a88]">{children}</span>
+    <div className="px-2 pb-1.5 pt-1">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8f9a88]">{children}</span>
     </div>
   );
 }
@@ -85,13 +85,13 @@ function SidebarNavLink({ item, isActive }: { item: NavItem; isActive: boolean }
     <Link
       href={item.href}
       className={cn(
-        "flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all",
+        "flex items-center rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all",
         isActive
           ? "border border-[#d7e3c8] bg-[#edf6df] text-[#42533d] shadow-[0_16px_35px_-30px_rgba(97,120,85,0.45)]"
           : "border border-transparent text-[#62705d] hover:border-[#e2e8d9] hover:bg-white/80 hover:text-[#223021]"
       )}
     >
-      <item.icon className={cn("mr-3 h-4 w-4", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
+      <item.icon className={cn("mr-2.5 h-3.5 w-3.5 shrink-0", isActive ? "text-[#719254]" : "text-[#7b8775]")} />
       <span>{item.name}</span>
     </Link>
   );
@@ -107,26 +107,26 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "sticky top-0 flex h-screen w-[280px] flex-col justify-between border-r border-[#e1e7d8] bg-[linear-gradient(180deg,#fdfcf7_0%,#f4f7ef_48%,#eef3ea_100%)] text-[#233022]",
+        "sticky top-0 flex h-dvh w-[236px] flex-col border-r border-[#e1e7d8] bg-[linear-gradient(180deg,#fdfcf7_0%,#f4f7ef_48%,#eef3ea_100%)] text-[#233022] sm:w-[248px] lg:w-[260px]",
         className
       )}
     >
-      <div className="flex flex-col gap-6 p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
         <div className="flex items-center justify-between px-1">
           <Link href="/" className="flex items-center transition-opacity hover:opacity-80">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#dce6cf] bg-[#eef6df]">
-              <Command className="h-5 w-5 text-[#6f9650]" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#dce6cf] bg-[#eef6df]">
+              <Command className="h-4.5 w-4.5 text-[#6f9650]" />
             </div>
-            <div className="ml-3 text-lg font-semibold tracking-tight text-[#233022]">VSmart</div>
+            <div className="ml-2.5 text-base font-semibold tracking-tight text-[#233022]">VSmart</div>
           </Link>
           <NotificationBell />
         </div>
 
-        <nav className="flex flex-col gap-5">
+        <nav className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {mainNavGroups.map((group) => (
-            <section key={group.title} className="space-y-1">
+            <section key={group.title} className="space-y-0.5">
               <SidebarSectionLabel>{group.title}</SidebarSectionLabel>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = pathname === item.href;
                   return <SidebarNavLink key={item.href} item={item} isActive={isActive} />;
@@ -136,9 +136,9 @@ export function Sidebar({ className }: { className?: string }) {
           ))}
 
           {isManagerView ? (
-            <section className="space-y-1 border-t border-[#e2e8d9] pt-4">
+            <section className="space-y-0.5 border-t border-[#e2e8d9] pt-2.5">
               <SidebarSectionLabel>Điều hành</SidebarSectionLabel>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {adminNavItems.map((item) => {
                   const isActive = pathname === item.href;
                   return <SidebarNavLink key={item.href} item={item} isActive={isActive} />;
@@ -149,15 +149,15 @@ export function Sidebar({ className }: { className?: string }) {
         </nav>
       </div>
 
-      <div className="border-t border-[#e1e7d8] p-4">
-        <div className="flex items-center justify-between rounded-[24px] border border-[#e1e7d8] bg-white/85 p-3 shadow-[0_16px_32px_-28px_rgba(95,112,88,0.28)]">
+      <div className="border-t border-[#e1e7d8] p-3">
+        <div className="flex items-center justify-between rounded-2xl border border-[#e1e7d8] bg-white/85 p-2.5 shadow-[0_16px_32px_-28px_rgba(95,112,88,0.28)]">
           <div className="flex items-center space-x-3">
-            <Avatar className="border border-[#dce5d2] bg-[#f7f9f2] text-[#223021]">
+            <Avatar className="h-8 w-8 border border-[#dce5d2] bg-[#f7f9f2] text-[#223021]">
               <AvatarImage src={user?.avatar_url || undefined} />
               <AvatarFallback>{displayName[0] || "U"}</AvatarFallback>
             </Avatar>
-            <div className="flex max-w-[150px] flex-col">
-              <span className="truncate text-sm font-medium text-[#223021]">{displayName || "Đang tải..."}</span>
+            <div className="flex max-w-[130px] flex-col">
+              <span className="truncate text-[13px] font-medium text-[#223021]">{displayName || "Đang tải..."}</span>
               <span className="truncate text-xs text-[#7b8775]">{user?.email || "..."}</span>
             </div>
           </div>
