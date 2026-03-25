@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  CollisionDetection,
   closestCorners,
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  pointerWithin,
   PointerSensor,
   useSensor,
   useSensors,
@@ -67,6 +69,19 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
   const [optimisticTasks, setOptimisticTasks] = useState<Task[]>(tasks);
   const updateTaskMutation = useUpdateTask();
   const queryClient = useQueryClient();
+
+  const collisionDetectionStrategy = useMemo<CollisionDetection>(
+    () => (args) => {
+      // Ưu tiên vùng nằm ngay dưới con trỏ để cảm giác drop khớp vị trí nhìn thấy.
+      const pointerIntersections = pointerWithin(args);
+      if (pointerIntersections.length > 0) {
+        return pointerIntersections;
+      }
+
+      return closestCorners(args);
+    },
+    []
+  );
 
   useEffect(() => {
     setOptimisticTasks(tasks);
@@ -226,7 +241,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={collisionDetectionStrategy}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
