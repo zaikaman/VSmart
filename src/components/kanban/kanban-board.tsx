@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   closestCorners,
   DndContext,
+  DragCancelEvent,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  Modifier,
   PointerSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { snapCenterToCursor } from '@dnd-kit/modifiers';
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CheckCheck, GitPullRequest } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -27,6 +28,14 @@ interface KanbanBoardProps {
 }
 
 type WorkflowColumnId = 'todo' | 'in-progress' | 'pending_review' | 'done';
+
+function isPointerLikeEvent(event: Event): event is MouseEvent | PointerEvent {
+  return 'clientX' in event && 'clientY' in event;
+}
+
+function isTouchLikeEvent(event: Event): event is TouchEvent {
+  return 'touches' in event;
+}
 
 function getColumnId(task: Task): WorkflowColumnId {
   if (task.review_status === 'pending_review') {
@@ -65,6 +74,7 @@ function getManualProgressFromColumn(
 export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [optimisticTasks, setOptimisticTasks] = useState<Task[]>(tasks);
+  const [dragPointerOffset, setDragPointerOffset] = useState<{ x: number; y: number } | null>(null);
   const updateTaskMutation = useUpdateTask();
   const queryClient = useQueryClient();
 
@@ -112,16 +122,66 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
     [optimisticTasks]
   );
 
+  const dragOverlayModifiers = useMemo<Modifier[]>(
+    () => [
+      ({ transform }) => {
+        if (!dragPointerOffset) {
+          return transform;
+        }
+
+        return {
+          ...transform,
+          x: transform.x - dragPointerOffset.x,
+          y: transform.y - dragPointerOffset.y,
+        };
+      },
+    ],
+    [dragPointerOffset]
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
     const task = optimisticTasks.find((item) => item.id === event.active.id);
     if (task) {
       setActiveTask(task);
     }
+
+    const initialRect = event.active.rect.current.initial;
+    const activatorEvent = event.activatorEvent;
+
+    if (!initialRect || !activatorEvent) {
+      setDragPointerOffset(null);
+      return;
+    }
+
+    if (isPointerLikeEvent(activatorEvent)) {
+      setDragPointerOffset({
+        x: activatorEvent.clientX - initialRect.left,
+        y: activatorEvent.clientY - initialRect.top,
+      });
+      return;
+    }
+
+    if (isTouchLikeEvent(activatorEvent) && activatorEvent.touches.length > 0) {
+      const touch = activatorEvent.touches[0];
+      setDragPointerOffset({
+        x: touch.clientX - initialRect.left,
+        y: touch.clientY - initialRect.top,
+      });
+      return;
+    }
+
+    setDragPointerOffset(null);
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveTask(null);
+    setDragPointerOffset(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTask(null);
+    setDragPointerOffset(null);
 
     if (!over) return;
 
@@ -228,6 +288,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
+        onDragCancel={handleDragCancel}
         onDragEnd={handleDragEnd}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -246,7 +307,7 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
           ))}
         </div>
 
-        <DragOverlay modifiers={[snapCenterToCursor]}>
+        <DragOverlay modifiers={dragOverlayModifiers}>
           {activeTask ? <KanbanCardPreview task={activeTask} /> : null}
         </DragOverlay>
       </DndContext>
