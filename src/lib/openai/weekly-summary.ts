@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from './client';
+import { createPreferredChatCompletion, getPreferredAIModel } from './client';
 import type { InsightDataset } from './insight-context';
 import {
   WEEKLY_SUMMARY_PROMPT,
@@ -50,8 +50,12 @@ function buildFallback(dataset: InsightDataset): WeeklySummaryResult {
 
   const nextFocus = [
     dataset.summary.overdueTasks > 0 ? 'Khóa phương án xử lý các task quá hạn còn treo.' : null,
-    dataset.summary.overloadedMembers > 0 ? 'Điều phối lại tải giữa các thành viên trước khi dồn cuối tuần.' : null,
-    dataset.summary.riskyProjects > 0 ? 'Rà lại forecast của các dự án đang có tín hiệu trượt mốc.' : null,
+    dataset.summary.overloadedMembers > 0
+      ? 'Điều phối lại tải giữa các thành viên trước khi dồn cuối tuần.'
+      : null,
+    dataset.summary.riskyProjects > 0
+      ? 'Rà lại forecast của các dự án đang có tín hiệu trượt mốc.'
+      : null,
   ].filter((item): item is string => Boolean(item));
 
   return {
@@ -78,36 +82,33 @@ function normalizeResult(parsed: Partial<WeeklySummaryResult>, fallback: WeeklyS
 
 export async function aiWeeklySummary(dataset: InsightDataset): Promise<WeeklySummaryResponse> {
   const start = Date.now();
-  const model = getOpenAIModel();
+  const model = getPreferredAIModel();
   const digestKey = buildDigestKey(dataset);
   const fallback = buildFallback(dataset);
 
   try {
-    const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
-      model,
+    const response = await createPreferredChatCompletion({
       messages: [
         { role: 'system', content: WEEKLY_SUMMARY_PROMPT },
         { role: 'user', content: createWeeklySummaryUserPrompt(dataset) },
       ],
-      response_format: { type: 'json_object' },
+      responseFormat: 'json_object',
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
+    if (!response.content) {
       return {
         result: fallback,
         latency_ms: Date.now() - start,
-        model,
+        model: response.model,
         digest_key: digestKey,
         error: 'AI không trả về dữ liệu, dùng bản tóm tắt dự phòng',
       };
     }
 
     return {
-      result: normalizeResult(JSON.parse(content) as Partial<WeeklySummaryResult>, fallback),
+      result: normalizeResult(JSON.parse(response.content) as Partial<WeeklySummaryResult>, fallback),
       latency_ms: Date.now() - start,
-      model,
+      model: response.model,
       digest_key: digestKey,
     };
   } catch (error) {

@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from './client';
+import { createPreferredChatCompletion, getPreferredAIModel } from './client';
 import {
   DEADLINE_REVIEW_PROMPT,
   createDeadlineReviewUserPrompt,
@@ -63,7 +63,10 @@ function buildFallback(params: {
     goi_y:
       warningLevel === 'none'
         ? ['Giữ mốc hiện tại nhưng nên xác nhận checklist và người phụ trách ngay từ đầu.']
-        : ['Nới deadline thêm vài ngày hoặc tách task thành checklist nhỏ hơn.', 'Chốt người phụ trách sớm để tránh dồn việc sát hạn.'],
+        : [
+            'Nới deadline thêm vài ngày hoặc tách task thành checklist nhỏ hơn.',
+            'Chốt người phụ trách sớm để tránh dồn việc sát hạn.',
+          ],
     suggested_deadline: suggestedDeadline,
   };
 }
@@ -90,34 +93,31 @@ export async function reviewDeadlineReasonability(params: {
   projectName?: string | null;
 }): Promise<DeadlineReviewResponse> {
   const start = Date.now();
-  const model = getOpenAIModel();
+  const model = getPreferredAIModel();
   const fallback = buildFallback(params);
 
   try {
-    const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
-      model,
+    const response = await createPreferredChatCompletion({
       messages: [
         { role: 'system', content: DEADLINE_REVIEW_PROMPT },
         { role: 'user', content: createDeadlineReviewUserPrompt(params) },
       ],
-      response_format: { type: 'json_object' },
+      responseFormat: 'json_object',
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
+    if (!response.content) {
       return {
         result: fallback,
         latency_ms: Date.now() - start,
-        model,
+        model: response.model,
         error: 'AI không trả về dữ liệu, dùng đánh giá dự phòng',
       };
     }
 
     return {
-      result: normalizeResult(JSON.parse(content) as Partial<DeadlineReviewResult>, fallback),
+      result: normalizeResult(JSON.parse(response.content) as Partial<DeadlineReviewResult>, fallback),
       latency_ms: Date.now() - start,
-      model,
+      model: response.model,
     };
   } catch (error) {
     return {

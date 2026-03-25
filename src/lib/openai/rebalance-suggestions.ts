@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from './client';
+import { createPreferredChatCompletion, getPreferredAIModel } from './client';
 import type { InsightDataset } from './insight-context';
 import {
   REBALANCE_PROMPT,
@@ -71,7 +71,10 @@ function buildFallback(dataset: InsightDataset): RebalanceSuggestionResult {
         to_user_name: receiver.ten,
         reason: `${sender.ten} đang ${sender.loadStatus === 'overloaded' ? 'quá tải' : 'sát tải'}, trong khi ${receiver.ten} còn dư địa để nhận thêm việc.`,
         impact: `Giảm áp lực cho ${sender.ten} và kéo giãn deadline gần của nhóm.`,
-        confidence: Math.max(62, Math.min(92, 78 - Math.round(receiver.loadRatio * 10) + Math.round(task.risk_score / 10))),
+        confidence: Math.max(
+          62,
+          Math.min(92, 78 - Math.round(receiver.loadRatio * 10) + Math.round(task.risk_score / 10))
+        ),
       });
 
       receivers.push(receivers.shift() as (typeof receivers)[number]);
@@ -122,36 +125,33 @@ export async function aiRebalanceSuggestions(
   dataset: InsightDataset
 ): Promise<RebalanceSuggestionResponse> {
   const start = Date.now();
-  const model = getOpenAIModel();
+  const model = getPreferredAIModel();
   const fallback = buildFallback(dataset);
   const referenceId = `${dataset.project_id || 'workspace'}:${new Date(dataset.generated_at).toISOString().slice(0, 10)}`;
 
   try {
-    const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
-      model,
+    const response = await createPreferredChatCompletion({
       messages: [
         { role: 'system', content: REBALANCE_PROMPT },
         { role: 'user', content: createRebalanceUserPrompt(dataset) },
       ],
-      response_format: { type: 'json_object' },
+      responseFormat: 'json_object',
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
+    if (!response.content) {
       return {
         result: fallback,
         latency_ms: Date.now() - start,
-        model,
+        model: response.model,
         reference_id: referenceId,
         error: 'AI không trả về dữ liệu, dùng gợi ý cân tải dự phòng',
       };
     }
 
     return {
-      result: normalizeResult(JSON.parse(content) as Partial<RebalanceSuggestionResult>, fallback),
+      result: normalizeResult(JSON.parse(response.content) as Partial<RebalanceSuggestionResult>, fallback),
       latency_ms: Date.now() - start,
-      model,
+      model: response.model,
       reference_id: referenceId,
     };
   } catch (error) {

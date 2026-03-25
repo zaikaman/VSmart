@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from './client';
+import { createPreferredChatCompletion, getPreferredAIModel } from './client';
 import {
   ASSIGNMENT_SUGGESTION_PROMPT,
   createAssignmentUserPrompt,
@@ -171,7 +171,7 @@ export async function goiYPhanCong(
   candidates: AssignmentCandidate[]
 ): Promise<SuggestionResult> {
   const startTime = Date.now();
-  const model = getOpenAIModel();
+  const model = getPreferredAIModel();
 
   if (!candidates || candidates.length === 0) {
     return {
@@ -183,7 +183,6 @@ export async function goiYPhanCong(
   }
 
   try {
-    const openai = getOpenAIClient();
     const userPrompt = createAssignmentUserPrompt({
       taskName: task.ten,
       taskDescription: task.mo_ta,
@@ -202,21 +201,22 @@ export async function goiYPhanCong(
       })),
     });
 
-    const completion = await openai.chat.completions.create({
-      model,
+    const completion = await createPreferredChatCompletion({
       messages: [
         { role: 'system', content: ASSIGNMENT_SUGGESTION_PROMPT },
         { role: 'user', content: userPrompt },
       ],
-      response_format: { type: 'json_object' },
+      responseFormat: 'json_object',
     });
 
     const latencyMs = Date.now() - startTime;
-    const content = completion.choices[0]?.message?.content;
+    const content = completion.content;
+    const actualModel = completion.model;
 
     console.log('[AI Assignment] Raw response:', {
-      model,
+      model: actualModel,
       latency_ms: latencyMs,
+      provider: completion.provider,
       tokens: completion.usage,
       content_length: content?.length || 0,
       content_preview: content?.substring(0, 500) || 'null',
@@ -263,12 +263,12 @@ export async function goiYPhanCong(
         latency_ms: latencyMs,
         tokens_used: completion.usage
           ? {
-              prompt: completion.usage.prompt_tokens,
-              completion: completion.usage.completion_tokens,
-              total: completion.usage.total_tokens,
+              prompt: completion.usage.prompt,
+              completion: completion.usage.completion,
+              total: completion.usage.total,
             }
           : undefined,
-        model,
+        model: actualModel,
       };
     } catch (parseError) {
       console.error('[AI Assignment] Parse error:', {
@@ -284,7 +284,7 @@ export async function goiYPhanCong(
       );
     }
   } catch (error) {
-    console.error('[AI Assignment] OpenAI error:', error);
+    console.error('[AI Assignment] AI error:', error);
 
     if (error instanceof Error && error.message.includes('rate limit')) {
       return createFallbackResult(

@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from './client';
+import { createPreferredChatCompletion, getPreferredAIModel } from './client';
 import { normalizeChecklistItems } from '@/lib/tasks/checklist';
 
 export interface BreakdownRequest {
@@ -32,7 +32,7 @@ Yêu cầu:
 
 export async function taoChecklistBangAI(input: BreakdownRequest): Promise<BreakdownResponse> {
   const startTime = Date.now();
-  const model = getOpenAIModel();
+  const model = getPreferredAIModel();
 
   if (!input.ten.trim()) {
     return {
@@ -44,9 +44,7 @@ export async function taoChecklistBangAI(input: BreakdownRequest): Promise<Break
   }
 
   try {
-    const openai = getOpenAIClient();
-    const completion = await openai.chat.completions.create({
-      model,
+    const completion = await createPreferredChatCompletion({
       messages: [
         { role: 'system', content: TASK_BREAKDOWN_PROMPT },
         {
@@ -58,21 +56,20 @@ export async function taoChecklistBangAI(input: BreakdownRequest): Promise<Break
           }),
         },
       ],
-      response_format: { type: 'json_object' },
+      responseFormat: 'json_object',
     });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
+    if (!completion.content) {
       throw new Error('AI không trả về kết quả');
     }
 
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(completion.content);
     const checklist = normalizeChecklistItems(parsed.checklist);
 
     return {
       checklist,
       latency_ms: Date.now() - startTime,
-      model,
+      model: completion.model,
     };
   } catch (error) {
     return {

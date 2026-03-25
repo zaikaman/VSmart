@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from './client';
+import { createPreferredChatCompletion, getPreferredAIModel } from './client';
 import type { InsightDataset } from './insight-context';
 import {
   MEETING_SUMMARY_PROMPT,
@@ -79,36 +79,33 @@ export async function summarizeMeetingNotes(params: {
   context?: InsightDataset | null;
 }): Promise<MeetingSummaryResponse> {
   const start = Date.now();
-  const model = getOpenAIModel();
+  const model = getPreferredAIModel();
   const fallback = buildFallback(params.notes);
   const referenceId = `${params.projectName || 'workspace'}:${new Date().toISOString()}`;
 
   try {
-    const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
-      model,
+    const response = await createPreferredChatCompletion({
       messages: [
         { role: 'system', content: MEETING_SUMMARY_PROMPT },
         { role: 'user', content: createMeetingSummaryUserPrompt(params) },
       ],
-      response_format: { type: 'json_object' },
+      responseFormat: 'json_object',
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
+    if (!response.content) {
       return {
         result: fallback,
         latency_ms: Date.now() - start,
-        model,
+        model: response.model,
         reference_id: referenceId,
         error: 'AI không trả về dữ liệu, dùng tóm tắt dự phòng',
       };
     }
 
     return {
-      result: normalizeResult(JSON.parse(content) as Partial<MeetingSummaryResult>, fallback),
+      result: normalizeResult(JSON.parse(response.content) as Partial<MeetingSummaryResult>, fallback),
       latency_ms: Date.now() - start,
-      model,
+      model: response.model,
       reference_id: referenceId,
     };
   } catch (error) {

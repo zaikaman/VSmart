@@ -1,4 +1,4 @@
-import { getOpenAIClient, getOpenAIModel } from './client';
+import { createPreferredChatCompletion, getPreferredAIModel } from './client';
 import type { InsightDataset } from './insight-context';
 import {
   DAILY_SUMMARY_PROMPT,
@@ -117,38 +117,35 @@ function normalizeResult(parsed: Partial<DailySummaryResult>, fallback: DailySum
 
 export async function aiDailySummary(dataset: InsightDataset): Promise<DailySummaryResponse> {
   const start = Date.now();
-  const model = getOpenAIModel();
+  const model = getPreferredAIModel();
   const digestKey = buildDigestKey(dataset);
   const fallback = buildFallback(dataset);
 
   try {
-    const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
-      model,
+    const response = await createPreferredChatCompletion({
       messages: [
         { role: 'system', content: DAILY_SUMMARY_PROMPT },
         { role: 'user', content: createDailySummaryUserPrompt(dataset) },
       ],
-      response_format: { type: 'json_object' },
+      responseFormat: 'json_object',
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
+    if (!response.content) {
       return {
         result: fallback,
         latency_ms: Date.now() - start,
-        model,
+        model: response.model,
         digest_key: digestKey,
         error: 'AI không trả về dữ liệu, dùng bản tóm tắt dự phòng',
       };
     }
 
-    const parsed = JSON.parse(content) as Partial<DailySummaryResult>;
+    const parsed = JSON.parse(response.content) as Partial<DailySummaryResult>;
 
     return {
       result: normalizeResult(parsed, fallback),
       latency_ms: Date.now() - start,
-      model,
+      model: response.model,
       digest_key: digestKey,
     };
   } catch (error) {
