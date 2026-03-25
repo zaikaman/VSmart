@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { canTransitionReviewStatus, hasPermission } from '@/lib/auth/permissions';
 import { logTaskActivity } from '@/lib/activity/log';
+import { sendTaskReviewSubmittedEmail } from '@/lib/email/workflow';
 import { getTaskAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { updatePhanDuAnProgress } from '@/lib/tasks/progress';
@@ -35,7 +36,23 @@ export async function POST(
 
     const { data: task, error: taskError } = await supabaseAdmin
       .from('task')
-      .select('id, ten, trang_thai, progress, progress_mode, requires_review, review_status, phan_du_an_id')
+      .select(
+        `
+          id,
+          ten,
+          trang_thai,
+          progress,
+          progress_mode,
+          requires_review,
+          review_status,
+          phan_du_an_id,
+          phan_du_an (
+            du_an (
+              ten
+            )
+          )
+        `
+      )
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -94,24 +111,56 @@ export async function POST(
 
     const { data: approvers } = await supabaseAdmin
       .from('thanh_vien_du_an')
-      .select('nguoi_dung_id')
+      .select(
+        `
+          nguoi_dung_id,
+          nguoi_dung:nguoi_dung_id (
+            ten,
+            email
+          )
+        `
+      )
       .eq('du_an_id', auth.projectId)
       .in('vai_tro', ['owner', 'admin', 'member'])
       .eq('trang_thai', 'active');
 
-    const recipientIds = (approvers || [])
-      .map((item) => item.nguoi_dung_id)
-      .filter((value): value is string => Boolean(value) && value !== auth.dbUser.id);
+    const recipients = (approvers || [])
+      .map((item) => ({
+        userId: item.nguoi_dung_id,
+        user: Array.isArray(item.nguoi_dung) ? item.nguoi_dung[0] : item.nguoi_dung,
+      }))
+      .filter((item) => Boolean(item.userId) && item.userId !== auth.dbUser.id);
 
-    if (recipientIds.length > 0) {
+    if (recipients.length > 0) {
       await supabaseAdmin.from('thong_bao').insert(
-        recipientIds.map((nguoi_dung_id) => ({
-          nguoi_dung_id,
+        recipients.map((item) => ({
+          nguoi_dung_id: item.userId,
           loai: 'assignment',
           noi_dung: `${auth.dbUser.ten} vừa gửi task "${task.ten}" để chờ duyệt.`,
           task_lien_quan_id: task.id,
           du_an_lien_quan_id: auth.projectId,
         }))
+      );
+
+      const partRelation = Array.isArray(task.phan_du_an) ? task.phan_du_an[0] : task.phan_du_an;
+      const projectRelation = Array.isArray(partRelation?.du_an) ? partRelation.du_an[0] : partRelation?.du_an;
+      const projectName = projectRelation?.ten || 'Dự án';
+      const reviewUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/kanban?taskId=${task.id}`;
+
+      await Promise.allSettled(
+        recipients
+          .filter((item) => item.user?.email)
+          .map((item) =>
+            sendTaskReviewSubmittedEmail({
+              to: item.user.email,
+              recipientName: item.user.ten || item.user.email,
+              submitterName: auth.dbUser.ten,
+              taskName: task.ten,
+              projectName,
+              reviewUrl,
+              reviewRequestComment,
+            })
+          )
       );
     }
 
@@ -131,7 +180,7 @@ export async function POST(
         projectId: auth.projectId,
         partId: task.phan_du_an_id,
         taskName: task.ten,
-        reviewRequestComment: reviewRequestComment,
+        reviewRequestComment,
       },
     });
 

@@ -1,102 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { sendInvitationResponseEmail } from '@/lib/email/workflow';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/project-members/invitations
  * Lấy danh sách lời mời dự án đang chờ của user hiện tại
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Lấy danh sách lời mời đang pending cho email của user
     const { data: invitations, error } = await supabase
       .from('thanh_vien_du_an')
-      .select(`
-        *,
-        du_an:du_an_id (
-          id,
-          ten,
-          mo_ta
-        ),
-        nguoi_moi:nguoi_moi_id (
-          id,
-          ten,
-          email,
-          avatar_url
-        )
-      `)
+      .select(
+        `
+          *,
+          du_an:du_an_id (
+            id,
+            ten,
+            mo_ta
+          ),
+          nguoi_moi:nguoi_moi_id (
+            id,
+            ten,
+            email,
+            avatar_url
+          )
+        `
+      )
       .eq('email', user.email)
       .eq('trang_thai', 'pending')
       .order('ngay_moi', { ascending: false });
 
     if (error) {
       console.error('Error fetching invitations:', error);
-      return NextResponse.json(
-        { error: 'Không thể lấy danh sách lời mời' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Không thể lấy danh sách lời mời' }, { status: 500 });
     }
 
     return NextResponse.json(invitations || []);
   } catch (error) {
     console.error('Error in GET /api/project-members/invitations:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 /**
- * POST /api/project-members/invitations/accept
- * Chấp nhận lời mời vào dự án
+ * POST /api/project-members/invitations
+ * Chấp nhận hoặc từ chối lời mời vào dự án
  */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    // Lấy thông tin user hiện tại
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { invitation_id, action } = body; // action: 'accept' hoặc 'decline'
+    const { invitation_id, action } = body;
 
     if (!invitation_id || !action) {
-      return NextResponse.json(
-        { error: 'invitation_id và action là bắt buộc' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'invitation_id và action là bắt buộc' }, { status: 400 });
     }
 
     if (!['accept', 'decline'].includes(action)) {
-      return NextResponse.json(
-        { error: 'action phải là "accept" hoặc "decline"' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'action phải là "accept" hoặc "decline"' }, { status: 400 });
     }
 
-    // Lấy thông tin lời mời
     const { data: invitation, error: invitationError } = await supabase
       .from('thanh_vien_du_an')
-      .select('*')
+      .select(
+        `
+          id,
+          du_an_id,
+          nguoi_moi_id,
+          email,
+          vai_tro,
+          trang_thai,
+          du_an:du_an_id (
+            id,
+            ten,
+            mo_ta
+          ),
+          nguoi_moi:nguoi_moi_id (
+            id,
+            ten,
+            email
+          )
+        `
+      )
       .eq('id', invitation_id)
       .eq('email', user.email)
       .eq('trang_thai', 'pending')
@@ -109,22 +115,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Lấy user ID
     const { data: userData } = await supabase
       .from('nguoi_dung')
-      .select('id')
+      .select('id, ten, email')
       .eq('email', user.email)
       .single();
 
     if (!userData) {
-      return NextResponse.json(
-        { error: 'Không tìm thấy thông tin người dùng' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng' }, { status: 404 });
     }
 
-    // Cập nhật trạng thái
-    const updateData: any = {
+    const updateData: Record<string, string> = {
       trang_thai: action === 'accept' ? 'active' : 'declined',
       nguoi_dung_id: userData.id,
     };
@@ -137,29 +138,43 @@ export async function POST(request: NextRequest) {
       .from('thanh_vien_du_an')
       .update(updateData)
       .eq('id', invitation_id)
-      .select(`
-        *,
-        du_an:du_an_id (
-          id,
-          ten,
-          mo_ta
-        )
-      `)
+      .select(
+        `
+          *,
+          du_an:du_an_id (
+            id,
+            ten,
+            mo_ta
+          )
+        `
+      )
       .single();
 
     if (updateError) {
       console.error('Error updating invitation:', updateError);
-      return NextResponse.json(
-        { error: 'Không thể cập nhật lời mời' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Không thể cập nhật lời mời' }, { status: 500 });
     }
 
-    // Xóa thông báo liên quan
-    await supabase
-      .from('thong_bao')
-      .delete()
-      .eq('thanh_vien_du_an_id', invitation_id);
+    await supabase.from('thong_bao').delete().eq('thanh_vien_du_an_id', invitation_id);
+
+    const project = Array.isArray(invitation.du_an) ? invitation.du_an[0] : invitation.du_an;
+    const inviter = Array.isArray(invitation.nguoi_moi) ? invitation.nguoi_moi[0] : invitation.nguoi_moi;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    if (project?.ten && inviter?.email) {
+      sendInvitationResponseEmail({
+        to: inviter.email,
+        inviterName: inviter.ten || 'Bạn',
+        responderName: userData.ten || userData.email,
+        responderEmail: userData.email,
+        entityName: project.ten,
+        entityType: 'project',
+        response: action === 'accept' ? 'accepted' : 'declined',
+        reviewUrl: `${baseUrl}/dashboard/projects/${project.id}`,
+      }).catch((emailError) =>
+        console.error('Error sending project invitation response email:', emailError)
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -168,9 +183,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in POST /api/project-members/invitations:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

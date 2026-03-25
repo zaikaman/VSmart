@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { canTransitionReviewStatus, hasPermission } from '@/lib/auth/permissions';
 import { logTaskActivity } from '@/lib/activity/log';
+import { sendTaskReviewDecisionEmail } from '@/lib/email/workflow';
 import { getTaskAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { updatePhanDuAnProgress } from '@/lib/tasks/progress';
@@ -37,7 +38,26 @@ export async function POST(
 
     const { data: task, error: taskError } = await supabaseAdmin
       .from('task')
-      .select('id, ten, assignee_id, progress_mode, requires_review, review_status, phan_du_an_id')
+      .select(
+        `
+          id,
+          ten,
+          assignee_id,
+          progress_mode,
+          requires_review,
+          review_status,
+          phan_du_an_id,
+          nguoi_dung:assignee_id (
+            ten,
+            email
+          ),
+          phan_du_an (
+            du_an (
+              ten
+            )
+          )
+        `
+      )
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -87,6 +107,25 @@ export async function POST(
         task_lien_quan_id: task.id,
         du_an_lien_quan_id: auth.projectId,
       });
+
+      const assignee = Array.isArray(task.nguoi_dung) ? task.nguoi_dung[0] : task.nguoi_dung;
+      const partRelation = Array.isArray(task.phan_du_an) ? task.phan_du_an[0] : task.phan_du_an;
+      const projectRelation = Array.isArray(partRelation?.du_an) ? partRelation.du_an[0] : partRelation?.du_an;
+
+      if (assignee?.email) {
+        sendTaskReviewDecisionEmail({
+          to: assignee.email,
+          recipientName: assignee.ten || assignee.email,
+          reviewerName: auth.dbUser.ten,
+          taskName: task.ten,
+          projectName: projectRelation?.ten || 'Dự án',
+          reviewUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/kanban?taskId=${task.id}`,
+          decision: 'changes_requested',
+          reviewComment,
+        }).catch((emailError) =>
+          console.error('Error sending task rejection email:', emailError)
+        );
+      }
     }
 
     await logTaskActivity({

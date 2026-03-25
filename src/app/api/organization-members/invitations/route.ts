@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { sendInvitationResponseEmail } from '@/lib/email/workflow';
 import { supabaseAdmin } from '@/lib/supabase/client';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export interface MyOrganizationInvitation {
   id: string;
@@ -48,7 +49,7 @@ async function getCurrentUser() {
 
   const { data: dbUser } = await supabaseAdmin
     .from('nguoi_dung')
-    .select('id, email, to_chuc_id')
+    .select('id, email, ten, to_chuc_id')
     .eq('email', user.email)
     .single();
 
@@ -123,7 +124,24 @@ export async function PATCH(request: NextRequest) {
 
     const { data: invitation, error: invitationError } = await supabaseAdmin
       .from('loi_moi_to_chuc')
-      .select('id, to_chuc_id, email, vai_tro, trang_thai')
+      .select(
+        `
+          id,
+          to_chuc_id,
+          email,
+          vai_tro,
+          trang_thai,
+          to_chuc:to_chuc_id (
+            id,
+            ten
+          ),
+          nguoi_moi:nguoi_moi_id (
+            id,
+            ten,
+            email
+          )
+        `
+      )
       .eq('id', validated.invitation_id)
       .eq('email', currentUser.email.toLowerCase())
       .eq('trang_thai', 'pending')
@@ -132,6 +150,10 @@ export async function PATCH(request: NextRequest) {
     if (invitationError || !invitation) {
       return NextResponse.json({ error: 'Không tìm thấy lời mời hợp lệ' }, { status: 404 });
     }
+
+    const organization = extractSingleRelation(invitation.to_chuc);
+    const inviter = extractSingleRelation(invitation.nguoi_moi);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     if (validated.action === 'decline') {
       const { error } = await supabaseAdmin
@@ -145,6 +167,21 @@ export async function PATCH(request: NextRequest) {
 
       if (error) {
         return NextResponse.json({ error: 'Không thể từ chối lời mời' }, { status: 500 });
+      }
+
+      if (organization?.ten && inviter?.email) {
+        sendInvitationResponseEmail({
+          to: inviter.email,
+          inviterName: inviter.ten || 'Bạn',
+          responderName: currentUser.ten || currentUser.email,
+          responderEmail: currentUser.email,
+          entityName: organization.ten,
+          entityType: 'organization',
+          response: 'declined',
+          reviewUrl: `${baseUrl}/dashboard/settings`,
+        }).catch((emailError) =>
+          console.error('Error sending organization invitation decline email:', emailError)
+        );
       }
 
       return NextResponse.json({ message: 'Đã từ chối lời mời tổ chức' });
@@ -177,6 +214,21 @@ export async function PATCH(request: NextRequest) {
 
     if (updateInvitationError) {
       return NextResponse.json({ error: 'Không thể cập nhật trạng thái lời mời' }, { status: 500 });
+    }
+
+    if (organization?.ten && inviter?.email) {
+      sendInvitationResponseEmail({
+        to: inviter.email,
+        inviterName: inviter.ten || 'Bạn',
+        responderName: currentUser.ten || currentUser.email,
+        responderEmail: currentUser.email,
+        entityName: organization.ten,
+        entityType: 'organization',
+        response: 'accepted',
+        reviewUrl: `${baseUrl}/dashboard/settings`,
+      }).catch((emailError) =>
+        console.error('Error sending organization invitation accept email:', emailError)
+      );
     }
 
     return NextResponse.json({ message: 'Đã tham gia tổ chức thành công' });

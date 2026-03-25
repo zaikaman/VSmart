@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { canManageOrganizationRoles, type AppRole } from '@/lib/auth/permissions';
+import { sendOrganizationJoinRequestDecisionEmail } from '@/lib/email/workflow';
 import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 
@@ -37,7 +38,7 @@ async function getManageContext() {
 
   const { data: currentUser } = await supabaseAdmin
     .from('nguoi_dung')
-    .select('id, vai_tro, to_chuc_id')
+    .select('id, ten, vai_tro, to_chuc_id')
     .eq('id', dbUser.id)
     .single();
 
@@ -120,7 +121,17 @@ export async function PATCH(request: NextRequest) {
 
     const { data: joinRequest, error: requestError } = await supabaseAdmin
       .from('yeu_cau_gia_nhap_to_chuc')
-      .select('id, to_chuc_id, nguoi_dung_id, trang_thai')
+      .select(
+        `
+          id,
+          to_chuc_id,
+          nguoi_dung_id,
+          trang_thai,
+          to_chuc:to_chuc_id (
+            ten
+          )
+        `
+      )
       .eq('id', validated.request_id)
       .eq('to_chuc_id', context.organizationId)
       .eq('trang_thai', 'pending')
@@ -129,6 +140,20 @@ export async function PATCH(request: NextRequest) {
     if (requestError || !joinRequest) {
       return NextResponse.json({ error: 'Không tìm thấy yêu cầu hợp lệ' }, { status: 404 });
     }
+
+    const organization = extractSingleRelation(joinRequest.to_chuc);
+
+    const { data: requester, error: requesterError } = await supabaseAdmin
+      .from('nguoi_dung')
+      .select('id, ten, email, to_chuc_id')
+      .eq('id', joinRequest.nguoi_dung_id)
+      .single();
+
+    if (requesterError || !requester) {
+      return NextResponse.json({ error: 'Không tìm thấy người gửi yêu cầu' }, { status: 404 });
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     if (validated.action === 'reject') {
       const { error } = await supabaseAdmin
@@ -144,17 +169,20 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Không thể từ chối yêu cầu' }, { status: 500 });
       }
 
+      if (requester.email && organization?.ten) {
+        sendOrganizationJoinRequestDecisionEmail({
+          to: requester.email,
+          requesterName: requester.ten || requester.email,
+          organizationName: organization.ten,
+          reviewerName: context.currentUser.ten || 'Quản trị viên',
+          decision: 'rejected',
+          reviewUrl: `${baseUrl}/onboarding`,
+        }).catch((emailError) =>
+          console.error('Error sending organization join request rejection email:', emailError)
+        );
+      }
+
       return NextResponse.json({ message: 'Đã từ chối yêu cầu gia nhập' });
-    }
-
-    const { data: requester, error: requesterError } = await supabaseAdmin
-      .from('nguoi_dung')
-      .select('id, to_chuc_id')
-      .eq('id', joinRequest.nguoi_dung_id)
-      .single();
-
-    if (requesterError || !requester) {
-      return NextResponse.json({ error: 'Không tìm thấy người gửi yêu cầu' }, { status: 404 });
     }
 
     if (requester.to_chuc_id && requester.to_chuc_id !== context.organizationId) {
@@ -198,6 +226,19 @@ export async function PATCH(request: NextRequest) {
       .eq('nguoi_dung_id', requester.id)
       .neq('id', joinRequest.id)
       .eq('trang_thai', 'pending');
+
+    if (requester.email && organization?.ten) {
+      sendOrganizationJoinRequestDecisionEmail({
+        to: requester.email,
+        requesterName: requester.ten || requester.email,
+        organizationName: organization.ten,
+        reviewerName: context.currentUser.ten || 'Quản trị viên',
+        decision: 'approved',
+        reviewUrl: `${baseUrl}/dashboard`,
+      }).catch((emailError) =>
+        console.error('Error sending organization join request approval email:', emailError)
+      );
+    }
 
     return NextResponse.json({ message: 'Đã duyệt yêu cầu và thêm thành viên vào tổ chức' });
   } catch (error) {
