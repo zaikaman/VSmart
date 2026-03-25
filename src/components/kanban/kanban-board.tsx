@@ -11,6 +11,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { snapCenterToCursor } from '@dnd-kit/modifiers';
 import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CheckCheck, GitPullRequest } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -245,7 +246,9 @@ export function KanbanBoard({ tasks, onTaskClick, onAddTask }: KanbanBoardProps)
           ))}
         </div>
 
-        <DragOverlay>{activeTask ? <KanbanCardPreview task={activeTask} /> : null}</DragOverlay>
+        <DragOverlay modifiers={[snapCenterToCursor]}>
+          {activeTask ? <KanbanCardPreview task={activeTask} /> : null}
+        </DragOverlay>
       </DndContext>
     </div>
   );
