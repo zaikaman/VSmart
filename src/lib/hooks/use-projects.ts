@@ -68,6 +68,46 @@ interface ProjectsParams {
   trangThai?: string;
 }
 
+interface DeleteProjectResponse {
+  message: string;
+  data: Project;
+}
+
+function updateProjectListsAfterDelete(
+  queryClient: ReturnType<typeof useQueryClient>,
+  deletedProjectId: string
+) {
+  const projectQueries = queryClient.getQueriesData<PaginatedProjectsResponse>({
+    queryKey: ['projects'],
+  });
+
+  projectQueries.forEach(([queryKey, cachedData]) => {
+    if (!cachedData?.data || !Array.isArray(cachedData.data)) {
+      return;
+    }
+
+    const nextProjects = cachedData.data.filter(project => project.id !== deletedProjectId);
+
+    if (nextProjects.length === cachedData.data.length) {
+      return;
+    }
+
+    const removedCount = cachedData.data.length - nextProjects.length;
+    const total = Math.max(0, cachedData.pagination.total - removedCount);
+    const totalPages = total === 0 ? 0 : Math.ceil(total / cachedData.pagination.limit);
+
+    queryClient.setQueryData<PaginatedProjectsResponse>(queryKey, {
+      ...cachedData,
+      data: nextProjects,
+      pagination: {
+        ...cachedData.pagination,
+        total,
+        totalPages,
+      },
+    });
+  });
+}
+
 async function getApiErrorMessage(response: Response, fallback: string) {
   const error = await response.json().catch(() => ({}) as { error?: unknown });
 
@@ -185,10 +225,47 @@ export function useDeleteProject() {
         throw new Error(await getApiErrorMessage(response, 'Không thể xóa dự án.'));
       }
 
-      return response.json();
+      return response.json() as Promise<DeleteProjectResponse>;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    onMutate: async (deletedProjectId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['projects'] });
+
+      const previousProjectLists = queryClient.getQueriesData<PaginatedProjectsResponse>({
+        queryKey: ['projects'],
+      });
+      const previousProjectDetail = queryClient.getQueryData<Project>(['projects', deletedProjectId]);
+
+      updateProjectListsAfterDelete(queryClient, deletedProjectId);
+      queryClient.removeQueries({ queryKey: ['projects', deletedProjectId] });
+
+      return {
+        deletedProjectId,
+        previousProjectLists,
+        previousProjectDetail,
+      };
+    },
+    onError: (_error, _deletedProjectId, context) => {
+      context?.previousProjectLists.forEach(([queryKey, cachedData]) => {
+        queryClient.setQueryData(queryKey, cachedData);
+      });
+
+      if (context?.previousProjectDetail) {
+        queryClient.setQueryData(['projects', context.deletedProjectId], context.previousProjectDetail);
+      }
+    },
+    onSuccess: async (_result, deletedProjectId) => {
+      queryClient.removeQueries({ queryKey: ['projects', deletedProjectId] });
+      queryClient.removeQueries({ queryKey: ['project-parts', deletedProjectId] });
+      queryClient.removeQueries({ queryKey: ['project-members', deletedProjectId] });
+      queryClient.removeQueries({ queryKey: ['project-forecast', deletedProjectId] });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projects'], refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: ['stats'] }),
+        queryClient.invalidateQueries({ queryKey: ['planning-calendar'] }),
+        queryClient.invalidateQueries({ queryKey: ['planning-workload'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] }),
+      ]);
     },
   });
 }
