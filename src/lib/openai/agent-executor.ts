@@ -1,6 +1,6 @@
 ﻿/**
  * AI Agent Tool Executor
- * Service Ä‘á»ƒ thá»±c thi cÃ¡c tool calls tá»« AI Agent
+ * Service để thực thi các tool call từ AI Agent
  */
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -23,7 +23,7 @@ import type {
 } from './agent-tools';
 
 /**
- * Result cá»§a tool execution
+ * Kết quả của một lần thực thi tool
  */
 export interface ToolExecutionResult {
   success: boolean;
@@ -32,7 +32,7 @@ export interface ToolExecutionResult {
 }
 
 /**
- * Executor cho cÃ¡c tool calls
+ * Bộ thực thi cho các tool call
  */
 export class AgentToolExecutor {
   private supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -50,7 +50,7 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Execute má»™t tool call
+   * Thực thi một tool call
    */
   async executeTool(toolName: string, args: any): Promise<ToolExecutionResult> {
     try {
@@ -110,10 +110,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Táº¡o dá»± Ã¡n má»›i
+   * Tạo dự án mới
    */
   private async taoDuAn(params: TaoDuAnParams): Promise<ToolExecutionResult> {
-    // Láº¥y thÃ´ng tin user Ä‘á»ƒ cÃ³ to_chuc_id
+    // Lấy thông tin user để có to_chuc_id
     const { data: userData, error: userError } = await this.supabase
       .from('nguoi_dung')
       .select('id, to_chuc_id')
@@ -152,14 +152,14 @@ export class AgentToolExecutor {
       if (!invitedUser?.id) {
         return {
           success: false,
-          error: 'T? ch?c hi?n ch?a cho ph?p m?i email ngo?i t? ch?c v?o d? ?n',
+          error: 'Tổ chức hiện chưa cho phép mời email ngoài tổ chức vào dự án',
         };
       }
 
       if (invitedUser.to_chuc_id !== projectData.to_chuc_id) {
         return {
           success: false,
-          error: 'Ng??i ???c m?i c?n thu?c c?ng t? ch?c v?i d? ?n n?y',
+          error: 'Người được mời cần thuộc cùng tổ chức với dự án này',
         };
       }
     }
@@ -184,7 +184,7 @@ export class AgentToolExecutor {
       return { success: false, error: error.message };
     }
 
-    // Tá»± Ä‘á»™ng thÃªm ngÆ°á»i táº¡o vÃ o dá»± Ã¡n vá»›i vai trÃ² owner
+    // Tự động thêm người tạo vào dự án với vai trò owner
     await this.supabase.from('thanh_vien_du_an').insert([
       {
         du_an_id: data.id,
@@ -207,10 +207,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Má»i thÃ nh viÃªn vÃ o dá»± Ã¡n
+   * Mời thành viên vào dự án
    */
   private async moiThanhVienDuAn(params: MoiThanhVienDuAnParams): Promise<ToolExecutionResult> {
-    // Kiá»ƒm tra quyá»n cá»§a user trong dá»± Ã¡n
+    // Kiểm tra quyền của user trong dự án
     const { data: memberCheck } = await this.supabase
       .from('thanh_vien_du_an')
       .select('vai_tro')
@@ -226,7 +226,7 @@ export class AgentToolExecutor {
       };
     }
 
-    // Láº¥y ID cá»§a ngÆ°á»i má»i
+    // Lấy ID của người mời
     const { data: userData } = await this.supabase
       .from('nguoi_dung')
       .select('id')
@@ -240,7 +240,7 @@ export class AgentToolExecutor {
       .single();
 
     if (projectError || !projectData) {
-      return { success: false, error: 'Kh?ng t?m th?y d? ?n' };
+      return { success: false, error: 'Không tìm thấy dự án' };
     }
 
     const { data: organizationData } = await this.supabase
@@ -256,14 +256,14 @@ export class AgentToolExecutor {
         ? Boolean((organizationData.settings as { allow_external_project_invites?: boolean }).allow_external_project_invites)
         : false;
 
-    // Kiá»ƒm tra email ngÆ°á»i Ä‘Æ°á»£c má»i cÃ³ tá»“n táº¡i khÃ´ng
+    // Kiểm tra email người được mời có tồn tại không
     const { data: invitedUser, error: userCheckError } = await this.supabase
       .from('nguoi_dung')
       .select('id, ten, to_chuc_id')
       .eq('email', params.email)
-      .maybeSingle(); // DÃ¹ng maybeSingle() thay vÃ¬ single() Ä‘á»ƒ khÃ´ng throw error khi khÃ´ng tÃ¬m tháº¥y
+      .maybeSingle(); // Dùng maybeSingle() thay vì single() để không throw error khi không tìm thấy
 
-    // Náº¿u cÃ³ lá»—i tá»« DB (khÃ´ng pháº£i lá»—i "khÃ´ng tÃ¬m tháº¥y")
+    // Nếu có lỗi từ DB, xử lý như lỗi thật thay vì xem là "không tìm thấy"
     if (userCheckError) {
       return { success: false, error: `Lỗi khi kiểm tra user: ${userCheckError.message}` };
     }
@@ -276,9 +276,9 @@ export class AgentToolExecutor {
           nguoi_dung_id: invitedUser?.id || null,
           email: params.email,
           vai_tro: params.vai_tro || 'member',
-          trang_thai: 'pending', // LuÃ´n Ä‘á»ƒ pending, Ä‘á»£i user accept
+          trang_thai: 'pending', // Luôn để pending, đợi user chấp nhận
           nguoi_moi_id: userData?.id,
-          ngay_tham_gia: null, // Chá»‰ set khi user accept
+          ngay_tham_gia: null, // Chỉ set khi user chấp nhận
         },
       ])
       .select()
@@ -294,7 +294,7 @@ export class AgentToolExecutor {
       return { success: false, error: error.message };
     }
 
-    // Láº¥y thÃ´ng tin dá»± Ã¡n vÃ  ngÆ°á»i má»i Ä‘á»ƒ táº¡o notification & gá»­i email
+    // Lấy thông tin dự án và người mời để tạo thông báo và gửi email
     const projectInfo = projectData;
 
     const { data: inviterInfo } = await this.supabase
@@ -303,7 +303,7 @@ export class AgentToolExecutor {
       .eq('id', userData?.id)
       .single();
 
-    // Táº¡o thÃ´ng bÃ¡o trong app náº¿u user Ä‘Ã£ tá»“n táº¡i
+    // Tạo thông báo trong app nếu user đã tồn tại
     if (invitedUser?.id) {
       await this.supabase
         .from('thong_bao')
@@ -316,7 +316,7 @@ export class AgentToolExecutor {
         });
     }
 
-    // Gá»­i email thÃ´ng bÃ¡o (async, khÃ´ng chá» káº¿t quáº£)
+    // Gửi email thông báo theo kiểu async, không chờ kết quả
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const acceptUrl = `${baseUrl}/dashboard?tab=invitations`;
@@ -333,7 +333,7 @@ export class AgentToolExecutor {
       console.log(`[AI Agent] Invitation email sent to ${params.email}`);
     } catch (emailError) {
       console.error('[AI Agent] Error sending invitation email:', emailError);
-      // KhÃ´ng throw error vÃ¬ lá»i má»i Ä‘Ã£ Ä‘Æ°á»£c táº¡o thÃ nh cÃ´ng
+      // Không throw error vì lời mời đã được tạo thành công
     }
 
     return {
@@ -346,10 +346,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Táº¡o pháº§n dá»± Ã¡n
+   * Tạo phần dự án
    */
   private async taoPhanDuAn(params: TaoPhanDuAnParams): Promise<ToolExecutionResult> {
-    // Kiá»ƒm tra quyá»n trong dá»± Ã¡n
+    // Kiểm tra quyền trong dự án
     const { data: memberCheck } = await this.supabase
       .from('thanh_vien_du_an')
       .select('vai_tro')
@@ -392,10 +392,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Táº¡o task
+   * Tạo task
    */
   private async taoTask(params: TaoTaskParams): Promise<ToolExecutionResult> {
-    // Kiá»ƒm tra pháº§n dá»± Ã¡n cÃ³ tá»“n táº¡i vÃ  user cÃ³ quyá»n khÃ´ng
+    // Kiểm tra phần dự án có tồn tại và user có quyền thao tác không
     const { data: partData } = await this.supabase
       .from('phan_du_an')
       .select('du_an_id')
@@ -475,10 +475,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Cáº­p nháº­t task
+   * Cập nhật task
    */
   private async capNhatTask(params: CapNhatTaskParams): Promise<ToolExecutionResult> {
-    // Kiá»ƒm tra task cÃ³ tá»“n táº¡i vÃ  quyá»n
+    // Kiểm tra task có tồn tại và user có quyền cập nhật không
     const { data: taskData } = await this.supabase
       .from('task')
       .select('phan_du_an_id, phan_du_an(du_an_id)')
@@ -507,7 +507,7 @@ export class AgentToolExecutor {
       };
     }
 
-    // Táº¡o object cáº­p nháº­t
+    // Tạo payload cập nhật
     const updateData: any = {};
     if (params.trang_thai) updateData.trang_thai = params.trang_thai;
     if (params.progress !== undefined) updateData.progress = params.progress;
@@ -536,10 +536,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * XÃ³a task
+   * Xóa task
    */
   private async xoaTask(params: XoaTaskParams): Promise<ToolExecutionResult> {
-    // Kiá»ƒm tra quyá»n
+    // Kiểm tra quyền
     const { data: taskData } = await this.supabase
       .from('task')
       .select('phan_du_an_id, phan_du_an(du_an_id)')
@@ -585,11 +585,11 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Láº¥y danh sÃ¡ch thÃ nh viÃªn
+   * Lấy danh sách thành viên
    */
   private async layDanhSachThanhVien(params: LayDanhSachThanhVienParams): Promise<ToolExecutionResult> {
     if (params.du_an_id) {
-      // Láº¥y thÃ nh viÃªn cá»§a dá»± Ã¡n cá»¥ thá»ƒ
+      // Lấy thành viên của một dự án cụ thể
       const { data, error } = await this.supabase
         .from('thanh_vien_du_an')
         .select('*, nguoi_dung:nguoi_dung_id(id, ten, email, avatar_url)')
@@ -601,7 +601,7 @@ export class AgentToolExecutor {
 
       return { success: true, data };
     } else {
-      // Láº¥y táº¥t cáº£ ngÆ°á»i dÃ¹ng trong há»‡ thá»‘ng (khÃ´ng giá»›i háº¡n tá»• chá»©c)
+      // Lấy tất cả người dùng trong hệ thống, không giới hạn theo tổ chức
       const { data, error } = await this.supabase
         .from('nguoi_dung')
         .select('id, ten, email, avatar_url, vai_tro, to_chuc_id')
@@ -616,7 +616,7 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Láº¥y danh sÃ¡ch dá»± Ã¡n
+   * Lấy danh sách dự án
    */
   private async layDanhSachDuAn(params: LayDanhSachDuAnParams): Promise<ToolExecutionResult> {
     let query = this.supabase
@@ -638,14 +638,14 @@ export class AgentToolExecutor {
       return { success: false, error: error.message };
     }
 
-    // Loáº¡i bá» thÃ´ng tin thanh_vien_du_an trong response
+    // Loại bỏ quan hệ thanh_vien_du_an khỏi response trả về
     const cleanData = data?.map(({ thanh_vien_du_an, ...project }: any) => project);
 
     return { success: true, data: cleanData };
   }
 
   /**
-   * Láº¥y danh sÃ¡ch pháº§n dá»± Ã¡n
+   * Lấy danh sách phần dự án
    */
   private async layDanhSachPhanDuAn(params: LayDanhSachPhanDuAnParams): Promise<ToolExecutionResult> {
     const { data, error } = await this.supabase
@@ -662,7 +662,7 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Láº¥y chi tiáº¿t task
+   * Lấy chi tiết task
    */
   private async layChiTietTask(params: LayChiTietTaskParams): Promise<ToolExecutionResult> {
     const { data, error } = await this.supabase
@@ -684,10 +684,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * Cáº­p nháº­t dá»± Ã¡n
+   * Cập nhật dự án
    */
   private async capNhatDuAn(params: CapNhatDuAnParams): Promise<ToolExecutionResult> {
-    // Kiá»ƒm tra quyá»n
+    // Kiểm tra quyền
     const { data: memberCheck } = await this.supabase
       .from('thanh_vien_du_an')
       .select('vai_tro')
@@ -730,10 +730,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * XÃ³a thÃ nh viÃªn khá»i dá»± Ã¡n
+   * Xóa thành viên khỏi dự án
    */
   private async xoaThanhVienDuAn(params: XoaThanhVienDuAnParams): Promise<ToolExecutionResult> {
-    // Kiá»ƒm tra quyá»n
+    // Kiểm tra quyền
     const { data: memberCheck } = await this.supabase
       .from('thanh_vien_du_an')
       .select('vai_tro')
@@ -766,10 +766,10 @@ export class AgentToolExecutor {
   }
 
   /**
-   * TÃ¬m kiáº¿m tasks
+   * Tìm kiếm task
    */
   private async timKiemTasks(params: TimKiemTasksParams): Promise<ToolExecutionResult> {
-    // Láº¥y danh sÃ¡ch project IDs mÃ  user tham gia
+    // Lấy danh sách project ID mà user đang tham gia
     const { data: userProjects } = await this.supabase
       .from('thanh_vien_du_an')
       .select('du_an_id')
@@ -782,7 +782,7 @@ export class AgentToolExecutor {
       return { success: true, data: [] };
     }
 
-    // Láº¥y part IDs
+    // Lấy part ID
     let partQuery = this.supabase.from('phan_du_an').select('id').in('du_an_id', projectIds);
 
     if (params.du_an_id) {

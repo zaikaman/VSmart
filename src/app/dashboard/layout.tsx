@@ -10,8 +10,8 @@ import { makeQueryClient } from '@/lib/query/make-query-client';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
-  title: 'Báº£ng Ä‘iá»u khiá»ƒn VSmart',
-  description: 'Quáº£n lÃ½ nhiá»‡m vá»¥ thÃ´ng minh',
+  title: 'Bảng điều khiển VSmart',
+  description: 'Quản lý nhiệm vụ thông minh',
 };
 
 export default async function DashboardLayout({

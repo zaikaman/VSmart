@@ -24,7 +24,7 @@ export async function GET() {
     const currentUser = await getDashboardCurrentUser(user.email);
 
     if (!currentUser) {
-      return NextResponse.json({ error: 'KhÃ´ng tÃ¬m tháº¥y thÃ´ng tin ngÆ°á»i dÃ¹ng' }, { status: 404 });
+      return NextResponse.json({ error: 'Không tìm thấy thông tin người dùng' }, { status: 404 });
     }
 
     const organization = await getDashboardOrganization(currentUser.to_chuc?.id);

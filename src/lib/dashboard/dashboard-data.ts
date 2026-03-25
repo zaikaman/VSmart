@@ -162,7 +162,7 @@ export async function getDashboardStats(email: string): Promise<DashboardStats> 
     .single();
 
   if (userError || !userData) {
-    throw new Error('KhÃ´ng tÃ¬m tháº¥y thÃ´ng tin ngÆ°á»i dÃ¹ng');
+    throw new Error('Không tìm thấy thông tin người dùng');
   }
 
   const [membershipsResult, userCountResult] = await Promise.all([
@@ -264,8 +264,8 @@ export async function getDashboardStats(email: string): Promise<DashboardStats> 
       id: task.id,
       ten: task.ten,
       deadline: task.deadline,
-      projectName: task.project?.ten || 'ChÆ°a rÃµ dá»± Ã¡n',
-      assigneeName: task.assignee?.ten || 'ChÆ°a phÃ¢n cÃ´ng',
+      projectName: task.project?.ten || 'Chưa rõ dự án',
+      assigneeName: task.assignee?.ten || 'Chưa phân công',
     }));
 
   return {

@@ -23,7 +23,7 @@ export function useDashboardBootstrap() {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u tá»•ng quan');
+        throw new Error(error.error || 'Không thể tải dữ liệu tổng quan');
       }
 
       const result = await response.json();
