@@ -49,14 +49,14 @@ export default async function DashboardLayout({
   return (
     <DashboardWrapper>
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <DashboardPageReady fallback={<DashboardLayoutSkeleton />}>
-          <div className="flex min-h-screen bg-[linear-gradient(180deg,#fbfaf4_0%,#f4f6ef_44%,#edf2ea_100%)]">
-            <Sidebar className="hidden md:flex" />
-            <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-screen bg-[linear-gradient(180deg,#fbfaf4_0%,#f4f6ef_44%,#edf2ea_100%)]">
+          <Sidebar className="hidden md:flex" />
+          <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <DashboardPageReady fallback={<DashboardLayoutSkeleton />} className="flex min-h-0 flex-1 flex-col">
               <div className="flex-1 overflow-y-auto">{children}</div>
-            </main>
-          </div>
-        </DashboardPageReady>
+            </DashboardPageReady>
+          </main>
+        </div>
       </HydrationBoundary>
     </DashboardWrapper>
   );
