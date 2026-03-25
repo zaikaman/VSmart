@@ -53,10 +53,23 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
 
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
-  const { data: organization } = useOrganization();
-  const { data: orgMembersResponse, isLoading: isOrgMembersLoading } = useOrganizationMembers();
-  const { data: orgInvitations = [], isLoading: isOrgInvitationsLoading } = useOrganizationInvitations();
-  const { data: workloadResponse } = usePlanningWorkload({ projectId, enabled: !!projectId });
+  const { data: organization } = useOrganization({
+    enabled: isAddDialogOpen,
+    meta: { pageGate: 'ignore' },
+  });
+  const { data: orgMembersResponse, isLoading: isOrgMembersLoading } = useOrganizationMembers({
+    enabled: isAddDialogOpen,
+    meta: { pageGate: 'ignore' },
+  });
+  const { data: orgInvitations = [], isLoading: isOrgInvitationsLoading } = useOrganizationInvitations({
+    enabled: isAddDialogOpen,
+    meta: { pageGate: 'ignore' },
+  });
+  const { data: workloadResponse } = usePlanningWorkload({
+    projectId,
+    enabled: !!projectId,
+    meta: { pageGate: 'ignore' },
+  });
   const { isUserOnline, ready: presenceReady } = usePresence();
 
   const allowExternalProjectInvites = organization?.settings.allow_external_project_invites ?? false;
@@ -70,6 +83,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
       return response.json() as Promise<ProjectMember[]>;
     },
     enabled: !!projectId,
+    meta: { pageGate: 'ignore' },
   });
 
   const inviteMutation = useMutation({

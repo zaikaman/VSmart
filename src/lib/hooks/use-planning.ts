@@ -6,12 +6,14 @@ interface PlanningCalendarParams {
   dateFrom: string;
   dateTo: string;
   enabled?: boolean;
+  meta?: Record<string, unknown>;
 }
 
 interface PlanningWorkloadParams {
   projectId?: string;
   assigneeId?: string;
   enabled?: boolean;
+  meta?: Record<string, unknown>;
 }
 
 export interface PlanningTaskItem {
@@ -143,6 +145,7 @@ export function usePlanningCalendar(params: PlanningCalendarParams) {
       return result.data as PlanningCalendarResponse;
     },
     enabled: params.enabled ?? true,
+    meta: params.meta,
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
@@ -175,6 +178,7 @@ export function usePlanningWorkload(params: PlanningWorkloadParams = {}) {
       return result.data as PlanningWorkloadResponse;
     },
     enabled: params.enabled ?? true,
+    meta: params.meta,
     staleTime: 45 * 1000,
     gcTime: 10 * 60 * 1000,
   });
@@ -193,6 +197,7 @@ export function useProjectForecast(projectId?: string, enabled = true) {
       return result.data as ProjectForecastResponse;
     },
     enabled: Boolean(projectId) && enabled,
+    meta: { pageGate: 'ignore' },
     staleTime: 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

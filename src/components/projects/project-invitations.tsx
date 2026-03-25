@@ -42,6 +42,7 @@ export default function ProjectInvitations() {
 
       return response.json() as Promise<ProjectInvitation[]>;
     },
+    meta: { pageGate: 'ignore' },
   });
 
   const invitationMutation = useMutation({
@@ -72,6 +73,7 @@ export default function ProjectInvitations() {
     onSuccess: (result) => {
       toast.success(result.message);
       queryClient.invalidateQueries({ queryKey: ['project-invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project-members'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

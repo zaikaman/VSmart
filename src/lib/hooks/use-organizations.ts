@@ -21,7 +21,7 @@ import type {
 } from '@/app/api/organization-join-requests/manage/route';
 
 // Lấy thông tin organization của user hiện tại
-export function useOrganization() {
+export function useOrganization(options?: { enabled?: boolean; meta?: Record<string, unknown> }) {
   return useQuery({
     queryKey: ['organization'],
     queryFn: async () => {
@@ -34,6 +34,8 @@ export function useOrganization() {
       }
       return response.json() as Promise<Organization>;
     },
+    enabled: options?.enabled ?? true,
+    meta: options?.meta,
   });
 }
 
@@ -58,6 +60,7 @@ export function useCreateOrganization() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });
       queryClient.invalidateQueries({ queryKey: ['settings-current-user'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-user'] });
@@ -92,13 +95,14 @@ export function useUpdateOrganization() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
     },
   });
 }
 
-export function useOrganizationMembers() {
+export function useOrganizationMembers(options?: { enabled?: boolean; meta?: Record<string, unknown> }) {
   return useQuery({
     queryKey: ['organization-members'],
     queryFn: async () => {
@@ -113,6 +117,8 @@ export function useOrganizationMembers() {
 
       return response.json() as Promise<OrganizationMembersResponse>;
     },
+    enabled: options?.enabled ?? true,
+    meta: options?.meta,
   });
 }
 
@@ -155,7 +161,7 @@ export function useUpdateOrganizationMemberRole() {
   });
 }
 
-export function useOrganizationInvitations() {
+export function useOrganizationInvitations(options?: { enabled?: boolean; meta?: Record<string, unknown> }) {
   return useQuery({
     queryKey: ['organization-invitations', 'manage'],
     queryFn: async () => {
@@ -170,6 +176,8 @@ export function useOrganizationInvitations() {
 
       return response.json() as Promise<OrganizationInvitation[]>;
     },
+    enabled: options?.enabled ?? true,
+    meta: options?.meta,
   });
 }
 
@@ -200,7 +208,7 @@ export function useInviteOrganizationMember() {
   });
 }
 
-export function useMyOrganizationInvitations() {
+export function useMyOrganizationInvitations(options?: { enabled?: boolean; meta?: Record<string, unknown> }) {
   return useQuery({
     queryKey: ['my-organization-invitations'],
     queryFn: async () => {
@@ -211,6 +219,8 @@ export function useMyOrganizationInvitations() {
 
       return response.json() as Promise<MyOrganizationInvitation[]>;
     },
+    enabled: options?.enabled ?? true,
+    meta: options?.meta,
   });
 }
 
@@ -238,6 +248,7 @@ export function useRespondOrganizationInvitation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-organization-invitations'] });
       queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });
       queryClient.invalidateQueries({ queryKey: ['settings-current-user'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-user'] });

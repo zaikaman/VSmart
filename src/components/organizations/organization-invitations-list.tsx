@@ -19,7 +19,9 @@ interface OrganizationInvitationsListProps {
 }
 
 export function OrganizationInvitationsList({ compact = false }: OrganizationInvitationsListProps) {
-  const { data: invitations, isLoading } = useMyOrganizationInvitations();
+  const { data: invitations, isLoading } = useMyOrganizationInvitations({
+    meta: { pageGate: 'ignore' },
+  });
   const respondMutation = useRespondOrganizationInvitation();
   const pendingInvitationId = respondMutation.variables?.invitation_id;
 

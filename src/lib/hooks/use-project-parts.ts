@@ -66,8 +66,6 @@ export interface UpdateProjectPartInput {
     ten?: string;
     mo_ta?: string;
     deadline?: string;
-    trang_thai?: 'todo' | 'in-progress' | 'done';
-    phan_tram_hoan_thanh?: number;
 }
 
 export function useUpdateProjectPart(projectId: string, partId: string) {

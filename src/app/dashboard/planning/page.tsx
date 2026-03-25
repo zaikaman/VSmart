@@ -1,11 +1,11 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { addDays, endOfWeek, format, startOfWeek } from 'date-fns';
 import { Bricolage_Grotesque, JetBrains_Mono } from 'next/font/google';
 import { CalendarDays, Flame, Keyboard, Layers3, Radar, Route, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { RebalancePanel } from '@/components/ai/rebalance-panel';
 import { SavedViewBar } from '@/components/governance/saved-view-bar';
 import { ShortcutDialog } from '@/components/governance/shortcut-dialog';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,14 @@ import { usePlanningCalendar, usePlanningWorkload, useRescheduleTask, type Plann
 
 const bricolage = Bricolage_Grotesque({ subsets: ['latin'], weight: ['400', '600', '800'] });
 const jetbrains = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '700'] });
+
+const RebalancePanel = dynamic(
+  () => import('@/components/ai/rebalance-panel').then((mod) => ({ default: mod.RebalancePanel })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[180px] rounded-[24px]" />,
+  }
+);
 
 type PlanningTab = 'calendar' | 'timeline' | 'workload';
 

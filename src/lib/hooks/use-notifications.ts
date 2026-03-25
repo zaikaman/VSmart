@@ -85,7 +85,7 @@ async function markAllAsRead(): Promise<void> {
   }
 }
 
-export function useNotifications(options?: { unreadOnly?: boolean; limit?: number }) {
+export function useNotifications(options?: { unreadOnly?: boolean; limit?: number; enabled?: boolean; meta?: Record<string, unknown> }) {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const limit = options?.limit ?? 10;
@@ -99,6 +99,8 @@ export function useNotifications(options?: { unreadOnly?: boolean; limit?: numbe
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey,
     queryFn: () => fetchNotifications({ page, limit, unreadOnly }),
+    enabled: options?.enabled ?? true,
+    meta: options?.meta || { pageGate: 'ignore' },
     placeholderData: keepPreviousData,
     staleTime: 15 * 1000,
     gcTime: 5 * 60 * 1000,

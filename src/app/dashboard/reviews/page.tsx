@@ -19,10 +19,11 @@ import { getEffectiveTaskProgress, getTaskProgressLabel } from '@/lib/utils/task
 export default function ReviewsPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [shortcutOpen, setShortcutOpen] = useState(false);
-  const { data: reviewTasks, isLoading } = useReviewQueue();
   const approveTask = useApproveTask();
   const rejectTask = useRejectTask();
   const { data: currentUser } = useCurrentUser();
+  const isManagerView = currentUser?.vai_tro ? isLeadershipRole(currentUser.vai_tro) : false;
+  const { data: reviewTasks, isLoading } = useReviewQueue(isManagerView);
 
   useHotkeys([
     {
@@ -34,7 +35,6 @@ export default function ReviewsPage() {
     },
   ]);
 
-  const isManagerView = isLeadershipRole(currentUser?.vai_tro);
   const sortedReviewTasks = useMemo(() => {
     const priorityRank = {
       urgent: 0,

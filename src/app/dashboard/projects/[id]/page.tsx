@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -15,8 +16,6 @@ import {
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { RebalancePanel } from '@/components/ai/rebalance-panel';
-import { ActivityFeed } from '@/components/governance/activity-feed';
 import { CreatePartModal } from '@/components/projects/create-part-modal';
 import { EditPartModal } from '@/components/projects/edit-part-modal';
 import { ProjectMembersManager } from '@/components/projects/project-members-manager';
@@ -47,6 +46,22 @@ const statusColors = {
   'in-progress': 'bg-[#b9ff66] text-black hover:bg-[#a3e659] border-[#b9ff66]',
   done: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200',
 };
+
+const RebalancePanel = dynamic(
+  () => import('@/components/ai/rebalance-panel').then((mod) => ({ default: mod.RebalancePanel })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[180px] rounded-[24px]" />,
+  }
+);
+
+const ActivityFeed = dynamic(
+  () => import('@/components/governance/activity-feed').then((mod) => ({ default: mod.ActivityFeed })),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-[260px] rounded-[24px]" />,
+  }
+);
 
 const statusLabels = {
   todo: 'Cần làm',

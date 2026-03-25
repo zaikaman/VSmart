@@ -1,5 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabase/client';
-import { calculateDuAnProgress, calculatePhanDuAnProgress } from '@/lib/utils/calculate-progress';
+import {
+  calculateAggregateStatus,
+  calculateDuAnProgress,
+  calculatePhanDuAnProgress,
+} from '@/lib/utils/calculate-progress';
 import { getEffectiveTaskProgress } from '@/lib/utils/task-progress';
 
 function extractSingleRelation<T>(value: T | T[] | null): T | null {
@@ -13,23 +17,55 @@ function extractSingleRelation<T>(value: T | T[] | null): T | null {
 export async function updateDuAnProgress(duAnId: string) {
   const { data: parts, error: partsError } = await supabaseAdmin
     .from('phan_du_an')
-    .select('id, phan_tram_hoan_thanh')
+    .select('id')
     .eq('du_an_id', duAnId)
     .is('deleted_at', null);
 
-  if (partsError || !parts || parts.length === 0) {
+  if (partsError || !parts) {
     return;
   }
 
-  const newProgress = calculateDuAnProgress(
-    parts.map((part) => ({
-      phanTramHoanThanh: part.phan_tram_hoan_thanh || 0,
-    }))
-  );
+  const partIds = parts.map((part) => part.id);
+  let newProgress = 0;
+  let newStatus: 'todo' | 'in-progress' | 'done' = 'todo';
+
+  if (partIds.length > 0) {
+    const { data: tasks, error: tasksError } = await supabaseAdmin
+      .from('task')
+      .select('id, trang_thai, progress, progress_mode, review_status')
+      .in('phan_du_an_id', partIds)
+      .is('deleted_at', null);
+
+    if (tasksError || !tasks) {
+      return;
+    }
+
+    newProgress = calculateDuAnProgress(
+      tasks.map((task) => ({
+        progress: getEffectiveTaskProgress({
+          progress: task.progress,
+          progressMode: task.progress_mode,
+          status: task.trang_thai,
+          reviewStatus: task.review_status,
+        }),
+      }))
+    );
+
+    newStatus = calculateAggregateStatus(
+      tasks.map((task) => ({
+        progress: getEffectiveTaskProgress({
+          progress: task.progress,
+          progressMode: task.progress_mode,
+          status: task.trang_thai,
+          reviewStatus: task.review_status,
+        }),
+      }))
+    );
+  }
 
   await supabaseAdmin
     .from('du_an')
-    .update({ phan_tram_hoan_thanh: newProgress })
+    .update({ phan_tram_hoan_thanh: newProgress, trang_thai: newStatus })
     .eq('id', duAnId)
     .is('deleted_at', null);
 }
@@ -45,22 +81,23 @@ export async function updatePhanDuAnProgress(phanDuAnId: string) {
     return;
   }
 
-  const newProgress = calculatePhanDuAnProgress(
-    tasks.map((task) => ({
-      id: task.id,
-      trangThai: task.trang_thai,
-      progress: getEffectiveTaskProgress({
-        progress: task.progress,
-        progressMode: task.progress_mode,
-        status: task.trang_thai,
-        reviewStatus: task.review_status,
-      }),
-    }))
-  );
+  const taskProgresses = tasks.map((task) => ({
+    id: task.id,
+    trangThai: task.trang_thai,
+    progress: getEffectiveTaskProgress({
+      progress: task.progress,
+      progressMode: task.progress_mode,
+      status: task.trang_thai,
+      reviewStatus: task.review_status,
+    }),
+  }));
+
+  const newProgress = calculatePhanDuAnProgress(taskProgresses);
+  const newStatus = calculateAggregateStatus(taskProgresses);
 
   const { data: updatedPart, error: updateError } = await supabaseAdmin
     .from('phan_du_an')
-    .update({ phan_tram_hoan_thanh: newProgress })
+    .update({ phan_tram_hoan_thanh: newProgress, trang_thai: newStatus })
     .eq('id', phanDuAnId)
     .is('deleted_at', null)
     .select('du_an_id')

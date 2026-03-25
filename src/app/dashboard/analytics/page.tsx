@@ -39,8 +39,9 @@ export default function AnalyticsPage() {
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all');
   const [shortcutOpen, setShortcutOpen] = useState(false);
   const savedViews = useSavedViews<{ healthFilter: HealthFilter }>('analytics');
-  const { data, isLoading } = useAnalyticsOverview();
   const { data: currentUser } = useCurrentUser();
+  const isManagerView = currentUser?.vai_tro ? isLeadershipRole(currentUser.vai_tro) : false;
+  const { data, isLoading } = useAnalyticsOverview(isManagerView);
 
   useHotkeys([
     {
@@ -59,7 +60,6 @@ export default function AnalyticsPage() {
     },
   ]);
 
-  const isManagerView = isLeadershipRole(currentUser?.vai_tro);
   const filteredProjectHealth = useMemo(() => {
     if (!data) return [];
     if (healthFilter === 'all') return data.projectHealth;

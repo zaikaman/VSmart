@@ -52,6 +52,7 @@ export function useActivityFeed(params: {
   entityType?: string;
   enabled?: boolean;
   limit?: number;
+  meta?: Record<string, unknown>;
 }) {
   return useQuery({
     queryKey: ['activity-feed', params.taskId, params.projectId, params.entityType, params.limit],
@@ -70,6 +71,7 @@ export function useActivityFeed(params: {
       return result.data as ActivityItem[];
     },
     enabled: params.enabled ?? true,
+    meta: params.meta || { pageGate: 'ignore' },
     staleTime: 20 * 1000,
     gcTime: 5 * 60 * 1000,
   });

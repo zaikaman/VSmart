@@ -19,6 +19,10 @@ interface DuAn {
   phan_du_an?: PhanDuAn[];
 }
 
+type AggregateProgressItem = {
+  progress: number;
+};
+
 /**
  * Tính phần trăm hoàn thành của một Phần Dự Án dựa trên tasks
  * - Tasks "done" = 100%
@@ -53,15 +57,26 @@ export function calculatePhanDuAnProgress(tasks: Task[]): number {
  * @param phanDuAn - Danh sách phần dự án với progress của chúng
  * @returns Phần trăm hoàn thành (0-100)
  */
-export function calculateDuAnProgress(phanDuAn: Array<{ phanTramHoanThanh: number }>): number {
-  if (!phanDuAn || phanDuAn.length === 0) return 0;
+export function calculateDuAnProgress(tasks: Array<{ progress: number }>): number {
+  if (!tasks || tasks.length === 0) return 0;
 
-  const totalProgress = phanDuAn.reduce(
-    (sum, part) => sum + (part.phanTramHoanThanh || 0),
-    0
-  );
+  const totalProgress = tasks.reduce((sum, task) => sum + (task.progress || 0), 0);
 
-  return Math.round((totalProgress / phanDuAn.length) * 100) / 100;
+  return Math.round((totalProgress / tasks.length) * 100) / 100;
+}
+
+export function calculateAggregateStatus(items: AggregateProgressItem[]): 'todo' | 'in-progress' | 'done' {
+  if (!items || items.length === 0) return 'todo';
+
+  if (items.every((item) => item.progress >= 100)) {
+    return 'done';
+  }
+
+  if (items.some((item) => item.progress > 0)) {
+    return 'in-progress';
+  }
+
+  return 'todo';
 }
 
 /**

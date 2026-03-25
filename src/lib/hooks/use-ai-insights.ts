@@ -109,6 +109,7 @@ export function useDailySummary(projectId?: string, enabled = true, refreshToken
       return result.data as DailySummaryData;
     },
     enabled,
+    meta: { pageGate: 'ignore' },
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -132,6 +133,7 @@ export function useWeeklySummary(projectId?: string, enabled = true, refreshToke
       return result.data as WeeklySummaryData;
     },
     enabled,
+    meta: { pageGate: 'ignore' },
     staleTime: 5 * 60 * 1000,
   });
 }

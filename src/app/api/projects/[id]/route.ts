@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logActivity } from '@/lib/activity/log';
 import { hasPermission } from '@/lib/auth/permissions';
+import { updateDuAnProgress } from '@/lib/tasks/progress';
 import { getProjectAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 
@@ -9,8 +10,6 @@ const updateProjectSchema = z.object({
   ten: z.string().min(1).max(200).optional(),
   mo_ta: z.string().optional(),
   deadline: z.string().datetime().optional(),
-  trang_thai: z.enum(['todo', 'in-progress', 'done']).optional(),
-  phan_tram_hoan_thanh: z.number().min(0).max(100).optional(),
 });
 
 function buildProjectPermissions(auth: Awaited<ReturnType<typeof getProjectAccessContext>>) {
@@ -78,6 +77,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const body = await request.json();
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      Object.prototype.hasOwnProperty.call(body, 'phan_tram_hoan_thanh')
+    ) {
+      return NextResponse.json(
+        { error: 'Tiến độ dự án được tính tự động từ toàn bộ task.' },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      Object.prototype.hasOwnProperty.call(body, 'trang_thai')
+    ) {
+      return NextResponse.json(
+        { error: 'Trạng thái dự án được tính tự động từ toàn bộ task.' },
+        { status: 400 }
+      );
+    }
+
     const validated = updateProjectSchema.parse(body);
 
     const { data, error } = await auth.supabase
@@ -92,6 +113,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Không thể cập nhật dự án' }, { status: 400 });
     }
 
+    await updateDuAnProgress(id);
+
+    const { data: refreshedProject, error: refreshedProjectError } = await auth.supabase
+      .from('du_an')
+      .select('*')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single();
+
     await logActivity({
       entityType: 'project',
       entityId: id,
@@ -105,7 +135,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     });
 
     return NextResponse.json({
-      ...data,
+      ...(refreshedProjectError || !refreshedProject ? data : refreshedProject),
       permissions,
     });
   } catch (error) {

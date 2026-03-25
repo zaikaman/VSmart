@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logActivity } from '@/lib/activity/log';
 import { hasPermission } from '@/lib/auth/permissions';
+import { updateDuAnProgress, updatePhanDuAnProgress } from '@/lib/tasks/progress';
 import { getPartAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 
@@ -9,8 +10,6 @@ const updatePartSchema = z.object({
   ten: z.string().min(1).max(200).optional(),
   mo_ta: z.string().optional(),
   deadline: z.string().datetime().optional(),
-  trang_thai: z.enum(['todo', 'in-progress', 'done']).optional(),
-  phan_tram_hoan_thanh: z.number().min(0).max(100).optional(),
 });
 
 function canManagePart(auth: Awaited<ReturnType<typeof getPartAccessContext>>) {
@@ -61,6 +60,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const body = await request.json();
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      Object.prototype.hasOwnProperty.call(body, 'phan_tram_hoan_thanh')
+    ) {
+      return NextResponse.json(
+        { error: 'Tiến độ phần dự án được tính tự động từ các task.' },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      Object.prototype.hasOwnProperty.call(body, 'trang_thai')
+    ) {
+      return NextResponse.json(
+        { error: 'Trạng thái phần dự án được tính tự động từ các task.' },
+        { status: 400 }
+      );
+    }
+
     const validated = updatePartSchema.parse(body);
 
     const { data, error } = await supabaseAdmin
@@ -75,6 +96,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Không thể cập nhật phần dự án' }, { status: 400 });
     }
 
+    await updatePhanDuAnProgress(id);
+
+    const { data: refreshedPart, error: refreshedPartError } = await supabaseAdmin
+      .from('phan_du_an')
+      .select('*')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single();
+
     await logActivity({
       entityType: 'project_part',
       entityId: id,
@@ -88,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       },
     });
 
-    return NextResponse.json(data);
+    return NextResponse.json(refreshedPartError || !refreshedPart ? data : refreshedPart);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
@@ -133,6 +163,8 @@ export async function DELETE(
       .update({ is_active: false })
       .eq('phan_du_an_id', id)
       .eq('is_active', true);
+
+    await updateDuAnProgress(auth.projectId);
 
     await logActivity({
       entityType: 'project_part',

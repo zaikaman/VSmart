@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -16,7 +17,6 @@ import {
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { isLeadershipRole } from '@/lib/auth/permissions';
-import { ExecutiveSummaryWidget } from '@/components/ai/executive-summary-widget';
 import { DashboardPageShell, DashboardSection } from '@/components/dashboard/page-shell';
 import { CreateOrganizationModal } from '@/components/organizations/create-organization-modal';
 import { OrganizationInvitationsList } from '@/components/organizations/organization-invitations-list';
@@ -26,11 +26,23 @@ import { ProjectCard } from '@/components/projects/project-card';
 import ProjectInvitations from '@/components/projects/project-invitations';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCurrentUser } from '@/lib/hooks/use-current-user';
-import { useMyOrganizationInvitations, useOrganization } from '@/lib/hooks/use-organizations';
-import { useProjects, type Project } from '@/lib/hooks/use-projects';
-import { useStats } from '@/lib/hooks/use-stats';
+import { useDashboardBootstrap } from '@/lib/hooks/use-dashboard-bootstrap';
+import { type Project } from '@/lib/hooks/use-projects';
 import { usePresence } from '@/lib/providers/presence-provider';
+
+const ExecutiveSummaryWidget = dynamic(
+  () => import('@/components/ai/executive-summary-widget').then((mod) => ({ default: mod.ExecutiveSummaryWidget })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-3">
+        <Skeleton className="h-10 w-48 rounded-full" />
+        <Skeleton className="h-24 rounded-[24px]" />
+        <Skeleton className="h-56 rounded-[24px]" />
+      </div>
+    ),
+  }
+);
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
@@ -38,12 +50,13 @@ export default function DashboardPage() {
   const digestReference = searchParams.get('digest');
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createOrganizationOpen, setCreateOrganizationOpen] = useState(false);
-  const { data: organization, isLoading: organizationLoading } = useOrganization();
-  const { data: organizationInvitations, isLoading: invitationsLoading } = useMyOrganizationInvitations();
-  const { data: projectsData, isLoading: projectsLoading } = useProjects();
-  const { data: stats, isLoading: statsLoading } = useStats({ enabled: Boolean(organization) });
+  const { data: bootstrapData, isLoading } = useDashboardBootstrap();
   const { onlineCount, ready: presenceReady } = usePresence();
-  const { data: currentUser } = useCurrentUser();
+  const organization = bootstrapData?.organization || null;
+  const organizationInvitations = bootstrapData?.organizationInvitations || [];
+  const stats = bootstrapData?.stats || null;
+  const currentUser = bootstrapData?.currentUser || null;
+  const projects = bootstrapData?.projects || [];
 
   const completeOnboardingMutation = useMutation({
     mutationFn: async () => {
@@ -62,16 +75,14 @@ export default function DashboardPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
       toast.success('Đã ẩn phần bắt đầu nhanh');
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
-
-  const isLoading = projectsLoading || organizationLoading || invitationsLoading || (Boolean(organization) && statsLoading);
   const shouldShowExecutiveSummary = Boolean(organization) && isLeadershipRole(currentUser?.vai_tro);
-  const projects = projectsData?.data || [];
   const onboardingSteps = [
     {
       title: 'Tạo dự án đầu tiên',

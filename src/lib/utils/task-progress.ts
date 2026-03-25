@@ -8,8 +8,10 @@ export function getEffectiveTaskProgress(params: {
   status?: WorkflowTaskStatus;
   reviewStatus?: WorkflowReviewStatus;
 }) {
+  const normalizedProgress = Math.max(0, Math.min(100, params.progress || 0));
+
   if (params.progressMode === 'checklist') {
-    return Math.max(0, Math.min(100, params.progress || 0));
+    return normalizedProgress;
   }
 
   if (params.reviewStatus === 'pending_review') {
@@ -26,6 +28,10 @@ export function getEffectiveTaskProgress(params: {
 
   if (params.status === 'done') {
     return 100;
+  }
+
+  if (typeof params.progress === 'number') {
+    return normalizedProgress;
   }
 
   if (params.status === 'in-progress') {

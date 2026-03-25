@@ -58,8 +58,6 @@ export interface UpdateProjectInput {
   ten?: string;
   mo_ta?: string;
   deadline?: string;
-  trang_thai?: 'todo' | 'in-progress' | 'done';
-  phan_tram_hoan_thanh?: number;
 }
 
 interface ProjectsParams {
@@ -184,6 +182,7 @@ export function useCreateProject() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
     },
   });
 }
@@ -208,6 +207,7 @@ export function useUpdateProject(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['projects', id] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
     },
   });
 }
@@ -261,6 +261,7 @@ export function useDeleteProject() {
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['projects'], refetchType: 'all' }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] }),
         queryClient.invalidateQueries({ queryKey: ['stats'] }),
         queryClient.invalidateQueries({ queryKey: ['planning-calendar'] }),
         queryClient.invalidateQueries({ queryKey: ['planning-workload'] }),

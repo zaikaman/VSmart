@@ -2,7 +2,7 @@
 
 import type { QueryKey } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { supabase } from '@/lib/supabase/client';
 
@@ -19,6 +19,8 @@ function getChangedRecord(payload: { new?: ChangeRecord; old?: ChangeRecord }) {
 export function RealtimeDataProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
+  const queuedKeysRef = useRef(new Map<string, QueryKey>());
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -26,10 +28,24 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
     }
 
     const organizationId = currentUser.to_chuc?.id || null;
+    const flushInvalidations = () => {
+      const keys = Array.from(queuedKeysRef.current.values());
+      queuedKeysRef.current.clear();
+      flushTimerRef.current = null;
+
+      keys.forEach((queryKey) => {
+        void queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
+      });
+    };
+
     const invalidate = (...keys: QueryKey[]) => {
       keys.forEach((queryKey) => {
-        void queryClient.invalidateQueries({ queryKey });
+        queuedKeysRef.current.set(JSON.stringify(queryKey), queryKey);
       });
+
+      if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(flushInvalidations, 120);
+      }
     };
 
     const channel = supabase.channel(`realtime-cache:${currentUser.id}`);
@@ -44,13 +60,10 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
         invalidate(
           ['tasks'],
           ['stats'],
-          ['projects'],
-          ['project-parts'],
           ['planning-calendar'],
           ['planning-workload'],
           ['project-forecast'],
           ['review-queue'],
-          ['analytics-overview'],
           ['activity-feed']
         );
 
@@ -67,7 +80,7 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
         const record = getChangedRecord(payload);
         const taskId = asString(record.task_id);
 
-        invalidate(['tasks'], ['stats'], ['planning-calendar'], ['planning-workload'], ['project-forecast']);
+        invalidate(['tasks'], ['stats'], ['planning-calendar'], ['project-forecast']);
 
         if (taskId) {
           invalidate(['task-checklist', taskId], ['tasks', taskId]);
@@ -130,7 +143,7 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
       'postgres_changes',
       { event: '*', schema: 'public', table: 'activity_log' },
       () => {
-        invalidate(['activity-feed'], ['analytics-overview']);
+        invalidate(['activity-feed']);
       }
     );
 
@@ -182,7 +195,6 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
           ['planning-calendar'],
           ['planning-workload'],
           ['project-forecast'],
-          ['analytics-overview'],
           ['activity-feed']
         );
 
@@ -208,7 +220,6 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
           ['project-members'],
           ['project-invitations'],
           ['projects'],
-          ['tasks'],
           ['users'],
           ['notifications'],
           ['stats'],
@@ -345,6 +356,12 @@ export function RealtimeDataProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+
+      queuedKeysRef.current.clear();
       void supabase.removeChannel(channel);
     };
   }, [currentUser?.id, currentUser?.to_chuc?.id, queryClient]);
