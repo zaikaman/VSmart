@@ -7,8 +7,8 @@ import { getProjectAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 
 const updateProjectSchema = z.object({
-  ten: z.string().min(1).max(200).optional(),
-  mo_ta: z.string().optional(),
+  ten: z.string().trim().min(1, 'Tên dự án là bắt buộc.').max(200, 'Tên dự án không được vượt quá 200 ký tự.').optional(),
+  mo_ta: z.string().trim().max(2000, 'Mô tả dự án không được vượt quá 2000 ký tự.').optional(),
   deadline: z.string().datetime().optional(),
 });
 
@@ -140,7 +140,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     return toErrorResponse(error);
   }

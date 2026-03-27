@@ -29,6 +29,9 @@ interface OrganizationFormData {
   mo_ta?: string;
 }
 
+const ORGANIZATION_NAME_MAX_LENGTH = 120;
+const ORGANIZATION_DESCRIPTION_MAX_LENGTH = 500;
+
 export function CreateOrganizationModal({
   open,
   onOpenChange,
@@ -40,8 +43,12 @@ export function CreateOrganizationModal({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<OrganizationFormData>();
+
+  const orgName = watch('ten') || '';
+  const orgDescription = watch('mo_ta') || '';
 
   useEffect(() => {
     if (wasOpenRef.current && !open) {
@@ -55,8 +62,8 @@ export function CreateOrganizationModal({
   const onSubmit = async (data: OrganizationFormData) => {
     try {
       await createOrganizationMutation.mutateAsync({
-        ten: data.ten,
-        mo_ta: data.mo_ta,
+        ten: data.ten.trim(),
+        mo_ta: data.mo_ta?.trim() || undefined,
       });
 
       toast.success('Đã tạo tổ chức');
@@ -92,10 +99,19 @@ export function CreateOrganizationModal({
             <Label htmlFor="ten">Tên tổ chức</Label>
             <Input
               id="ten"
-              {...register('ten', { required: 'Vui lòng nhập tên tổ chức' })}
+              maxLength={ORGANIZATION_NAME_MAX_LENGTH}
+              {...register('ten', {
+                required: 'Vui lòng nhập tên tổ chức',
+                validate: (value) =>
+                  value.trim().length > 0 || 'Tên tổ chức không được chỉ chứa khoảng trắng',
+              })}
               placeholder="Ví dụ: VSmart Studio"
               className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
             />
+            <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
+              <span>Hiển thị tên team dùng chung trên toàn bộ không gian làm việc.</span>
+              <span>{orgName.trim().length}/{ORGANIZATION_NAME_MAX_LENGTH}</span>
+            </div>
             {errors.ten ? <p className="mt-1 text-sm text-red-600">{errors.ten.message}</p> : null}
           </div>
 
@@ -103,10 +119,19 @@ export function CreateOrganizationModal({
             <Label htmlFor="mo_ta">Mô tả ngắn</Label>
             <Textarea
               id="mo_ta"
-              {...register('mo_ta')}
+              maxLength={ORGANIZATION_DESCRIPTION_MAX_LENGTH}
+              {...register('mo_ta', {
+                validate: (value) =>
+                  !value || value.trim().length <= ORGANIZATION_DESCRIPTION_MAX_LENGTH || 'Mô tả quá dài',
+              })}
               placeholder="Ví dụ: Team sản phẩm nội bộ hoặc nhóm triển khai khách hàng."
               className="mt-1.5 min-h-[110px] border-[#dfe5d6] bg-[#fbfcf8]"
             />
+            <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
+              <span>Mô tả ngắn giúp thành viên mới hiểu mục tiêu tổ chức.</span>
+              <span>{orgDescription.trim().length}/{ORGANIZATION_DESCRIPTION_MAX_LENGTH}</span>
+            </div>
+            {errors.mo_ta ? <p className="mt-1 text-sm text-red-600">{errors.mo_ta.message}</p> : null}
           </div>
 
           <DialogFooter>

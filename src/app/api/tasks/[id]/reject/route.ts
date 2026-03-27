@@ -1,10 +1,21 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { canTransitionReviewStatus, hasPermission } from '@/lib/auth/permissions';
 import { logTaskActivity } from '@/lib/activity/log';
 import { sendTaskReviewDecisionEmail } from '@/lib/email/workflow';
 import { getTaskAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { updatePhanDuAnProgress } from '@/lib/tasks/progress';
+
+const rejectReviewSchema = z
+  .object({
+    review_comment: z
+      .string({ error: 'Vui lòng nhập nhận xét khi yêu cầu chỉnh sửa.' })
+      .trim()
+      .min(1, 'Vui lòng nhập nhận xét khi yêu cầu chỉnh sửa.')
+      .max(1000, 'Nhận xét duyệt không được vượt quá 1000 ký tự.'),
+  })
+  .strict();
 
 export async function POST(
   request: Request,
@@ -27,14 +38,8 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const reviewComment =
-      typeof body.review_comment === 'string' && body.review_comment.trim().length > 0
-        ? body.review_comment.trim()
-        : '';
-
-    if (!reviewComment) {
-      return NextResponse.json({ error: 'Vui lòng nhập nhận xét khi yêu cầu chỉnh sửa' }, { status: 400 });
-    }
+    const validatedBody = rejectReviewSchema.parse(body);
+    const reviewComment = validatedBody.review_comment;
 
     const { data: task, error: taskError } = await supabaseAdmin
       .from('task')
@@ -151,6 +156,10 @@ export async function POST(
       data: updatedTask,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+    }
+
     return toErrorResponse(error);
   }
 }

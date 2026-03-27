@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { sendInvitationResponseEmail } from '@/lib/email/workflow';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+
+const respondInvitationSchema = z.object({
+  invitation_id: z.string().uuid('ID lời mời không hợp lệ.'),
+  action: z.enum(['accept', 'decline']),
+});
 
 /**
  * GET /api/project-members/invitations
@@ -71,15 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { invitation_id, action } = body;
-
-    if (!invitation_id || !action) {
-      return NextResponse.json({ error: 'invitation_id và action là bắt buộc' }, { status: 400 });
-    }
-
-    if (!['accept', 'decline'].includes(action)) {
-      return NextResponse.json({ error: 'action phải là "accept" hoặc "decline"' }, { status: 400 });
-    }
+    const { invitation_id, action } = respondInvitationSchema.parse(body);
 
     const { data: invitation, error: invitationError } = await supabase
       .from('thanh_vien_du_an')
@@ -182,6 +180,10 @@ export async function POST(request: NextRequest) {
       data: updatedInvitation,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+    }
+
     console.error('Error in POST /api/project-members/invitations:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

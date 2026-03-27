@@ -13,8 +13,8 @@ import {
 } from '@/lib/auth/permissions';
 
 const taskSchema = z.object({
-  ten: z.string().min(1).max(200),
-  mo_ta: z.string().optional(),
+  ten: z.string().trim().min(1, 'Tên task là bắt buộc.').max(200, 'Tên task không được vượt quá 200 ký tự.'),
+  mo_ta: z.string().trim().max(3000, 'Mô tả task không được vượt quá 3000 ký tự.').optional(),
   deadline: z.string().datetime(),
   phan_du_an_id: z.string().uuid(),
   assignee_id: z.string().uuid().optional().nullable(),
@@ -462,7 +462,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     console.error('Error in POST /api/tasks:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

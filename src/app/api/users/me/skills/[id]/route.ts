@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+
+const updateSkillSchema = z
+  .object({
+    trinh_do: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).optional(),
+    nam_kinh_nghiem: z.coerce
+      .number({ error: 'Số năm kinh nghiệm không hợp lệ.' })
+      .int('Số năm kinh nghiệm phải là số nguyên.')
+      .min(0, 'Số năm kinh nghiệm không được âm.')
+      .max(50, 'Số năm kinh nghiệm tối đa là 50.')
+      .optional(),
+  })
+  .strict()
+  .refine((value) => value.trinh_do !== undefined || value.nam_kinh_nghiem !== undefined, {
+    message: 'Không có dữ liệu để cập nhật.',
+  });
 
 // PATCH /api/users/me/skills/[id] - Cập nhật kỹ năng
 export async function PATCH(
@@ -21,7 +37,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { trinh_do, nam_kinh_nghiem } = body;
+    const validated = updateSkillSchema.parse(body);
 
     // Lấy ID người dùng từ bảng nguoi_dung
     const { data: userData, error: userError } = await supabase
@@ -54,33 +70,11 @@ export async function PATCH(
 
     // Chuẩn bị dữ liệu cập nhật
     const updateData: Record<string, unknown> = {};
-
-    if (trinh_do !== undefined) {
-      const validTrinhDo = ['beginner', 'intermediate', 'advanced', 'expert'];
-      if (!validTrinhDo.includes(trinh_do)) {
-        return NextResponse.json(
-          { error: 'Trình độ không hợp lệ' },
-          { status: 400 }
-        );
-      }
-      updateData.trinh_do = trinh_do;
+    if (validated.trinh_do !== undefined) {
+      updateData.trinh_do = validated.trinh_do;
     }
-
-    if (nam_kinh_nghiem !== undefined) {
-      if (typeof nam_kinh_nghiem !== 'number' || nam_kinh_nghiem < 0) {
-        return NextResponse.json(
-          { error: 'Số năm kinh nghiệm không hợp lệ' },
-          { status: 400 }
-        );
-      }
-      updateData.nam_kinh_nghiem = Math.min(nam_kinh_nghiem, 50);
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: 'Không có dữ liệu để cập nhật' },
-        { status: 400 }
-      );
+    if (validated.nam_kinh_nghiem !== undefined) {
+      updateData.nam_kinh_nghiem = validated.nam_kinh_nghiem;
     }
 
     // Cập nhật kỹ năng
@@ -101,6 +95,13 @@ export async function PATCH(
 
     return NextResponse.json({ data: updatedSkill });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Dữ liệu kỹ năng không hợp lệ.' },
+        { status: 400 }
+      );
+    }
+
     console.error('Error in PATCH /api/users/me/skills/[id]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

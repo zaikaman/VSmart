@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { canManageOrganizationSettings, type AppRole } from '@/lib/auth/permissions';
 import { supabaseAdmin } from '@/lib/supabase/client';
@@ -21,6 +22,35 @@ const defaultOrganizationSettings: Organization['settings'] = {
   allow_external_project_invites: false,
   allow_join_requests: false,
 };
+
+const organizationSettingsSchema = z
+  .object({
+    allow_external_project_invites: z.boolean().optional(),
+    allow_join_requests: z.boolean().optional(),
+  })
+  .strict();
+
+const createOrganizationSchema = z.object({
+  ten: z
+    .string({ error: 'Tên tổ chức là bắt buộc.' })
+    .trim()
+    .min(1, 'Tên tổ chức là bắt buộc.')
+    .max(120, 'Tên tổ chức không được vượt quá 120 ký tự.'),
+  mo_ta: z.string().trim().max(500, 'Mô tả không được vượt quá 500 ký tự.').optional(),
+  logo_url: z.url('Logo URL không hợp lệ.').optional(),
+  settings: organizationSettingsSchema.optional(),
+});
+
+const updateOrganizationSchema = z
+  .object({
+    ten: z.string().trim().min(1, 'Tên tổ chức là bắt buộc.').max(120, 'Tên tổ chức không được vượt quá 120 ký tự.').optional(),
+    mo_ta: z.string().trim().max(500, 'Mô tả không được vượt quá 500 ký tự.').optional(),
+    logo_url: z.union([z.url('Logo URL không hợp lệ.'), z.literal('')]).optional(),
+    settings: organizationSettingsSchema.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Cần ít nhất một trường để cập nhật tổ chức.',
+  });
 
 function normalizeOrganization<T extends Partial<Organization> & { settings?: Partial<Organization['settings']> | null }>(
   organization: T
@@ -108,11 +138,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ten, mo_ta, logo_url, settings } = body;
-
-    if (!ten) {
-      return NextResponse.json({ error: 'Tên tổ chức là bắt buộc' }, { status: 400 });
-    }
+    const validated = createOrganizationSchema.parse(body);
 
     const { data: userData, error: userError } = await supabase
       .from('nguoi_dung')
@@ -131,12 +157,12 @@ export async function POST(request: NextRequest) {
     const { data: organization, error: createError } = await supabaseAdmin
       .from('to_chuc')
       .insert({
-        ten,
-        mo_ta,
-        logo_url,
+        ten: validated.ten,
+        mo_ta: validated.mo_ta || null,
+        logo_url: validated.logo_url || null,
         settings: {
           ...defaultOrganizationSettings,
-          ...(settings || {}),
+          ...(validated.settings || {}),
         },
         nguoi_tao_id: userData.id,
       })
@@ -161,6 +187,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(normalizeOrganization(organization), { status: 201 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+    }
+
     console.error('Error creating organization:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -181,7 +211,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ten, mo_ta, logo_url, settings } = body;
+    const validated = updateOrganizationSchema.parse(body);
 
     const { data: userData, error: userError } = await supabase
       .from('nguoi_dung')
@@ -198,10 +228,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updateData: Record<string, unknown> = {};
-    if (ten !== undefined) updateData.ten = ten;
-    if (mo_ta !== undefined) updateData.mo_ta = mo_ta;
-    if (logo_url !== undefined) updateData.logo_url = logo_url;
-    if (settings !== undefined) {
+    if (validated.ten !== undefined) updateData.ten = validated.ten;
+    if (validated.mo_ta !== undefined) updateData.mo_ta = validated.mo_ta || null;
+    if (validated.logo_url !== undefined) updateData.logo_url = validated.logo_url || null;
+    if (validated.settings !== undefined) {
       const existingSettings = await getNormalizedOrganizationSettings(userData.to_chuc_id);
 
       if (!existingSettings) {
@@ -210,7 +240,7 @@ export async function PATCH(request: NextRequest) {
 
       updateData.settings = {
         ...existingSettings,
-        ...((settings || {}) as Partial<Organization['settings']>),
+        ...(validated.settings as Partial<Organization['settings']>),
       };
     }
 
@@ -228,6 +258,10 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(normalizeOrganization(organization));
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+    }
+
     console.error('Error updating organization:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

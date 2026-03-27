@@ -6,8 +6,8 @@ import { getProjectAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 
 const partSchema = z.object({
-  ten: z.string().min(1).max(200),
-  mo_ta: z.string().optional(),
+  ten: z.string().trim().min(1, 'Tên phần dự án là bắt buộc.').max(200, 'Tên phần dự án không được vượt quá 200 ký tự.'),
+  mo_ta: z.string().trim().max(2000, 'Mô tả phần dự án không được vượt quá 2000 ký tự.').optional(),
   deadline: z.string().datetime(),
   phong_ban_id: z.string().uuid(),
 });
@@ -102,7 +102,7 @@ export async function POST(
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     return toErrorResponse(error);
   }

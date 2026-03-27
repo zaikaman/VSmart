@@ -1,4 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { sendProjectInvitationEmail } from '@/lib/email/project-invitation';
 import { logActivity } from '@/lib/activity/log';
 import { hasPermission } from '@/lib/auth/permissions';
@@ -8,6 +9,22 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 const PROJECT_MEMBER_ROLES = ['owner', 'admin', 'member', 'viewer'] as const;
 const PROJECT_MEMBER_ASSIGNABLE_ROLES = ['admin', 'member', 'viewer'] as const;
 const PROJECT_MEMBER_STATUSES = ['pending', 'active', 'declined'] as const;
+
+const inviteProjectMemberSchema = z.object({
+  du_an_id: z.string().uuid('ID dự án không hợp lệ.'),
+  email: z.email('Email không hợp lệ.').transform((value) => value.trim().toLowerCase()),
+  vai_tro: z.enum(PROJECT_MEMBER_ASSIGNABLE_ROLES).default('member'),
+});
+
+const updateProjectMemberSchema = z
+  .object({
+    member_id: z.string().uuid('ID thành viên không hợp lệ.'),
+    trang_thai: z.enum(PROJECT_MEMBER_STATUSES).optional(),
+    vai_tro: z.enum(PROJECT_MEMBER_ROLES).optional(),
+  })
+  .refine((value) => value.trang_thai !== undefined || value.vai_tro !== undefined, {
+    message: 'Cần có trạng thái hoặc vai trò để cập nhật.',
+  });
 
 export interface ProjectMember {
   id: string;
@@ -114,12 +131,9 @@ export async function POST(request: NextRequest) {
     const { authUser, dbUser } = await getAuthenticatedUserContext();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
-    const { du_an_id, email, vai_tro = 'member' } = body;
-    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-
-    if (!du_an_id || !normalizedEmail) {
-      return NextResponse.json({ error: 'du_an_id và email là bắt buộc' }, { status: 400 });
-    }
+    const validated = inviteProjectMemberSchema.parse(body);
+    const { du_an_id, vai_tro } = validated;
+    const normalizedEmail = validated.email;
 
     const membership = await getProjectMembershipContext(du_an_id, authUser.email);
     if (!membership) {
@@ -138,21 +152,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bạn không có quyền mời thành viên vào dự án này' }, { status: 403 });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(normalizedEmail)) {
-      return NextResponse.json({ error: 'Email không hợp lệ' }, { status: 400 });
-    }
-
-    if (!PROJECT_MEMBER_ASSIGNABLE_ROLES.includes(vai_tro)) {
-      return NextResponse.json({ error: 'Vai trò dự án không hợp lệ' }, { status: 400 });
-    }
-
     const { data: existingMember } = await supabase
       .from('thanh_vien_du_an')
       .select('id')
       .eq('du_an_id', du_an_id)
       .eq('email', normalizedEmail)
-      .single();
+      .maybeSingle();
 
     if (existingMember) {
       return NextResponse.json({ error: 'Email này đã được mời vào dự án' }, { status: 400 });
@@ -279,6 +284,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+    }
+
     console.error('Error inviting project member:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -289,23 +298,8 @@ export async function PATCH(request: NextRequest) {
     const { authUser, dbUser } = await getAuthenticatedUserContext();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
-    const { member_id, trang_thai, vai_tro } = body;
-
-    if (!member_id) {
-      return NextResponse.json({ error: 'member_id là bắt buộc' }, { status: 400 });
-    }
-
-    if (trang_thai === undefined && vai_tro === undefined) {
-      return NextResponse.json({ error: 'Cần có trạng thái hoặc vai trò để cập nhật' }, { status: 400 });
-    }
-
-    if (trang_thai !== undefined && !PROJECT_MEMBER_STATUSES.includes(trang_thai)) {
-      return NextResponse.json({ error: 'Trạng thái thành viên không hợp lệ' }, { status: 400 });
-    }
-
-    if (vai_tro !== undefined && !PROJECT_MEMBER_ROLES.includes(vai_tro)) {
-      return NextResponse.json({ error: 'Vai trò dự án không hợp lệ' }, { status: 400 });
-    }
+    const validated = updateProjectMemberSchema.parse(body);
+    const { member_id, trang_thai, vai_tro } = validated;
 
     const { data: memberData } = await supabase
       .from('thanh_vien_du_an')
@@ -330,7 +324,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Không thể đổi vai trò của owner dự án tại đây' }, { status: 400 });
       }
 
-      if (!PROJECT_MEMBER_ASSIGNABLE_ROLES.includes(vai_tro)) {
+      if (vai_tro === 'owner') {
         return NextResponse.json({ error: 'Chưa hỗ trợ gán vai trò owner ở màn này' }, { status: 400 });
       }
 
@@ -393,6 +387,10 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(updatedMember);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+    }
+
     console.error('Error updating project member:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

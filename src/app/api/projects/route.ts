@@ -5,8 +5,8 @@ import { hasPermission } from '@/lib/auth/permissions';
 import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
 
 const projectSchema = z.object({
-  ten: z.string().min(1).max(200),
-  mo_ta: z.string().optional(),
+  ten: z.string().trim().min(1, 'Tên dự án là bắt buộc.').max(200, 'Tên dự án không được vượt quá 200 ký tự.'),
+  mo_ta: z.string().trim().max(2000, 'Mô tả dự án không được vượt quá 2000 ký tự.').optional(),
   deadline: z.string().datetime(),
 });
 
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     console.error('Error in POST /api/projects:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

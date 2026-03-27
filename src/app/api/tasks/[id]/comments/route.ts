@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sendNewCommentEmail, shouldSendNotification } from '@/lib/email/notifications';
 import { logActivity } from '@/lib/activity/log';
+
+const createCommentSchema = z.object({
+  noi_dung: z
+    .string({ error: 'Nội dung bình luận không được để trống.' })
+    .trim()
+    .min(1, 'Nội dung bình luận không được để trống.')
+    .max(2000, 'Nội dung bình luận không được vượt quá 2000 ký tự.'),
+});
 
 interface Comment {
   id: string;
@@ -92,11 +101,8 @@ export async function POST(
     }
 
     const body = await request.json();
-    const noiDung = typeof body.noi_dung === 'string' ? body.noi_dung.trim() : '';
-
-    if (!noiDung) {
-      return NextResponse.json({ error: 'Nội dung bình luận không được để trống' }, { status: 400 });
-    }
+    const validated = createCommentSchema.parse(body);
+    const noiDung = validated.noi_dung;
 
     const { data: nguoiDung, error: userError } = await supabase
       .from('nguoi_dung')
@@ -215,6 +221,10 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu bình luận không hợp lệ.' }, { status: 400 });
+    }
+
     console.error('Comments POST error:', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }

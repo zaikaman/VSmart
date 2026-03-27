@@ -6,9 +6,9 @@ import { normalizeChecklistItems } from '@/lib/tasks/checklist';
 import { getNextRunFromCronExpression } from '@/lib/tasks/recurring';
 
 const recurringSchema = z.object({
-  cron_expression: z.string().min(5),
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().optional(),
+  cron_expression: z.string().trim().min(5, 'Biểu thức cron không hợp lệ.').max(120, 'Biểu thức cron quá dài.'),
+  title: z.string().trim().min(1, 'Tên tác vụ lặp không được để trống.').max(200, 'Tên tác vụ lặp không được vượt quá 200 ký tự.').optional(),
+  description: z.string().trim().max(3000, 'Mô tả tác vụ lặp không được vượt quá 3000 ký tự.').optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   checklist_template: z.array(z.unknown()).optional(),
@@ -127,7 +127,7 @@ export async function POST(
     return NextResponse.json({ data });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     console.error('POST recurring rule error:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });

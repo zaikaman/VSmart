@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid request', details: parsed.error.flatten() },
+        { error: parsed.error.issues[0]?.message || 'Dữ liệu không hợp lệ.' },
         { status: 400 }
       );
     }

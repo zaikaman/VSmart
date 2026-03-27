@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+
+const skillLevelSchema = z.enum(['beginner', 'intermediate', 'advanced', 'expert']);
+
+const createSkillSchema = z.object({
+  ten_ky_nang: z
+    .string({ error: 'Tên kỹ năng không được để trống.' })
+    .trim()
+    .min(1, 'Tên kỹ năng không được để trống.')
+    .max(80, 'Tên kỹ năng không được vượt quá 80 ký tự.'),
+  trinh_do: skillLevelSchema,
+  nam_kinh_nghiem: z.coerce
+    .number({ error: 'Số năm kinh nghiệm không hợp lệ.' })
+    .int('Số năm kinh nghiệm phải là số nguyên.')
+    .min(0, 'Số năm kinh nghiệm không được âm.')
+    .max(50, 'Số năm kinh nghiệm tối đa là 50.')
+    .optional()
+    .default(0),
+});
 
 // GET /api/users/me/skills - Lấy danh sách kỹ năng của user hiện tại
 export async function GET() {
@@ -71,23 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { ten_ky_nang, trinh_do, nam_kinh_nghiem } = body;
-
-    // Validation
-    if (!ten_ky_nang || typeof ten_ky_nang !== 'string' || ten_ky_nang.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Tên kỹ năng không được để trống' },
-        { status: 400 }
-      );
-    }
-
-    const validTrinhDo = ['beginner', 'intermediate', 'advanced', 'expert'];
-    if (!trinh_do || !validTrinhDo.includes(trinh_do)) {
-      return NextResponse.json(
-        { error: 'Trình độ không hợp lệ' },
-        { status: 400 }
-      );
-    }
+    const validated = createSkillSchema.parse(body);
 
     // Lấy ID người dùng từ bảng nguoi_dung
     const { data: userData, error: userError } = await supabase
@@ -108,8 +111,8 @@ export async function POST(request: NextRequest) {
       .from('ky_nang_nguoi_dung')
       .select('id')
       .eq('nguoi_dung_id', userData.id)
-      .ilike('ten_ky_nang', ten_ky_nang.trim())
-      .single();
+      .ilike('ten_ky_nang', validated.ten_ky_nang)
+      .maybeSingle();
 
     if (existingSkill) {
       return NextResponse.json(
@@ -123,11 +126,9 @@ export async function POST(request: NextRequest) {
       .from('ky_nang_nguoi_dung')
       .insert({
         nguoi_dung_id: userData.id,
-        ten_ky_nang: ten_ky_nang.trim(),
-        trinh_do,
-        nam_kinh_nghiem: typeof nam_kinh_nghiem === 'number' && nam_kinh_nghiem >= 0 
-          ? Math.min(nam_kinh_nghiem, 50) 
-          : 0,
+        ten_ky_nang: validated.ten_ky_nang,
+        trinh_do: validated.trinh_do,
+        nam_kinh_nghiem: validated.nam_kinh_nghiem,
       })
       .select()
       .single();
@@ -142,6 +143,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: newSkill }, { status: 201 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Dữ liệu kỹ năng không hợp lệ.' },
+        { status: 400 }
+      );
+    }
+
     console.error('Error in POST /api/users/me/skills:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

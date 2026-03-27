@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
 
     console.error('Error in POST /api/organization-join-requests:', error);
@@ -289,7 +289,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ message: 'Đã rút yêu cầu gia nhập' });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
 
     console.error('Error in PATCH /api/organization-join-requests:', error);

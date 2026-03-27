@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const defaultSettings = {
@@ -25,6 +26,64 @@ const defaultSettings = {
     analytics: [],
   },
 };
+
+const savedViewSchema = z.object({
+  id: z.string().trim().min(1, 'ID view không hợp lệ.').max(64, 'ID view quá dài.'),
+  name: z.string().trim().min(1, 'Tên view không được để trống.').max(80, 'Tên view không được vượt quá 80 ký tự.'),
+  value: z.record(z.string(), z.unknown()),
+  createdAt: z.string().datetime('Thời gian tạo view không hợp lệ.'),
+});
+
+const settingsPatchSchema = z
+  .object({
+    notifications: z
+      .object({
+        emailTaskAssigned: z.boolean().optional(),
+        emailDeadlineReminder: z.boolean().optional(),
+        pushEnabled: z.boolean().optional(),
+        emailComments: z.boolean().optional(),
+        emailTeamDigest: z.boolean().optional(),
+        emailReviewRequests: z.boolean().optional(),
+        emailApprovalResults: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+    appearance: z
+      .object({
+        theme: z.enum(['light', 'dark', 'system']).optional(),
+        language: z.enum(['vi', 'en']).optional(),
+      })
+      .strict()
+      .optional(),
+    dashboard: z
+      .object({
+        defaultPage: z
+          .enum([
+            '/dashboard',
+            '/dashboard/projects',
+            '/dashboard/kanban',
+            '/dashboard/planning',
+            '/dashboard/reviews',
+            '/dashboard/analytics',
+          ])
+          .optional(),
+        itemsPerPage: z.union([z.literal(10), z.literal(25), z.literal(50)]).optional(),
+      })
+      .strict()
+      .optional(),
+    savedViews: z
+      .object({
+        kanban: z.array(savedViewSchema).max(8, 'Tối đa 8 view đã lưu cho Kanban.').optional(),
+        planning: z.array(savedViewSchema).max(8, 'Tối đa 8 view đã lưu cho Planning.').optional(),
+        analytics: z.array(savedViewSchema).max(8, 'Tối đa 8 view đã lưu cho Analytics.').optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Không có thay đổi cài đặt hợp lệ để cập nhật.',
+  });
 
 export async function GET() {
   try {
@@ -71,6 +130,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
+    const validatedPatch = settingsPatchSchema.parse(body);
 
     const { data: userData, error: fetchError } = await supabase
       .from('nguoi_dung')
@@ -84,7 +144,7 @@ export async function PATCH(request: Request) {
     }
 
     const currentSettings = deepMerge(defaultSettings, (userData?.settings || {}) as Partial<typeof defaultSettings>);
-    const newSettings = deepMerge(currentSettings, body);
+    const newSettings = deepMerge(currentSettings, validatedPatch as Partial<typeof defaultSettings>);
 
     const { error: updateError } = await supabase
       .from('nguoi_dung')
@@ -98,6 +158,10 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ data: newSettings, message: 'Đã cập nhật cài đặt' });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu cài đặt không hợp lệ.' }, { status: 400 });
+    }
+
     console.error('Settings PATCH error:', error);
     return NextResponse.json({ error: 'Lỗi server' }, { status: 500 });
   }

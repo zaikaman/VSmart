@@ -7,7 +7,7 @@ import { normalizeChecklistItems } from '@/lib/tasks/checklist';
 import { syncTaskProgressFromChecklist } from '@/lib/tasks/progress';
 
 const createChecklistSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
+  title: z.string().trim().min(1, 'Tiêu đề checklist không được để trống.').max(255, 'Tiêu đề checklist không được vượt quá 255 ký tự.').optional(),
   items: z.array(z.unknown()).optional(),
 });
 
@@ -96,7 +96,7 @@ export async function POST(
     return NextResponse.json({ data: data || [] }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     console.error('POST task checklist error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

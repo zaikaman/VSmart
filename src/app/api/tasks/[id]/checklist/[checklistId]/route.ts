@@ -6,7 +6,7 @@ import { getTaskAccessContext } from '@/lib/tasks/auth';
 import { syncTaskProgressFromChecklist } from '@/lib/tasks/progress';
 
 const updateChecklistSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
+  title: z.string().trim().min(1, 'Tiêu đề checklist không được để trống.').max(255, 'Tiêu đề checklist không được vượt quá 255 ký tự.').optional(),
   is_done: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
@@ -79,7 +79,7 @@ export async function PATCH(
     return NextResponse.json({ data });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     console.error('PATCH checklist item error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

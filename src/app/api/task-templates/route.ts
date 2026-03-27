@@ -5,8 +5,8 @@ import { getAuthenticatedUserContext } from '@/lib/tasks/auth';
 import { normalizeChecklistItems, serializeChecklistTemplate } from '@/lib/tasks/checklist';
 
 const createTemplateSchema = z.object({
-  ten: z.string().min(1).max(200),
-  mo_ta: z.string().optional(),
+  ten: z.string().trim().min(1, 'Tên mẫu task là bắt buộc.').max(200, 'Tên mẫu task không được vượt quá 200 ký tự.'),
+  mo_ta: z.string().trim().max(2000, 'Mô tả mẫu task không được vượt quá 2000 ký tự.').optional(),
   default_priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   checklist_template: z.array(z.unknown()).optional(),
   is_shared: z.boolean().default(false),
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     console.error('POST task template error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

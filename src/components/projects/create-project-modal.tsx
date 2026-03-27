@@ -28,6 +28,9 @@ interface ProjectFormData {
   deadline: string;
 }
 
+const PROJECT_NAME_MAX_LENGTH = 200;
+const PROJECT_DESCRIPTION_MAX_LENGTH = 2000;
+
 export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalProps) {
   const createProjectMutation = useCreateProject();
   const wasOpenRef = useRef(open);
@@ -35,12 +38,16 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<ProjectFormData>({
     defaultValues: {
       deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     },
   });
+
+  const projectName = watch('ten') || '';
+  const projectDescription = watch('mo_ta') || '';
 
   useEffect(() => {
     if (wasOpenRef.current && !open) {
@@ -54,8 +61,8 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
   const onSubmit = async (data: ProjectFormData) => {
     try {
       const projectInput: CreateProjectInput = {
-        ten: data.ten,
-        mo_ta: data.mo_ta,
+        ten: data.ten.trim(),
+        mo_ta: data.mo_ta?.trim() || undefined,
         deadline: new Date(data.deadline).toISOString(),
       };
 
@@ -94,9 +101,22 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
             <Label htmlFor="ten">Tên dự án *</Label>
             <Input
               id="ten"
-              {...register('ten', { required: 'Vui lòng nhập tên dự án.' })}
+              maxLength={PROJECT_NAME_MAX_LENGTH}
+              {...register('ten', {
+                required: 'Vui lòng nhập tên dự án.',
+                maxLength: {
+                  value: PROJECT_NAME_MAX_LENGTH,
+                  message: `Tên dự án không được vượt quá ${PROJECT_NAME_MAX_LENGTH} ký tự.`,
+                },
+                validate: (value) =>
+                  value.trim().length > 0 || 'Tên dự án không được chỉ chứa khoảng trắng.',
+              })}
               placeholder="Ví dụ: Nâng cấp website tuyển dụng"
             />
+            <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
+              <span>Đặt tên ngắn gọn để team dễ tìm và nhận diện.</span>
+              <span>{projectName.length}/{PROJECT_NAME_MAX_LENGTH}</span>
+            </div>
             {errors.ten ? <p className="mt-1 text-sm text-red-600">{errors.ten.message}</p> : null}
           </div>
 
@@ -104,10 +124,21 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
             <Label htmlFor="mo_ta">Mô tả</Label>
             <textarea
               id="mo_ta"
-              {...register('mo_ta')}
+              maxLength={PROJECT_DESCRIPTION_MAX_LENGTH}
+              {...register('mo_ta', {
+                maxLength: {
+                  value: PROJECT_DESCRIPTION_MAX_LENGTH,
+                  message: `Mô tả không được vượt quá ${PROJECT_DESCRIPTION_MAX_LENGTH} ký tự.`,
+                },
+              })}
               className="min-h-[96px] w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition focus:ring-2 focus:ring-blue-500"
               placeholder="Mô tả ngắn về mục tiêu, phạm vi hoặc kết quả cần đạt."
             />
+            <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
+              <span>Nêu mục tiêu và phạm vi chính để mọi người thống nhất kỳ vọng.</span>
+              <span>{projectDescription.length}/{PROJECT_DESCRIPTION_MAX_LENGTH}</span>
+            </div>
+            {errors.mo_ta ? <p className="mt-1 text-sm text-red-600">{errors.mo_ta.message}</p> : null}
           </div>
 
           <div>

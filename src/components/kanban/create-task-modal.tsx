@@ -106,6 +106,9 @@ interface ProjectPermissionResponse {
   };
 }
 
+const TASK_NAME_MAX_LENGTH = 200;
+const TASK_DESCRIPTION_MAX_LENGTH = 3000;
+
 function createChecklistDraftItem(title = ''): DraftChecklistItem {
   return {
     id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -476,8 +479,8 @@ export function CreateTaskModal({
         .filter((item) => item.title.length > 0);
 
       const taskInput: CreateTaskInput = {
-        ten: data.ten,
-        mo_ta: data.mo_ta,
+        ten: data.ten.trim(),
+        mo_ta: data.mo_ta?.trim() || undefined,
         deadline: data.deadline ? new Date(data.deadline).toISOString() : new Date().toISOString(),
         phan_du_an_id: phanDuAnId,
         trang_thai: initialStatus === 'in-progress' || initialStatus === 'done' ? initialStatus : 'todo',
@@ -633,9 +636,22 @@ export function CreateTaskModal({
             <Label htmlFor="ten">Tên Task *</Label>
             <Input
               id="ten"
-              {...register('ten', { required: 'Vui lòng nhập tên task' })}
+              maxLength={TASK_NAME_MAX_LENGTH}
+              {...register('ten', {
+                required: 'Vui lòng nhập tên task',
+                maxLength: {
+                  value: TASK_NAME_MAX_LENGTH,
+                  message: `Tên task không được vượt quá ${TASK_NAME_MAX_LENGTH} ký tự.`,
+                },
+                validate: (value) =>
+                  value.trim().length > 0 || 'Tên task không được chỉ chứa khoảng trắng.',
+              })}
               placeholder="Ví dụ: Implement login API"
             />
+            <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
+              <span>Tên rõ ràng giúp AI gợi ý người thực hiện chính xác hơn.</span>
+              <span>{(taskName || '').length}/{TASK_NAME_MAX_LENGTH}</span>
+            </div>
             {errors.ten && <p className="text-sm text-red-600 mt-1">{errors.ten.message}</p>}
           </div>
 
@@ -643,10 +659,21 @@ export function CreateTaskModal({
             <Label htmlFor="mo_ta">Mô tả</Label>
             <Textarea
               id="mo_ta"
-              {...register('mo_ta')}
+              maxLength={TASK_DESCRIPTION_MAX_LENGTH}
+              {...register('mo_ta', {
+                maxLength: {
+                  value: TASK_DESCRIPTION_MAX_LENGTH,
+                  message: `Mô tả task không được vượt quá ${TASK_DESCRIPTION_MAX_LENGTH} ký tự.`,
+                },
+              })}
               placeholder="Mô tả chi tiết task..."
               className="min-h-[90px]"
             />
+            <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
+              <span>Thêm bối cảnh, đầu ra mong muốn và tiêu chí hoàn thành nếu cần.</span>
+              <span>{(taskDescription || '').length}/{TASK_DESCRIPTION_MAX_LENGTH}</span>
+            </div>
+            {errors.mo_ta && <p className="text-sm text-red-600 mt-1">{errors.mo_ta.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

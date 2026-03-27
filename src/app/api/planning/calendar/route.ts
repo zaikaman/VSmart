@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Tham số truy vấn không hợp lệ.' }, { status: 400 });
     }
 
     return toErrorResponse(error, 'Không thể tải dữ liệu lịch planning');

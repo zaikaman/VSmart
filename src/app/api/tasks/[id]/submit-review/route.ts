@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { canTransitionReviewStatus, hasPermission } from '@/lib/auth/permissions';
 import { logTaskActivity } from '@/lib/activity/log';
 import { sendTaskReviewSubmittedEmail } from '@/lib/email/workflow';
 import { getTaskAccessContext, toErrorResponse } from '@/lib/tasks/auth';
 import { supabaseAdmin } from '@/lib/supabase/client';
 import { updatePhanDuAnProgress } from '@/lib/tasks/progress';
+
+const submitReviewSchema = z
+  .object({
+    review_request_comment: z.string().trim().max(1000, 'Nhận xét yêu cầu duyệt không được vượt quá 1000 ký tự.').optional(),
+    review_comment: z.string().trim().max(1000, 'Nhận xét duyệt không được vượt quá 1000 ký tự.').optional(),
+  })
+  .strict();
 
 export async function POST(
   request: Request,
@@ -13,11 +21,12 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
+    const validatedBody = submitReviewSchema.parse(body);
     const reviewRequestComment =
-      typeof body.review_request_comment === 'string' && body.review_request_comment.trim().length > 0
-        ? body.review_request_comment.trim()
-        : typeof body.review_comment === 'string' && body.review_comment.trim().length > 0
-          ? body.review_comment.trim()
+      typeof validatedBody.review_request_comment === 'string' && validatedBody.review_request_comment.length > 0
+        ? validatedBody.review_request_comment
+        : typeof validatedBody.review_comment === 'string' && validatedBody.review_comment.length > 0
+          ? validatedBody.review_comment
           : null;
 
     const auth = await getTaskAccessContext(id);
@@ -189,6 +198,10 @@ export async function POST(
       data: updatedTask,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+    }
+
     return toErrorResponse(error);
   }
 }

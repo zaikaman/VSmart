@@ -13,8 +13,8 @@ import { getTaskAccessContext } from '@/lib/tasks/auth';
 import { syncTaskProgressFromChecklist, updatePhanDuAnProgress } from '@/lib/tasks/progress';
 
 const updateTaskSchema = z.object({
-  ten: z.string().min(1).max(200).optional(),
-  mo_ta: z.string().optional(),
+  ten: z.string().trim().min(1, 'Tên task là bắt buộc.').max(200, 'Tên task không được vượt quá 200 ký tự.').optional(),
+  mo_ta: z.string().trim().max(3000, 'Mô tả task không được vượt quá 3000 ký tự.').optional(),
   deadline: z.string().datetime().optional(),
   assignee_id: z.string().uuid().nullable().optional(),
   trang_thai: z.enum(['todo', 'in-progress', 'done']).optional(),
@@ -408,7 +408,7 @@ export async function PATCH(
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
     }
     console.error('PATCH /api/tasks/[id] error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

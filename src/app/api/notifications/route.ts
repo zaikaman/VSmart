@@ -5,7 +5,7 @@ import { z } from 'zod';
 const createNotificationSchema = z.object({
   nguoi_dung_id: z.string().uuid(),
   loai: z.enum(['risk_alert', 'stale_task', 'assignment', 'overload', 'project_invitation', 'organization_join_request']),
-  noi_dung: z.string().min(1).max(500),
+  noi_dung: z.string().trim().min(1, 'Nội dung thông báo không được để trống.').max(500, 'Nội dung thông báo không được vượt quá 500 ký tự.'),
   task_lien_quan_id: z.string().uuid().optional().nullable(),
 });
 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid request', details: parsed.error.flatten() },
+        { error: parsed.error.issues[0]?.message || 'Dữ liệu không hợp lệ.' },
         { status: 400 }
       );
     }

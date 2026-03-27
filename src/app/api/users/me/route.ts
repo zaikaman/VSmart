@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 const TEN_MIN_LENGTH = 2;
 const TEN_MAX_LENGTH = 80;
 const TEN_PATTERN = /^[\p{L}\p{M} .,'-]+$/u;
+const ORG_TEXT_MAX_LENGTH = 120;
+const ORG_TEXT_PATTERN = /^[\p{L}\p{M}\d .,'&()/-]+$/u;
 
 function validateTen(ten: unknown): { value?: string; error?: string } {
   if (ten === undefined) {
@@ -57,6 +59,39 @@ function mapUpdateUserError(error: { code?: string; message?: string } | null): 
   }
 
   return 'Không thể cập nhật thông tin người dùng lúc này. Vui lòng thử lại.';
+}
+
+function validateOptionalOrgText(
+  value: unknown,
+  label: string
+): { value?: string | null; error?: string } {
+  if (value === undefined) {
+    return {};
+  }
+
+  if (value === null) {
+    return { value: null };
+  }
+
+  if (typeof value !== 'string') {
+    return { error: `${label} phải là chuỗi ký tự hợp lệ.` };
+  }
+
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return { value: null };
+  }
+
+  if (normalized.length > ORG_TEXT_MAX_LENGTH) {
+    return { error: `${label} không được vượt quá ${ORG_TEXT_MAX_LENGTH} ký tự.` };
+  }
+
+  if (!ORG_TEXT_PATTERN.test(normalized)) {
+    return { error: `${label} chứa ký tự không hợp lệ.` };
+  }
+
+  return { value: normalized };
 }
 
 // GET /api/users/me - Lấy thông tin user hiện tại
@@ -122,6 +157,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: tenValidation.error }, { status: 400 });
     }
 
+    const companyValidation = validateOptionalOrgText(ten_cong_ty, 'Tên công ty');
+    if (companyValidation.error) {
+      return NextResponse.json({ error: companyValidation.error }, { status: 400 });
+    }
+
+    const departmentValidation = validateOptionalOrgText(ten_phong_ban, 'Tên phòng ban');
+    if (departmentValidation.error) {
+      return NextResponse.json({ error: departmentValidation.error }, { status: 400 });
+    }
+
     const { data: currentUser, error: getUserError } = await supabase
       .from('nguoi_dung')
       .select('id, to_chuc_id')
@@ -135,13 +180,13 @@ export async function PATCH(request: NextRequest) {
     const updateData: Record<string, unknown> = {};
 
     if (tenValidation.value !== undefined) updateData.ten = tenValidation.value;
-    if (ten_phong_ban !== undefined) updateData.ten_phong_ban = ten_phong_ban;
+    if (departmentValidation.value !== undefined) updateData.ten_phong_ban = departmentValidation.value;
     if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
     if (onboarding_completed !== undefined) updateData.onboarding_completed = onboarding_completed;
 
     // Khi user đã thuộc một tổ chức thật, tên công ty chính thức phải lấy từ bảng to_chuc.
-    if (ten_cong_ty !== undefined && !currentUser.to_chuc_id) {
-      updateData.ten_cong_ty = ten_cong_ty;
+    if (companyValidation.value !== undefined && !currentUser.to_chuc_id) {
+      updateData.ten_cong_ty = companyValidation.value;
     }
 
     const { data: userData, error: updateError } = await supabase
