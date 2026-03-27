@@ -5,6 +5,7 @@ import { Building2, Loader2, Search, Send, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Pagination } from '@/components/ui/pagination';
 import {
   useCancelOrganizationJoinRequest,
   useCreateOrganizationJoinRequest,
@@ -12,12 +13,25 @@ import {
   useMyOrganizationJoinRequests,
 } from '@/lib/hooks/use-organizations';
 
+const SEARCH_PAGE_SIZE = 10;
+
 export function OrganizationJoinDiscoveryPanel() {
   const [query, setQuery] = useState('');
-  const { data: organizations, isLoading } = useDiscoverOrganizations(query);
+  const [currentPage, setCurrentPage] = useState(1);
+  const { data: discoveryResult, isLoading, isFetching } = useDiscoverOrganizations(query, currentPage, SEARCH_PAGE_SIZE);
   const { data: myRequests } = useMyOrganizationJoinRequests();
   const createRequestMutation = useCreateOrganizationJoinRequest();
   const cancelRequestMutation = useCancelOrganizationJoinRequest();
+
+  const organizations = discoveryResult?.data || [];
+  const pagination =
+    discoveryResult?.pagination ||
+    ({
+      page: currentPage,
+      limit: SEARCH_PAGE_SIZE,
+      total: 0,
+      totalPages: 0,
+    } as const);
 
   const pendingRequestIds = useMemo(
     () =>
@@ -72,7 +86,10 @@ export function OrganizationJoinDiscoveryPanel() {
         <div className="mt-5">
           <Input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Tìm theo tên tổ chức"
             className="border-[#dfe5d6] bg-white"
           />
@@ -126,13 +143,19 @@ export function OrganizationJoinDiscoveryPanel() {
       ) : null}
 
       <div className="rounded-[28px] border border-[#e3eadc] bg-white/90 p-5 shadow-[0_16px_35px_-32px_rgba(98,115,88,0.34)]">
-        <h3 className="text-lg font-semibold text-[#223021]">Tổ chức đang nhận yêu cầu</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-[#223021]">Kết quả tìm kiếm</h3>
+          <p className="text-sm text-[#66735f]">
+            {pagination.total > 0 ? `${pagination.total} tổ chức phù hợp` : 'Chưa có kết quả phù hợp'}
+          </p>
+        </div>
+
         <div className="mt-4 space-y-3">
           {isLoading ? (
             <div className="rounded-[22px] border border-[#e6ebde] bg-[#fbfcf8] px-4 py-6 text-sm text-[#6f7c69]">
               Đang tìm tổ chức...
             </div>
-          ) : !organizations || organizations.length === 0 ? (
+          ) : organizations.length === 0 ? (
             <div className="rounded-[22px] border border-dashed border-[#dce4d3] bg-[#f8faf4] px-4 py-8 text-center text-sm text-[#72806c]">
               Chưa có tổ chức nào phù hợp với từ khóa này.
             </div>
@@ -181,6 +204,17 @@ export function OrganizationJoinDiscoveryPanel() {
             })
           )}
         </div>
+
+        {isFetching && !isLoading ? <p className="mt-3 text-xs text-[#6d7a66]">Đang tải dữ liệu trang mới...</p> : null}
+
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={Math.max(pagination.totalPages, 1)}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.limit}
+          onPageChange={setCurrentPage}
+          className="mt-5"
+        />
       </div>
     </div>
   );

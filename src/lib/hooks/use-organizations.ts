@@ -20,6 +20,16 @@ import type {
   OrganizationJoinRequest,
 } from '@/app/api/organization-join-requests/manage/route';
 
+export interface DiscoverOrganizationsResponse {
+  data: DiscoverableOrganization[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 // Lấy thông tin organization của user hiện tại
 export function useOrganization(options?: { enabled?: boolean; meta?: Record<string, unknown> }) {
   return useQuery({
@@ -259,9 +269,9 @@ export function useRespondOrganizationInvitation() {
   });
 }
 
-export function useDiscoverOrganizations(query?: string) {
+export function useDiscoverOrganizations(query?: string, page = 1, limit = 10) {
   return useQuery({
-    queryKey: ['discover-organizations', query || ''],
+    queryKey: ['discover-organizations', query || '', page, limit],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
 
@@ -269,12 +279,15 @@ export function useDiscoverOrganizations(query?: string) {
         searchParams.set('q', query.trim());
       }
 
+      searchParams.set('page', String(page));
+      searchParams.set('limit', String(limit));
+
       const response = await fetch(`/api/organization-join-requests/discover?${searchParams.toString()}`);
       if (!response.ok) {
         throw new Error('Không thể tải danh sách tổ chức');
       }
 
-      return response.json() as Promise<DiscoverableOrganization[]>;
+      return response.json() as Promise<DiscoverOrganizationsResponse>;
     },
   });
 }
