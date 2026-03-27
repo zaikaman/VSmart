@@ -269,7 +269,12 @@ export function useRespondOrganizationInvitation() {
   });
 }
 
-export function useDiscoverOrganizations(query?: string, page = 1, limit = 10) {
+export function useDiscoverOrganizations(
+  query?: string,
+  page = 1,
+  limit = 10,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: ['discover-organizations', query || '', page, limit],
     queryFn: async () => {
@@ -289,6 +294,7 @@ export function useDiscoverOrganizations(query?: string, page = 1, limit = 10) {
 
       return response.json() as Promise<DiscoverOrganizationsResponse>;
     },
+    enabled: options?.enabled ?? true,
   });
 }
 

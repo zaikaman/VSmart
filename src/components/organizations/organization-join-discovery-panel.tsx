@@ -18,7 +18,10 @@ const SEARCH_PAGE_SIZE = 10;
 export function OrganizationJoinDiscoveryPanel() {
   const [query, setQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const { data: discoveryResult, isLoading, isFetching } = useDiscoverOrganizations(query, currentPage, SEARCH_PAGE_SIZE);
+  const hasSearchTerm = query.trim().length > 0;
+  const { data: discoveryResult, isLoading, isFetching } = useDiscoverOrganizations(query, currentPage, SEARCH_PAGE_SIZE, {
+    enabled: hasSearchTerm,
+  });
   const { data: myRequests } = useMyOrganizationJoinRequests();
   const createRequestMutation = useCreateOrganizationJoinRequest();
   const cancelRequestMutation = useCancelOrganizationJoinRequest();
@@ -145,13 +148,19 @@ export function OrganizationJoinDiscoveryPanel() {
       <div className="rounded-[28px] border border-[#e3eadc] bg-white/90 p-5 shadow-[0_16px_35px_-32px_rgba(98,115,88,0.34)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-[#223021]">Kết quả tìm kiếm</h3>
-          <p className="text-sm text-[#66735f]">
-            {pagination.total > 0 ? `${pagination.total} tổ chức phù hợp` : 'Chưa có kết quả phù hợp'}
-          </p>
+          {hasSearchTerm ? (
+            <p className="text-sm text-[#66735f]">
+              {pagination.total > 0 ? `${pagination.total} tổ chức phù hợp` : 'Chưa có kết quả phù hợp'}
+            </p>
+          ) : null}
         </div>
 
         <div className="mt-4 space-y-3">
-          {isLoading ? (
+          {!hasSearchTerm ? (
+            <div className="rounded-[22px] border border-dashed border-[#dce4d3] bg-[#f8faf4] px-4 py-8 text-center text-sm text-[#72806c]">
+              Nhập tên tổ chức để bắt đầu tìm kiếm.
+            </div>
+          ) : isLoading ? (
             <div className="rounded-[22px] border border-[#e6ebde] bg-[#fbfcf8] px-4 py-6 text-sm text-[#6f7c69]">
               Đang tìm tổ chức...
             </div>
@@ -205,16 +214,18 @@ export function OrganizationJoinDiscoveryPanel() {
           )}
         </div>
 
-        {isFetching && !isLoading ? <p className="mt-3 text-xs text-[#6d7a66]">Đang tải dữ liệu trang mới...</p> : null}
+        {hasSearchTerm && isFetching && !isLoading ? <p className="mt-3 text-xs text-[#6d7a66]">Đang tải dữ liệu trang mới...</p> : null}
 
-        <Pagination
-          currentPage={pagination.page}
-          totalPages={Math.max(pagination.totalPages, 1)}
-          totalItems={pagination.total}
-          itemsPerPage={pagination.limit}
-          onPageChange={setCurrentPage}
-          className="mt-5"
-        />
+        {hasSearchTerm ? (
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={Math.max(pagination.totalPages, 1)}
+            totalItems={pagination.total}
+            itemsPerPage={pagination.limit}
+            onPageChange={setCurrentPage}
+            className="mt-5"
+          />
+        ) : null}
       </div>
     </div>
   );
