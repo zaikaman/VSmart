@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 const TEN_MIN_LENGTH = 2;
 const TEN_MAX_LENGTH = 255;
-const TEN_PATTERN = /^[\p{L}\p{M}\d .,'-]+$/u;
+const TEN_PATTERN = /^[\p{L}\p{M} .,'-]+$/u;
 
 function validateTen(ten: unknown): { value?: string; error?: string } {
   if (ten === undefined) {
@@ -29,7 +29,7 @@ function validateTen(ten: unknown): { value?: string; error?: string } {
   }
 
   if (!TEN_PATTERN.test(normalized)) {
-    return { error: "Họ và tên chỉ được chứa chữ, số, khoảng trắng và các ký tự . , ' -." };
+    return { error: "Họ và tên chỉ được chứa chữ, khoảng trắng và các ký tự . , ' -." };
   }
 
   return { value: normalized };

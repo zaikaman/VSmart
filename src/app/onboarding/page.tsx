@@ -14,7 +14,7 @@ type OnboardingUser = {
 
 const HO_TEN_MIN_LENGTH = 2;
 const HO_TEN_MAX_LENGTH = 255;
-const HO_TEN_PATTERN = /^[\p{L}\p{M}\d .,'-]+$/u;
+const HO_TEN_PATTERN = /^[\p{L}\p{M} .,'-]+$/u;
 
 function validateHoTen(value: string): string {
   const normalized = value.trim();
@@ -32,7 +32,7 @@ function validateHoTen(value: string): string {
   }
 
   if (!HO_TEN_PATTERN.test(normalized)) {
-    return "Họ và tên chỉ được chứa chữ, số, khoảng trắng và các ký tự . , ' -.";
+    return "Họ và tên chỉ được chứa chữ, khoảng trắng và các ký tự . , ' -.";
   }
 
   return '';
