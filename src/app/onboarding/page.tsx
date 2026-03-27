@@ -13,7 +13,7 @@ type OnboardingUser = {
 };
 
 const HO_TEN_MIN_LENGTH = 2;
-const HO_TEN_MAX_LENGTH = 255;
+const HO_TEN_MAX_LENGTH = 80;
 const HO_TEN_PATTERN = /^[\p{L}\p{M} .,'-]+$/u;
 
 function validateHoTen(value: string): string {
