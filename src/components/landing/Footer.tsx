@@ -4,7 +4,7 @@ import Logo from "./Logo";
 
 const navLinks = [
   { href: "/docs", label: "Docs" },
-  { href: "https://github.com/zaikaman/Loom", label: "GitHub" },
+  { href: "https://github.com/zaikaman/VSmart", label: "GitHub" },
 ];
 
 export default function Footer({ className }: { className?: string }) {
@@ -17,7 +17,7 @@ export default function Footer({ className }: { className?: string }) {
     >
       <div
         className={cn(
-          "bg-[#191a23] flex flex-col items-start relative rounded-tl-[45px] rounded-tr-[45px] shrink-0 w-full",
+          "bg-[linear-gradient(128deg,#1e2a1f_0%,#304433_42%,#55724f_100%)] flex flex-col items-start relative rounded-tl-[45px] rounded-tr-[45px] shrink-0 w-full",
           "gap-[50px] max-lg:gap-[40px] max-md:gap-[30px]",
           "px-[60px] max-lg:px-[40px] max-md:px-[30px]",
           "pb-[50px] pt-[55px] max-lg:pb-[40px] max-lg:pt-[40px] max-md:pb-[30px] max-md:pt-[40px]"
@@ -30,12 +30,12 @@ export default function Footer({ className }: { className?: string }) {
             <Logo className="w-auto h-[30px] text-white" />
 
             {/* Navigation Links */}
-            <div className="flex font-normal gap-[40.5px] max-xl:gap-[20px] items-start leading-[normal] relative shrink-0 text-[18px] text-white underline max-lg:w-full max-lg:order-1 flex-wrap">
+            <div className="flex font-normal gap-[40.5px] max-xl:gap-[20px] items-start leading-[normal] relative shrink-0 text-[18px] text-white/90 underline max-lg:w-full max-lg:order-1 flex-wrap">
               {navLinks.map(({ href, label }, index) => (
                 <Link
                   key={index}
                   href={href}
-                  className="[text-decoration-skip-ink:none] [text-underline-position:from-font] underline-offset-1 decoration-solid relative shrink-0"
+                  className="[text-decoration-skip-ink:none] [text-underline-position:from-font] underline-offset-2 decoration-white/40 relative shrink-0 hover:text-white transition-colors"
                 >
                   {label}
                 </Link>
@@ -45,11 +45,11 @@ export default function Footer({ className }: { className?: string }) {
         </div>
 
         {/* Divider */}
-        <div className="h-0 relative shrink-0 w-full border-t xl:-mt-px border-white"></div>
+        <div className="h-0 relative shrink-0 w-full border-t xl:-mt-px border-white/30"></div>
 
         {/* Bottom section: Line and Copyright */}
-        <div className="flex font-normal gap-x-[41px] gap-y-[10px] items-start relative text-[18px]/[28px] text-white w-full flex-wrap">
-          <p className="relative">© 2025 Loom. All Rights Reserved.</p>
+        <div className="flex font-normal gap-x-[41px] gap-y-[10px] items-start relative text-[18px]/[28px] text-white/78 w-full flex-wrap">
+          <p className="relative">© 2025 VSmart. All Rights Reserved.</p>
         </div>
       </div>
     </div>

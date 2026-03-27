@@ -17,7 +17,7 @@ export async function StartButton({
     return (
         <Link
             href={href}
-            className={`flex items-start px-[35px] py-[20px] max-xl:px-[25px] max-xl:py-[15px] max-sm:px-[20px] max-sm:py-[10px] relative rounded-[14px] shrink-0 font-normal leading-[28px] text-[20px] text-center transition-colors cursor-pointer border border-[#191a23] border-solid text-black hover:bg-[#f5f5f5] ${className || ''}`}
+            className={`inline-flex items-center gap-2 px-5 py-2 max-xl:px-4 max-xl:py-1.5 max-sm:px-3 max-sm:py-1.5 relative rounded-full shrink-0 font-semibold text-sm text-center transition-all cursor-pointer border border-[#e6f8c9] bg-[#d4f59f] text-[#1c2b1b] hover:translate-y-[-1px] hover:bg-[#c4ea8f] ${className || ''}`}
         >
             {children}
         </Link>
