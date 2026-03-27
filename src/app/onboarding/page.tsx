@@ -12,11 +12,38 @@ type OnboardingUser = {
   ten?: string | null;
 };
 
+const HO_TEN_MIN_LENGTH = 2;
+const HO_TEN_MAX_LENGTH = 255;
+const HO_TEN_PATTERN = /^[\p{L}\p{M}\d .,'-]+$/u;
+
+function validateHoTen(value: string): string {
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return 'Vui lòng nhập họ và tên để vào dashboard.';
+  }
+
+  if (normalized.length < HO_TEN_MIN_LENGTH) {
+    return `Họ và tên phải có ít nhất ${HO_TEN_MIN_LENGTH} ký tự.`;
+  }
+
+  if (normalized.length > HO_TEN_MAX_LENGTH) {
+    return `Họ và tên không được vượt quá ${HO_TEN_MAX_LENGTH} ký tự.`;
+  }
+
+  if (!HO_TEN_PATTERN.test(normalized)) {
+    return "Họ và tên chỉ được chứa chữ, số, khoảng trắng và các ký tự . , ' -.";
+  }
+
+  return '';
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [hoTen, setHoTen] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [fieldError, setFieldError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const { data: currentUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['onboarding-user'],
     queryFn: async () => {
@@ -38,12 +65,16 @@ export default function OnboardingPage() {
   }, [currentUser]);
 
   const handleComplete = async () => {
-    if (!hoTen.trim()) {
-      setError('Vui lòng nhập họ và tên để vào dashboard');
+    const tenError = validateHoTen(hoTen);
+    if (tenError) {
+      setFieldError(tenError);
+      setSubmitError('');
       return;
     }
 
-    setError('');
+    const normalizedHoTen = hoTen.trim();
+    setFieldError('');
+    setSubmitError('');
     setIsSubmitting(true);
 
     try {
@@ -53,21 +84,21 @@ export default function OnboardingPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ten: hoTen.trim(),
+          ten: normalizedHoTen,
           onboarding_completed: true,
         }),
       });
 
       if (!userResponse.ok) {
         const errorData = await userResponse.json().catch(() => null);
-        throw new Error(errorData?.error || 'Không thể hoàn tất thiết lập hồ sơ');
+        throw new Error(errorData?.error || 'Không thể hoàn tất thiết lập hồ sơ lúc này.');
       }
 
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
       console.error('Onboarding error:', err);
-      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra. Vui lòng thử lại.');
+      setSubmitError(err instanceof Error ? err.message : 'Có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -140,15 +171,33 @@ export default function OnboardingPage() {
                   id="hoTen"
                   placeholder="Ví dụ: Nguyễn Minh Anh"
                   value={hoTen}
-                  onChange={(event) => setHoTen(event.target.value)}
+                  maxLength={HO_TEN_MAX_LENGTH}
+                  aria-invalid={Boolean(fieldError)}
+                  onChange={(event) => {
+                    setHoTen(event.target.value);
+                    if (fieldError) {
+                      setFieldError('');
+                    }
+                  }}
+                  onBlur={() => {
+                    setFieldError(validateHoTen(hoTen));
+                  }}
                   className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
                 />
+                <p className="mt-2 text-xs text-[#6f7b6b]">
+                  Dùng tên thật hoặc tên bạn muốn hiển thị. Tối đa {HO_TEN_MAX_LENGTH} ký tự.
+                </p>
+                {fieldError ? (
+                  <p className="mt-2 text-sm text-[#a05735]">{fieldError}</p>
+                ) : (
+                  <p className="mt-2 text-xs text-[#7d8a76]">{hoTen.trim().length}/{HO_TEN_MAX_LENGTH} ký tự</p>
+                )}
               </div>
               <div className="rounded-[28px] border border-[#dce5d2] bg-[#f6f9f1] px-5 py-5 text-sm leading-6 text-[#52614f]">
                 Sau khi hoàn tất, bạn sẽ vào thẳng dashboard. Nếu cần làm việc cùng team, bạn có thể tạo không gian làm việc sau.
               </div>
 
-              {error ? <div className="rounded-[20px] border border-[#f0ddd1] bg-[#fff5ef] px-4 py-3 text-sm text-[#a05735]">{error}</div> : null}
+              {submitError ? <div className="rounded-[20px] border border-[#f0ddd1] bg-[#fff5ef] px-4 py-3 text-sm text-[#a05735]">{submitError}</div> : null}
 
               <div className="flex justify-end">
                 <Button
