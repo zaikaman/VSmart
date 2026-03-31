@@ -218,9 +218,9 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
             return (
               <div
                 key={member.id}
-                className="grid gap-4 rounded-[24px] border border-[#e3eadc] bg-white px-4 py-4 shadow-[0_16px_35px_-32px_rgba(98,115,88,0.18)] lg:grid-cols-[minmax(0,1fr)_240px]"
+                className="flex flex-wrap items-stretch gap-4 rounded-[24px] border border-[#e3eadc] bg-white p-4 shadow-[0_16px_35px_-32px_rgba(98,115,88,0.18)]"
               >
-                <div className="min-w-0">
+                <div className="min-w-[240px] flex-1">
                   <div className="flex items-start gap-3">
                     <Avatar className="h-12 w-12 border border-[#dfe5d6]">
                       <AvatarImage src={member.nguoi_dung?.avatar_url || undefined} />
@@ -249,7 +249,7 @@ export function ProjectMembersManager({ projectId, canManage = true }: ProjectMe
                   </div>
                 </div>
 
-                <div className="flex h-full flex-col justify-between rounded-[20px] border border-[#e5eadf] bg-[#fbfcf8] p-4">
+                <div className="flex w-full shrink-0 flex-col justify-between rounded-[20px] border border-[#e5eadf] bg-[#fbfcf8] p-4 sm:w-[240px]">
                   <div>
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div>
