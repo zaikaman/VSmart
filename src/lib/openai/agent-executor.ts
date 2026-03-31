@@ -365,14 +365,30 @@ export class AgentToolExecutor {
       };
     }
 
+    const { data: currentUser } = await this.supabase
+      .from('nguoi_dung')
+      .select('id, phong_ban_id')
+      .eq('email', this.userEmail)
+      .single();
+
+    const phongBanId = params.phong_ban_id || currentUser?.phong_ban_id;
+
+    if (!phongBanId) {
+      return {
+        success: false,
+        error: 'Thiếu phòng ban phụ trách cho phần dự án này',
+      };
+    }
+
     const { data, error } = await this.supabase
       .from('phan_du_an')
       .insert([
         {
           ten: params.ten,
           mo_ta: params.mo_ta,
+          deadline: params.deadline,
           du_an_id: params.du_an_id,
-          phong_ban_id: params.phong_ban_id,
+          phong_ban_id: phongBanId,
         },
       ])
       .select()
@@ -455,7 +471,6 @@ export class AgentToolExecutor {
           priority: params.priority || 'medium',
           trang_thai: 'todo',
           progress: 0,
-          nguoi_tao_id: userData?.id,
         },
       ])
       .select()
@@ -510,7 +525,16 @@ export class AgentToolExecutor {
     // Tạo payload cập nhật
     const updateData: any = {};
     if (params.trang_thai) updateData.trang_thai = params.trang_thai;
-    if (params.progress !== undefined) updateData.progress = params.progress;
+    if (params.progress !== undefined) {
+      if (params.progress < 0 || params.progress > 100) {
+        return {
+          success: false,
+          error: 'Tiến độ phải nằm trong khoảng từ 0 đến 100',
+        };
+      }
+
+      updateData.progress = params.progress;
+    }
     if (params.assignee_id) updateData.assignee_id = params.assignee_id;
     if (params.priority) updateData.priority = params.priority;
     if (params.deadline) updateData.deadline = params.deadline;
@@ -589,11 +613,27 @@ export class AgentToolExecutor {
    */
   private async layDanhSachThanhVien(params: LayDanhSachThanhVienParams): Promise<ToolExecutionResult> {
     if (params.du_an_id) {
+      const { data: memberCheck } = await this.supabase
+        .from('thanh_vien_du_an')
+        .select('id')
+        .eq('du_an_id', params.du_an_id)
+        .eq('email', this.userEmail)
+        .eq('trang_thai', 'active')
+        .single();
+
+      if (!memberCheck) {
+        return {
+          success: false,
+          error: 'Bạn không có quyền xem thành viên của dự án này',
+        };
+      }
+
       // Lấy thành viên của một dự án cụ thể
       const { data, error } = await this.supabase
         .from('thanh_vien_du_an')
         .select('*, nguoi_dung:nguoi_dung_id(id, ten, email, avatar_url)')
-        .eq('du_an_id', params.du_an_id);
+        .eq('du_an_id', params.du_an_id)
+        .eq('trang_thai', 'active');
 
       if (error) {
         return { success: false, error: error.message };
@@ -626,7 +666,8 @@ export class AgentToolExecutor {
         thanh_vien_du_an!inner(email, trang_thai)
       `)
       .eq('thanh_vien_du_an.email', this.userEmail)
-      .eq('thanh_vien_du_an.trang_thai', 'active');
+      .eq('thanh_vien_du_an.trang_thai', 'active')
+      .is('deleted_at', null);
 
     if (params.trang_thai) {
       query = query.eq('trang_thai', params.trang_thai);
@@ -648,10 +689,26 @@ export class AgentToolExecutor {
    * Lấy danh sách phần dự án
    */
   private async layDanhSachPhanDuAn(params: LayDanhSachPhanDuAnParams): Promise<ToolExecutionResult> {
+    const { data: memberCheck } = await this.supabase
+      .from('thanh_vien_du_an')
+      .select('id')
+      .eq('du_an_id', params.du_an_id)
+      .eq('email', this.userEmail)
+      .eq('trang_thai', 'active')
+      .single();
+
+    if (!memberCheck) {
+      return {
+        success: false,
+        error: 'Bạn không có quyền xem phần của dự án này',
+      };
+    }
+
     const { data, error } = await this.supabase
       .from('phan_du_an')
       .select('*, phong_ban:phong_ban_id(id, ten)')
       .eq('du_an_id', params.du_an_id)
+      .is('deleted_at', null)
       .order('ngay_tao', { ascending: false });
 
     if (error) {
@@ -665,6 +722,34 @@ export class AgentToolExecutor {
    * Lấy chi tiết task
    */
   private async layChiTietTask(params: LayChiTietTaskParams): Promise<ToolExecutionResult> {
+    const { data: taskScope } = await this.supabase
+      .from('task')
+      .select('phan_du_an(du_an_id)')
+      .eq('id', params.task_id)
+      .is('deleted_at', null)
+      .single();
+
+    if (!taskScope) {
+      return { success: false, error: 'Không tìm thấy task' };
+    }
+
+    const duAnId = (taskScope.phan_du_an as any)?.du_an_id;
+
+    const { data: memberCheck } = await this.supabase
+      .from('thanh_vien_du_an')
+      .select('id')
+      .eq('du_an_id', duAnId)
+      .eq('email', this.userEmail)
+      .eq('trang_thai', 'active')
+      .single();
+
+    if (!memberCheck) {
+      return {
+        success: false,
+        error: 'Bạn không có quyền xem task này',
+      };
+    }
+
     const { data, error } = await this.supabase
       .from('task')
       .select(`
@@ -713,6 +798,7 @@ export class AgentToolExecutor {
       .from('du_an')
       .update(updateData)
       .eq('id', params.du_an_id)
+      .is('deleted_at', null)
       .select()
       .single();
 
@@ -749,10 +835,19 @@ export class AgentToolExecutor {
       };
     }
 
+    const membershipId = params.thanh_vien_du_an_id || params.thanh_vien_id;
+
+    if (!membershipId) {
+      return {
+        success: false,
+        error: 'Thiếu ID bản ghi thành viên dự án cần xóa',
+      };
+    }
+
     const { error } = await this.supabase
       .from('thanh_vien_du_an')
       .delete()
-      .eq('id', params.thanh_vien_id)
+      .eq('id', membershipId)
       .eq('du_an_id', params.du_an_id);
 
     if (error) {

@@ -48,12 +48,11 @@ interface ToolExecutionResponse {
 
 function buildConversationWindow(messages: Message[]) {
   return messages
-    .filter((message) => !message.tool_call_id)
+    .filter((message) => !message.tool_call_id && !message.tool_calls?.length)
     .slice(-MAX_MESSAGES_TO_SEND)
     .map((message) => ({
       role: message.role,
       content: message.content,
-      tool_calls: message.tool_calls,
     }));
 }
 

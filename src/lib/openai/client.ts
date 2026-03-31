@@ -47,6 +47,10 @@ interface GeminiPart {
     name?: string;
     args?: unknown;
   };
+  functionResponse?: {
+    name?: string;
+    response?: unknown;
+  };
 }
 
 interface GeminiResponse {
@@ -64,6 +68,14 @@ interface GeminiResponse {
   error?: {
     message?: string;
   };
+}
+
+interface GeminiJsonAgentResponse {
+  reply?: string;
+  actions?: Array<{
+    tool_name?: string;
+    arguments?: unknown;
+  }>;
 }
 
 export function getOpenAIClient(): OpenAI {
@@ -111,11 +123,13 @@ function hasGeminiConfig(): boolean {
 
 function normalizeGeminiBaseUrl(baseUrl: string): string[] {
   const trimmed = baseUrl.replace(/\/+$/, '');
-  const urls = [`${trimmed}/models/${getGeminiModel()}:generateContent`];
+  const urls: string[] = [];
 
   if (trimmed.endsWith('/v1')) {
     urls.push(`${trimmed.replace(/\/v1$/, '/v1beta')}/models/${getGeminiModel()}:generateContent`);
   }
+
+  urls.push(`${trimmed}/models/${getGeminiModel()}:generateContent`);
 
   return Array.from(new Set(urls));
 }
@@ -229,6 +243,100 @@ function formatToolCallsForGemini(message: AiMessage): string {
   return [message.content.trim(), toolSummary].filter(Boolean).join('\n\n');
 }
 
+function safeJsonParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function toGeminiAssistantParts(message: AiMessage): GeminiPart[] {
+  const parts: GeminiPart[] = [];
+
+  if (message.content.trim()) {
+    parts.push({ text: message.content });
+  }
+
+  message.tool_calls
+    ?.filter(
+      (
+        toolCall
+      ): toolCall is ChatCompletionMessageToolCall & {
+        type: 'function';
+        function: {
+          name: string;
+          arguments: string;
+        };
+      } => toolCall.type === 'function' && 'function' in toolCall
+    )
+    .forEach((toolCall) => {
+      parts.push({
+        functionCall: {
+          name: toolCall.function.name,
+          args: safeJsonParse(toolCall.function.arguments || '{}'),
+        },
+      });
+    });
+
+  return parts.length > 0 ? parts : [{ text: formatToolCallsForGemini(message) }];
+}
+
+function toGeminiToolParts(message: AiMessage): GeminiPart[] {
+  return [
+    {
+      functionResponse: {
+        name: message.name || message.tool_call_id || 'tool_result',
+        response: safeJsonParse(message.content || '{}'),
+      },
+    },
+  ];
+}
+
+function extractFunctionTools(tools?: ChatCompletionTool[]) {
+  if (!tools?.length) {
+    return [];
+  }
+
+  return tools.filter(
+    (
+      tool
+    ): tool is ChatCompletionTool & {
+      type: 'function';
+      function: {
+        name: string;
+        description?: string;
+        parameters?: unknown;
+      };
+    } => tool.type === 'function' && 'function' in tool
+  );
+}
+
+function buildGeminiJsonAgentInstruction(tools?: ChatCompletionTool[]) {
+  const functionTools = extractFunctionTools(tools);
+
+  const toolLines = functionTools.map((tool) => {
+    const schema = tool.function.parameters
+      ? JSON.stringify(tool.function.parameters)
+      : '{}';
+    return `- ${tool.function.name}: ${tool.function.description || 'Không có mô tả'} | schema: ${schema}`;
+  });
+
+  return [
+    'Bạn đang ở chế độ AI Agent dạng JSON.',
+    'Không dùng function calling native.',
+    'Hãy đọc yêu cầu người dùng và trả về đúng 1 JSON object với cấu trúc:',
+    '{"reply":"string","actions":[{"tool_name":"string","arguments":{}}]}',
+    'Quy tắc:',
+    '- Nếu chỉ cần trả lời bình thường thì actions phải là [].',
+    '- Nếu cần thao tác dữ liệu thật thì điền actions bằng tool phù hợp.',
+    '- arguments phải là object hợp lệ, không phải string JSON.',
+    '- Nếu thiếu tham số bắt buộc, hỏi lại trong reply và để actions là [].',
+    '- Chỉ dùng đúng các tool dưới đây.',
+    ...toolLines,
+  ].join('\n');
+}
+
 function buildGeminiContents(messages: AiMessage[]) {
   return messages
     .filter((message) => message.role !== 'system')
@@ -238,24 +346,16 @@ function buildGeminiContents(messages: AiMessage[]) {
       if (message.role === 'tool') {
         return {
           role: 'user',
-          parts: [
-            {
-              text: `Kết quả công cụ ${message.tool_call_id || ''}:\n${message.content}`,
-            },
-          ],
+          parts: toGeminiToolParts(message),
         };
       }
 
       return {
         role,
-        parts: [
-          {
-            text:
-              message.role === 'assistant' && message.tool_calls?.length
-                ? formatToolCallsForGemini(message)
-                : message.content,
-          },
-        ],
+        parts:
+          message.role === 'assistant' && message.tool_calls?.length
+            ? toGeminiAssistantParts(message)
+            : [{ text: message.content }],
       };
     });
 }
@@ -386,6 +486,9 @@ async function callGeminiCompletion(
 
     if (!response.ok) {
       const errorText = await response.text();
+      if (errorText.includes('"type":"new_api_error"')) {
+        throw new Error(`Gemini gateway từ chối request tại ${url}: ${errorText}`);
+      }
       errors.push(`Gemini ${response.status} tại ${url}: ${errorText}`);
       continue;
     }
@@ -429,6 +532,43 @@ async function callGeminiCompletion(
   }
 
   throw new Error(errors.join(' | ') || 'Không thể gọi Gemini');
+}
+
+async function callGeminiJsonAgentCompletion(
+  options: PreferredChatCompletionOptions
+): Promise<PreferredChatCompletionResult> {
+  const augmentedMessages: AiMessage[] = [
+    ...options.messages,
+    {
+      role: 'system',
+      content: buildGeminiJsonAgentInstruction(options.tools),
+    },
+  ];
+
+  const response = await callGeminiCompletion({
+    ...options,
+    messages: augmentedMessages,
+    tools: undefined,
+    responseFormat: 'json_object',
+  });
+
+  const payload = parseJsonContent<GeminiJsonAgentResponse>(response.content || '{}');
+  const toolCalls = (payload.actions || [])
+    .filter((action) => action.tool_name)
+    .map((action, index) => ({
+      id: `gemini-json-tool-${Date.now()}-${index}`,
+      type: 'function' as const,
+      function: {
+        name: action.tool_name || '',
+        arguments: JSON.stringify(action.arguments || {}),
+      },
+    }));
+
+  return {
+    ...response,
+    content: payload.reply || '',
+    toolCalls,
+  };
 }
 
 function toOpenAIMessages(messages: AiMessage[]): ChatCompletionMessageParam[] {
@@ -490,6 +630,10 @@ export async function createPreferredChatCompletion(
 ): Promise<PreferredChatCompletionResult> {
   if (hasGeminiConfig()) {
     try {
+      if (options.tools?.length) {
+        return await callGeminiJsonAgentCompletion(options);
+      }
+
       return await callGeminiCompletion(options);
     } catch (geminiError) {
       console.error('[AI] Gemini lỗi, chuyển sang OpenAI:', geminiError);

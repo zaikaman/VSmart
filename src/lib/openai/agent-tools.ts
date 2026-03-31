@@ -80,12 +80,16 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
             type: 'string',
             description: 'ID của dự án chứa phần này',
           },
+          deadline: {
+            type: 'string',
+            description: 'Ngày deadline của phần dự án (ISO 8601 format)',
+          },
           phong_ban_id: {
             type: 'string',
-            description: 'ID của phòng ban phụ trách (tùy chọn)',
+            description: 'ID của phòng ban phụ trách. Nếu không truyền, hệ thống sẽ thử dùng phòng ban của người hiện tại.',
           },
         },
-        required: ['ten', 'du_an_id'],
+        required: ['ten', 'du_an_id', 'deadline'],
       },
     },
   },
@@ -141,12 +145,14 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
           },
           trang_thai: {
             type: 'string',
-            enum: ['todo', 'in-progress', 'review', 'done'],
+            enum: ['todo', 'in-progress', 'done'],
             description: 'Trạng thái mới của task',
           },
           progress: {
             type: 'number',
             description: 'Tiến độ hoàn thành (0-100)',
+            minimum: 0,
+            maximum: 100,
           },
           assignee_id: {
             type: 'string',
@@ -210,7 +216,7 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
         properties: {
           trang_thai: {
             type: 'string',
-            enum: ['todo', 'in-progress', 'review', 'done'],
+            enum: ['todo', 'in-progress', 'done'],
             description: 'Lọc theo trạng thái dự án (tùy chọn)',
           },
         },
@@ -274,7 +280,7 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
           },
           trang_thai: {
             type: 'string',
-            enum: ['todo', 'in-progress', 'review', 'done'],
+            enum: ['todo', 'in-progress', 'done'],
             description: 'Trạng thái mới',
           },
           deadline: {
@@ -298,12 +304,12 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
             type: 'string',
             description: 'ID của dự án',
           },
-          thanh_vien_id: {
+          thanh_vien_du_an_id: {
             type: 'string',
-            description: 'ID của thành viên cần xóa',
+            description: 'ID của bản ghi thành viên trong bảng thanh_vien_du_an cần xóa khỏi dự án',
           },
         },
-        required: ['du_an_id', 'thanh_vien_id'],
+        required: ['du_an_id', 'thanh_vien_du_an_id'],
       },
     },
   },
@@ -321,7 +327,7 @@ export const AI_AGENT_TOOLS: ChatCompletionTool[] = [
           },
           trang_thai: {
             type: 'string',
-            enum: ['todo', 'in-progress', 'review', 'done'],
+            enum: ['todo', 'in-progress', 'done'],
             description: 'Lọc theo trạng thái',
           },
           assignee_id: {
@@ -359,6 +365,7 @@ export interface TaoPhanDuAnParams {
   ten: string;
   mo_ta?: string;
   du_an_id: string;
+  deadline: string;
   phong_ban_id?: string;
 }
 
@@ -373,7 +380,7 @@ export interface TaoTaskParams {
 
 export interface CapNhatTaskParams {
   task_id: string;
-  trang_thai?: 'todo' | 'in-progress' | 'review' | 'done';
+  trang_thai?: 'todo' | 'in-progress' | 'done';
   progress?: number;
   assignee_id?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
@@ -389,7 +396,7 @@ export interface LayDanhSachThanhVienParams {
 }
 
 export interface LayDanhSachDuAnParams {
-  trang_thai?: 'todo' | 'in-progress' | 'review' | 'done';
+  trang_thai?: 'todo' | 'in-progress' | 'done';
 }
 
 export interface LayDanhSachPhanDuAnParams {
@@ -404,18 +411,19 @@ export interface CapNhatDuAnParams {
   du_an_id: string;
   ten?: string;
   mo_ta?: string;
-  trang_thai?: 'todo' | 'in-progress' | 'review' | 'done';
+  trang_thai?: 'todo' | 'in-progress' | 'done';
   deadline?: string;
 }
 
 export interface XoaThanhVienDuAnParams {
   du_an_id: string;
-  thanh_vien_id: string;
+  thanh_vien_du_an_id: string;
+  thanh_vien_id?: string;
 }
 
 export interface TimKiemTasksParams {
   du_an_id?: string;
-  trang_thai?: 'todo' | 'in-progress' | 'review' | 'done';
+  trang_thai?: 'todo' | 'in-progress' | 'done';
   assignee_id?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
 }

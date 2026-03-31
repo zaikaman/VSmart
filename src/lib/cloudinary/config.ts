@@ -1,8 +1,26 @@
-import { v2 as cloudinary } from 'cloudinary';
+const cloudinaryUrl = process.env.CLOUDINARY_URL;
+const hasValidCloudinaryUrl =
+  typeof cloudinaryUrl === 'string' && cloudinaryUrl.startsWith('cloudinary://');
 
-cloudinary.config({
-  cloudinary_url: process.env.CLOUDINARY_URL,
-});
+if (!hasValidCloudinaryUrl && process.env.CLOUDINARY_URL) {
+  delete process.env.CLOUDINARY_URL;
+}
+
+// Dùng require sau khi đã sanitize env để tránh cloudinary parse placeholder ngay lúc import module.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const cloudinary = require('cloudinary').v2;
+
+if (hasValidCloudinaryUrl) {
+  cloudinary.config({
+    cloudinary_url: cloudinaryUrl,
+  });
+}
+
+function ensureCloudinaryConfigured() {
+  if (!hasValidCloudinaryUrl) {
+    throw new Error('CLOUDINARY_URL chưa hợp lệ. Vui lòng cấu hình cloudinary://...');
+  }
+}
 
 export default cloudinary;
 
@@ -11,6 +29,7 @@ export async function uploadToCloudinary(
   folder: string = 'avatars'
 ): Promise<{ url: string; publicId: string }> {
   try {
+    ensureCloudinaryConfigured();
     let base64String: string;
 
     if (Buffer.isBuffer(file)) {
@@ -46,6 +65,7 @@ export async function uploadFileToCloudinary(
   folder: string
 ): Promise<{ url: string; publicId: string }> {
   try {
+    ensureCloudinaryConfigured();
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const mimeType = file.type || 'application/octet-stream';
@@ -70,6 +90,7 @@ export async function uploadFileToCloudinary(
 
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
   try {
+    ensureCloudinaryConfigured();
     await cloudinary.uploader.destroy(publicId);
   } catch (error) {
     console.error('Error deleting from Cloudinary:', error);
@@ -85,6 +106,8 @@ export function getCloudinaryUrl(
     quality?: string;
   }
 ): string {
+  ensureCloudinaryConfigured();
+
   const defaultOptions = {
     width: 400,
     height: 400,
