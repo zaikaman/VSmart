@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { createChatCompletionStream, ChatContext, ChatMessage } from '@/lib/openai/chat-completion';
-import { AgentToolExecutor } from '@/lib/openai/agent-executor';
+import {
+  createChatCompletionStream,
+  ChatContext,
+  ChatMessage,
+  detectChatIntent,
+  type ChatIntent,
+} from '@/lib/openai/chat-completion';
 import { z } from 'zod';
 
 /**
@@ -21,9 +26,73 @@ const chatRequestSchema = z.object({
 /**
  * Fetch context cho RAG từ database
  */
+type ChatContextScope = {
+  includeTasks: boolean;
+  includeProjects: boolean;
+  includeMembers: boolean;
+  includeStats: boolean;
+};
+
+function getLastUserMessage(messages: Array<{ role: string; content: string }>): string {
+  return [...messages].reverse().find((message) => message.role === 'user')?.content || '';
+}
+
+function resolveContextScope(intent: ChatIntent, enableAgent: boolean): ChatContextScope {
+  if (enableAgent) {
+    return {
+      includeTasks: false,
+      includeProjects: false,
+      includeMembers: false,
+      includeStats: false,
+    };
+  }
+
+  switch (intent) {
+    case 'task_status':
+    case 'task_risk':
+    case 'breakdown_task':
+      return {
+        includeTasks: true,
+        includeProjects: false,
+        includeMembers: false,
+        includeStats: false,
+      };
+    case 'project_status':
+      return {
+        includeTasks: false,
+        includeProjects: true,
+        includeMembers: false,
+        includeStats: false,
+      };
+    case 'suggest_assignee':
+      return {
+        includeTasks: true,
+        includeProjects: false,
+        includeMembers: true,
+        includeStats: false,
+      };
+    case 'stats':
+      return {
+        includeTasks: false,
+        includeProjects: false,
+        includeMembers: false,
+        includeStats: true,
+      };
+    case 'general':
+    default:
+      return {
+        includeTasks: false,
+        includeProjects: true,
+        includeMembers: false,
+        includeStats: false,
+      };
+  }
+}
+
 async function fetchChatContext(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userEmail: string
+  userEmail: string,
+  scope: ChatContextScope
 ): Promise<ChatContext> {
   // 1. Lấy thông tin user hiện tại
   const { data: userData } = await supabase
@@ -49,7 +118,7 @@ async function fetchChatContext(
 
   // 3. Lấy active tasks từ các dự án user tham gia
   let activeTasks: ChatContext['activeTasks'] = [];
-  if (projectIds.length > 0) {
+  if (scope.includeTasks && projectIds.length > 0) {
     // Lấy các phần dự án thuộc các dự án của user
     const { data: partsData } = await supabase
       .from('phan_du_an')
@@ -70,7 +139,7 @@ async function fetchChatContext(
         .is('deleted_at', null)
         .in('trang_thai', ['todo', 'in-progress'])
         .order('deadline', { ascending: true })
-        .limit(20);
+        .limit(8);
 
       activeTasks = (tasksData || []).map(t => ({
         id: t.id,
@@ -91,7 +160,7 @@ async function fetchChatContext(
 
   // 4. Lấy recent projects
   let recentProjects: ChatContext['recentProjects'] = [];
-  if (projectIds.length > 0) {
+  if (scope.includeProjects && projectIds.length > 0) {
     const { data: projectsData } = await supabase
       .from('du_an')
       .select('id, ten, mo_ta, trang_thai, phan_tram_hoan_thanh, deadline')
@@ -100,46 +169,19 @@ async function fetchChatContext(
       .order('ngay_tao', { ascending: false })
       .limit(5);
 
-    // Đếm số tasks và parts cho mỗi project
-    for (const project of projectsData || []) {
-      const { count: partsCount } = await supabase
-        .from('phan_du_an')
-        .select('id', { count: 'exact', head: true })
-        .eq('du_an_id', project.id);
-
-      // Lấy part IDs để đếm tasks
-      const { data: parts } = await supabase
-        .from('phan_du_an')
-        .select('id')
-        .eq('du_an_id', project.id);
-
-      const partIdList = parts?.map(p => p.id) || [];
-      let tasksCount = 0;
-      if (partIdList.length > 0) {
-        const { count } = await supabase
-          .from('task')
-          .select('id', { count: 'exact', head: true })
-          .in('phan_du_an_id', partIdList)
-          .is('deleted_at', null);
-        tasksCount = count || 0;
-      }
-
-      recentProjects.push({
+    recentProjects = (projectsData || []).map((project) => ({
         id: project.id,
         ten: project.ten,
         mo_ta: project.mo_ta || undefined,
         trang_thai: project.trang_thai,
         phan_tram_hoan_thanh: project.phan_tram_hoan_thanh || 0,
         deadline: project.deadline,
-        so_tasks: tasksCount,
-        so_parts: partsCount || 0,
-      });
-    }
+      }));
   }
 
   // 5. Lấy team members (người cùng trong các dự án)
   let teamMembers: ChatContext['teamMembers'] = [];
-  if (projectIds.length > 0) {
+  if (scope.includeMembers && projectIds.length > 0) {
     const { data: membersData } = await supabase
       .from('thanh_vien_du_an')
       .select('email, vai_tro')
@@ -206,7 +248,7 @@ async function fetchChatContext(
 
   // 6. Tính thống kê tổng quan
   let stats: ChatContext['stats'] | undefined;
-  if (projectIds.length > 0) {
+  if (scope.includeStats && projectIds.length > 0) {
     // Lấy tất cả part IDs
     const { data: allParts } = await supabase
       .from('phan_du_an')
@@ -300,8 +342,12 @@ export async function POST(request: NextRequest) {
 
     const { messages, enableAgent } = parseResult.data;
 
+    const lastUserMessage = getLastUserMessage(messages);
+    const intent = detectChatIntent(lastUserMessage);
+    const contextScope = resolveContextScope(intent, enableAgent);
+
     // Fetch context cho RAG
-    const context = await fetchChatContext(supabase, user.email!);
+    const context = await fetchChatContext(supabase, user.email!, contextScope);
 
     // Chuyển đổi messages thành format ChatMessage
     const chatMessages: ChatMessage[] = messages.map(m => {

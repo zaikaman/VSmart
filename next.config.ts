@@ -1,6 +1,10 @@
-import type { NextConfig } from "next";
+import path from 'path';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   experimental: {
     // Chừa thêm dung lượng cho multipart boundary để file 10MB không bị 413 từ proxy nội bộ của Next.
     proxyClientMaxBodySize: '12mb',

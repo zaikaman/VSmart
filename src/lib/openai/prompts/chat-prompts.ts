@@ -68,8 +68,8 @@ export function createRagContextPrompt(context: {
     trang_thai: string;
     phan_tram_hoan_thanh: number;
     deadline: string;
-    so_tasks: number;
-    so_parts: number;
+    so_tasks?: number;
+    so_parts?: number;
   }>;
   teamMembers: Array<{
     id: string;
@@ -101,9 +101,18 @@ export function createRagContextPrompt(context: {
     : '  (Không có task nào)';
 
   const projectsInfo = recentProjects.length > 0
-    ? recentProjects.map(p => 
-        `  - **ID: ${p.id}** | Tên: "${p.ten}" | ${p.phan_tram_hoan_thanh}% hoàn thành | ${p.so_tasks} tasks | ${p.so_parts} phần dự án | Deadline: ${new Date(p.deadline).toLocaleDateString('vi-VN')}`
-      ).join('\n')
+    ? recentProjects.map(p => {
+        const details = [
+          `**ID: ${p.id}**`,
+          `Tên: "${p.ten}"`,
+          `${p.phan_tram_hoan_thanh}% hoàn thành`,
+          typeof p.so_tasks === 'number' ? `${p.so_tasks} tasks` : null,
+          typeof p.so_parts === 'number' ? `${p.so_parts} phần dự án` : null,
+          `Deadline: ${new Date(p.deadline).toLocaleDateString('vi-VN')}`,
+        ].filter(Boolean);
+
+        return `  - ${details.join(' | ')}`;
+      }).join('\n')
     : '  (Không có dự án nào)';
 
   const membersInfo = teamMembers.length > 0
@@ -147,6 +156,7 @@ ${statsInfo}
 - Luôn sử dụng **ID** khi gọi functions (du_an_id, assignee_id, phan_du_an_id, task_id)
 - Nếu người dùng nói tên dự án/task, hãy TÌM ID tương ứng từ danh sách ở trên
 - Nếu không tìm thấy trong danh sách, GỌI FUNCTION lay_danh_sach_* để lấy thông tin đầy đủ
+- Context có thể chỉ là bản rút gọn để phản hồi nhanh hơn, khi thiếu dữ liệu thì ưu tiên GỌI FUNCTION để lấy thêm
 - TUYỆT ĐỐI KHÔNG tự bịa ID hoặc đoán mò
 - Nếu thiếu thông tin, HỎI người dùng hoặc GỌI FUNCTION để lấy thêm context`;
 }

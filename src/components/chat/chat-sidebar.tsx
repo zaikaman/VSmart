@@ -9,6 +9,7 @@ import { useMeetingSummary } from '@/lib/hooks/use-ai-insights';
 
 const CHAT_HISTORY_KEY = 'vsmart-chat-history';
 const MAX_HISTORY_MESSAGES = 50;
+const MAX_MESSAGES_TO_SEND = 12;
 const AGENT_MODE_KEY = 'vsmart-agent-mode';
 
 interface ChatSidebarProps {
@@ -43,6 +44,57 @@ interface ToolExecutionResult {
 
 interface ToolExecutionResponse {
   results: ToolExecutionResult[];
+}
+
+function buildConversationWindow(messages: Message[]) {
+  return messages
+    .filter((message) => !message.tool_call_id)
+    .slice(-MAX_MESSAGES_TO_SEND)
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+      tool_calls: message.tool_calls,
+    }));
+}
+
+function summarizeToolResults(results: ToolExecutionResult[]): string {
+  if (results.length === 0) {
+    return 'Tôi đã xử lý xong nhưng chưa nhận được dữ liệu kết quả rõ ràng.';
+  }
+
+  const successMessages = results
+    .filter((result) => result.success)
+    .map((result) => result.data?.message)
+    .filter((message): message is string => Boolean(message));
+
+  const errorMessages = results
+    .filter((result) => !result.success)
+    .map((result) => result.error)
+    .filter((message): message is string => Boolean(message));
+
+  if (successMessages.length === 1 && errorMessages.length === 0) {
+    return successMessages[0];
+  }
+
+  if (successMessages.length > 0 && errorMessages.length === 0) {
+    return successMessages.join('\n');
+  }
+
+  if (successMessages.length === 0 && errorMessages.length === 1) {
+    return `Chưa thể thực hiện: ${errorMessages[0]}`;
+  }
+
+  const parts: string[] = [];
+
+  if (successMessages.length > 0) {
+    parts.push(successMessages.join('\n'));
+  }
+
+  if (errorMessages.length > 0) {
+    parts.push(errorMessages.map((message) => `Chưa thể thực hiện: ${message}`).join('\n'));
+  }
+
+  return parts.join('\n');
 }
 
 function saveChatHistory(messages: Message[]) {
@@ -137,12 +189,7 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
       abortControllerRef.current = new AbortController();
 
       try {
-        const messagesToSend = [...messages, userMessage]
-          .filter((m) => !m.tool_call_id)
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-          }));
+        const messagesToSend = buildConversationWindow([...messages, userMessage]);
 
         const response = await fetch('/api/ai/chat', {
           method: 'POST',
@@ -230,94 +277,13 @@ export function ChatSidebar({ isOpen, onClose }: ChatSidebarProps) {
 
           const toolResults = (await toolResponse.json()) as ToolExecutionResponse;
           setExecutingTools(false);
-
-          const summaryMessages = [
-            ...messagesToSend,
-            {
-              role: 'assistant',
-              content: fullContent || '',
-              tool_calls: toolCalls,
-            },
-            ...toolResults.results.map((result) => ({
-              role: 'tool',
-              content: JSON.stringify({
-                success: result.success,
-                data: result.data,
-                error: result.error,
-              }),
-              tool_call_id: result.tool_call_id,
-            })),
-            {
-              role: 'user',
-              content: 'Tóm tắt ngắn gọn kết quả ở trên thành 1-2 câu rõ ràng.',
-            },
-          ];
-
-          const summaryResponse = await fetch('/api/ai/chat', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messages: summaryMessages,
-              enableAgent: false,
-            }),
-          });
-
-          if (!summaryResponse.ok) {
-            throw new Error('Lỗi khi tổng hợp kết quả');
-          }
-
-          const summaryReader = summaryResponse.body?.getReader();
-          if (!summaryReader) {
-            throw new Error('Không thể đọc phản hồi tổng hợp');
-          }
-
-          let summaryContent = '';
-          while (true) {
-            const { done, value } = await summaryReader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (!line.startsWith('data: ')) continue;
-              const data = line.slice(6);
-              if (data === '[DONE]') break;
-              try {
-                const parsed = JSON.parse(data) as StreamChunk;
-                if (parsed.type === 'content' && parsed.content) {
-                  summaryContent += parsed.content;
-                  setStreamingContent(summaryContent);
-                }
-              } catch {
-                // Ignore incomplete chunks
-              }
-            }
-          }
-
-          if (summaryContent) {
-            const summaryMessage: Message = {
-              id: generateMessageId(),
-              role: 'assistant',
-              content: summaryContent,
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, summaryMessage]);
-          } else {
-            const resultsText = toolResults.results
-              .map((r) => (r.success ? `Thành công: ${r.data?.message || 'OK'}` : `Lỗi: ${r.error}`))
-              .join('\n');
-
-            const fallbackMessage: Message = {
-              id: generateMessageId(),
-              role: 'assistant',
-              content: resultsText,
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, fallbackMessage]);
-          }
+          const summaryMessage: Message = {
+            id: generateMessageId(),
+            role: 'assistant',
+            content: summarizeToolResults(toolResults.results),
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, summaryMessage]);
         } else if (fullContent) {
           const assistantMessage: Message = {
             id: generateMessageId(),

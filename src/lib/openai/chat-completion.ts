@@ -52,8 +52,8 @@ export interface ChatContext {
     trang_thai: string;
     phan_tram_hoan_thanh: number;
     deadline: string;
-    so_tasks: number;
-    so_parts: number;
+    so_tasks?: number;
+    so_parts?: number;
   }>;
   teamMembers: Array<{
     id: string;
