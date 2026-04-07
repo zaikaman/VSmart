@@ -17,6 +17,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateOrganization } from '@/lib/hooks/use-organizations';
+import {
+  normalizeOrganizationName,
+  ORGANIZATION_NAME_MAX_LENGTH,
+  validateOrganizationName,
+} from '@/lib/validation/organization-name';
 
 interface CreateOrganizationModalProps {
   open: boolean;
@@ -29,7 +34,6 @@ interface OrganizationFormData {
   mo_ta?: string;
 }
 
-const ORGANIZATION_NAME_MAX_LENGTH = 120;
 const ORGANIZATION_DESCRIPTION_MAX_LENGTH = 500;
 
 export function CreateOrganizationModal({
@@ -49,6 +53,7 @@ export function CreateOrganizationModal({
 
   const orgName = watch('ten') || '';
   const orgDescription = watch('mo_ta') || '';
+  const normalizedOrgName = normalizeOrganizationName(orgName);
 
   useEffect(() => {
     if (wasOpenRef.current && !open) {
@@ -62,7 +67,7 @@ export function CreateOrganizationModal({
   const onSubmit = async (data: OrganizationFormData) => {
     try {
       await createOrganizationMutation.mutateAsync({
-        ten: data.ten.trim(),
+        ten: normalizeOrganizationName(data.ten),
         mo_ta: data.mo_ta?.trim() || undefined,
       });
 
@@ -82,14 +87,17 @@ export function CreateOrganizationModal({
             <Building2 className="h-5 w-5 text-[#7f9d5b]" />
             Tạo không gian làm việc
           </DialogTitle>
-          <DialogDescription>Tạo nơi làm việc chung cho team để bắt đầu dự án và mời mọi người vào làm việc.</DialogDescription>
+          <DialogDescription>
+            Tạo nơi làm việc chung cho team để bắt đầu dự án và mời mọi người vào làm việc.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="rounded-[22px] border border-[#dfe8d8] bg-[linear-gradient(135deg,#f8fbf4_0%,#f2f8ef_100%)] px-4 py-4 text-sm text-[#52614f]">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-4 w-4 text-[#6d8d49]" />
             <p>
-              Người tạo đầu tiên sẽ là <strong>owner</strong> của tổ chức này và có thể quản lý cài đặt chung cho team.
+              Người tạo đầu tiên sẽ là <strong>owner</strong> của tổ chức này và có thể quản lý cài
+              đặt chung cho team.
             </p>
           </div>
         </div>
@@ -101,16 +109,16 @@ export function CreateOrganizationModal({
               id="ten"
               maxLength={ORGANIZATION_NAME_MAX_LENGTH}
               {...register('ten', {
-                required: 'Vui lòng nhập tên tổ chức',
-                validate: (value) =>
-                  value.trim().length > 0 || 'Tên tổ chức không được chỉ chứa khoảng trắng',
+                validate: value => validateOrganizationName(value) || true,
               })}
               placeholder="Ví dụ: VSmart Studio"
               className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
             />
             <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
               <span>Hiển thị tên team dùng chung trên toàn bộ không gian làm việc.</span>
-              <span>{orgName.trim().length}/{ORGANIZATION_NAME_MAX_LENGTH}</span>
+              <span>
+                {normalizedOrgName.length}/{ORGANIZATION_NAME_MAX_LENGTH}
+              </span>
             </div>
             {errors.ten ? <p className="mt-1 text-sm text-red-600">{errors.ten.message}</p> : null}
           </div>
@@ -121,17 +129,23 @@ export function CreateOrganizationModal({
               id="mo_ta"
               maxLength={ORGANIZATION_DESCRIPTION_MAX_LENGTH}
               {...register('mo_ta', {
-                validate: (value) =>
-                  !value || value.trim().length <= ORGANIZATION_DESCRIPTION_MAX_LENGTH || 'Mô tả quá dài',
+                validate: value =>
+                  !value ||
+                  value.trim().length <= ORGANIZATION_DESCRIPTION_MAX_LENGTH ||
+                  'Mô tả quá dài',
               })}
               placeholder="Ví dụ: Team sản phẩm nội bộ hoặc nhóm triển khai khách hàng."
               className="mt-1.5 min-h-[110px] border-[#dfe5d6] bg-[#fbfcf8]"
             />
             <div className="mt-1 flex items-center justify-between text-xs text-[#6f7b6b]">
               <span>Mô tả ngắn giúp thành viên mới hiểu mục tiêu tổ chức.</span>
-              <span>{orgDescription.trim().length}/{ORGANIZATION_DESCRIPTION_MAX_LENGTH}</span>
+              <span>
+                {orgDescription.trim().length}/{ORGANIZATION_DESCRIPTION_MAX_LENGTH}
+              </span>
             </div>
-            {errors.mo_ta ? <p className="mt-1 text-sm text-red-600">{errors.mo_ta.message}</p> : null}
+            {errors.mo_ta ? (
+              <p className="mt-1 text-sm text-red-600">{errors.mo_ta.message}</p>
+            ) : null}
           </div>
 
           <DialogFooter>

@@ -1,8 +1,8 @@
 ---
 name: optimize
 description: Improve interface performance across loading speed, rendering, animations, images, and bundle size. Makes experiences faster and smoother.
-user-invokable: true
-argument-hint: [TARGET=<value>]
+user-invocable: true
+argument-hint: "[TARGET=<value>]"
 ---
 
 Identify and fix performance issues to create faster, smoother user experiences.

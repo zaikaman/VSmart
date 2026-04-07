@@ -12,8 +12,13 @@ import { AvatarUpload } from '@/components/ui/avatar-upload';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { APP_ROLE_LABELS, canManageOrganizationSettings, type AppRole } from '@/lib/auth/permissions';
+import {
+  APP_ROLE_LABELS,
+  canManageOrganizationSettings,
+  type AppRole,
+} from '@/lib/auth/permissions';
 import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
+import { validateOrganizationName } from '@/lib/validation/organization-name';
 
 interface UserProfile {
   id: string;
@@ -63,7 +68,9 @@ export function ProfilePageContent() {
   });
 
   const skills = skillsResponse?.data || [];
-  const canEditOrganization = Boolean(user && organization && canManageOrganizationSettings(user.vai_tro));
+  const canEditOrganization = Boolean(
+    user && organization && canManageOrganizationSettings(user.vai_tro)
+  );
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { ten?: string; ten_cong_ty?: string; ten_phong_ban?: string }) => {
@@ -92,6 +99,11 @@ export function ProfilePageContent() {
 
       if (organization) {
         if (canEditOrganization) {
+          const organizationNameError = validateOrganizationName(data.ten_cong_ty);
+          if (organizationNameError) {
+            throw new Error(organizationNameError);
+          }
+
           await updateOrganizationMutation.mutateAsync({ ten: data.ten_cong_ty });
         }
       } else {
@@ -112,7 +124,11 @@ export function ProfilePageContent() {
   });
 
   const addSkillMutation = useMutation({
-    mutationFn: async (data: { ten_ky_nang: string; trinh_do: string; nam_kinh_nghiem: number }) => {
+    mutationFn: async (data: {
+      ten_ky_nang: string;
+      trinh_do: string;
+      nam_kinh_nghiem: number;
+    }) => {
       const response = await fetch('/api/users/me/skills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,7 +150,13 @@ export function ProfilePageContent() {
   });
 
   const updateSkillMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { trinh_do?: string; nam_kinh_nghiem?: number } }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: { trinh_do?: string; nam_kinh_nghiem?: number };
+    }) => {
       const response = await fetch(`/api/users/me/skills/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -260,9 +282,16 @@ export function ProfilePageContent() {
       ]}
     >
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <DashboardSection title="Thông tin cơ bản" description="Ảnh đại diện và thông tin hiển thị của bạn.">
+        <DashboardSection
+          title="Thông tin cơ bản"
+          description="Ảnh đại diện và thông tin hiển thị của bạn."
+        >
           <div className="flex flex-col items-center rounded-[24px] border border-[#e6ebde] bg-[#fbfcf8] p-5">
-            <AvatarUpload currentAvatarUrl={user.avatar_url} userName={user.ten} onAvatarChange={(url) => updateAvatarMutation.mutate(url)} />
+            <AvatarUpload
+              currentAvatarUrl={user.avatar_url}
+              userName={user.ten}
+              onAvatarChange={url => updateAvatarMutation.mutate(url)}
+            />
             <div className="mt-6 w-full space-y-3 text-center">
               <h2 className="text-xl font-semibold text-[#223021]">{user.ten}</h2>
               <div className="flex items-center justify-center gap-2 text-sm text-[#67745f]">
@@ -290,7 +319,11 @@ export function ProfilePageContent() {
           description="Thông tin cá nhân dùng trong hồ sơ và khi làm việc cùng team."
           actions={
             !isEditing ? (
-              <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={handleEditProfile}>
+              <Button
+                variant="outline"
+                className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]"
+                onClick={handleEditProfile}
+              >
                 Chỉnh sửa
               </Button>
             ) : null
@@ -300,7 +333,13 @@ export function ProfilePageContent() {
             <div>
               <Label htmlFor="ten">Họ và tên</Label>
               {isEditing ? (
-                <Input id="ten" value={formData.ten} onChange={(e) => setFormData({ ...formData, ten: e.target.value })} placeholder="Nhập họ tên" className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]" />
+                <Input
+                  id="ten"
+                  value={formData.ten}
+                  onChange={e => setFormData({ ...formData, ten: e.target.value })}
+                  placeholder="Nhập họ tên"
+                  className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
+                />
               ) : (
                 <p className="mt-2 text-sm text-[#223021]">{user.ten}</p>
               )}
@@ -318,33 +357,49 @@ export function ProfilePageContent() {
                   <Input
                     id="ten_cong_ty"
                     value={formData.ten_cong_ty}
-                    onChange={(e) => setFormData({ ...formData, ten_cong_ty: e.target.value })}
+                    onChange={e => setFormData({ ...formData, ten_cong_ty: e.target.value })}
                     placeholder={user.to_chuc ? 'Nhập tên tổ chức' : 'Nhập tên công ty'}
                     className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
                     disabled={Boolean(user.to_chuc && !canEditOrganization)}
                   />
                   {user.to_chuc && !canEditOrganization ? (
-                    <p className="mt-2 text-xs text-[#8a7a66]">Tên tổ chức chỉ owner hoặc admin mới được cập nhật.</p>
+                    <p className="mt-2 text-xs text-[#8a7a66]">
+                      Tên tổ chức chỉ owner hoặc admin mới được cập nhật.
+                    </p>
                   ) : null}
                 </>
               ) : (
-                <p className="mt-2 text-sm text-[#223021]">{user.to_chuc?.ten || user.ten_cong_ty || 'Chưa cập nhật'}</p>
+                <p className="mt-2 text-sm text-[#223021]">
+                  {user.to_chuc?.ten || user.ten_cong_ty || 'Chưa cập nhật'}
+                </p>
               )}
             </div>
 
             <div>
               <Label htmlFor="ten_phong_ban">Phòng ban</Label>
               {isEditing ? (
-                <Input id="ten_phong_ban" value={formData.ten_phong_ban} onChange={(e) => setFormData({ ...formData, ten_phong_ban: e.target.value })} placeholder="Nhập tên phòng ban" className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]" />
+                <Input
+                  id="ten_phong_ban"
+                  value={formData.ten_phong_ban}
+                  onChange={e => setFormData({ ...formData, ten_phong_ban: e.target.value })}
+                  placeholder="Nhập tên phòng ban"
+                  className="mt-1.5 border-[#dfe5d6] bg-[#fbfcf8]"
+                />
               ) : (
-                <p className="mt-2 text-sm text-[#223021]">{user.ten_phong_ban || 'Chưa cập nhật'}</p>
+                <p className="mt-2 text-sm text-[#223021]">
+                  {user.ten_phong_ban || 'Chưa cập nhật'}
+                </p>
               )}
             </div>
           </div>
 
           {isEditing ? (
             <div className="mt-5 flex gap-2">
-              <Button className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]" onClick={() => saveProfileMutation.mutate(formData)} disabled={saveProfileMutation.isPending}>
+              <Button
+                className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
+                onClick={() => saveProfileMutation.mutate(formData)}
+                disabled={saveProfileMutation.isPending}
+              >
                 {saveProfileMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -357,7 +412,12 @@ export function ProfilePageContent() {
                   </>
                 )}
               </Button>
-              <Button variant="outline" className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]" onClick={() => setIsEditing(false)} disabled={saveProfileMutation.isPending}>
+              <Button
+                variant="outline"
+                className="border-[#e0e6d7] bg-white text-[#5d6958] hover:bg-[#f6f8f1]"
+                onClick={() => setIsEditing(false)}
+                disabled={saveProfileMutation.isPending}
+              >
                 Hủy
               </Button>
             </div>
@@ -365,9 +425,15 @@ export function ProfilePageContent() {
         </DashboardSection>
       </div>
 
-      <DashboardSection title="Kỹ năng" description="Khai báo kỹ năng và mức độ thành thạo của bạn.">
+      <DashboardSection
+        title="Kỹ năng"
+        description="Khai báo kỹ năng và mức độ thành thạo của bạn."
+      >
         <div className="space-y-6">
-          <SkillsInput onAddSkill={(data) => addSkillMutation.mutate(data)} isLoading={addSkillMutation.isPending} />
+          <SkillsInput
+            onAddSkill={data => addSkillMutation.mutate(data)}
+            isLoading={addSkillMutation.isPending}
+          />
 
           {isLoadingSkills ? (
             <div className="space-y-3">
@@ -379,14 +445,17 @@ export function ProfilePageContent() {
             <SkillsList
               skills={skills}
               onUpdateSkill={(id, data) => updateSkillMutation.mutateAsync({ id, data })}
-              onDeleteSkill={(skillId) => deleteSkillMutation.mutate(skillId)}
+              onDeleteSkill={skillId => deleteSkillMutation.mutate(skillId)}
               isUpdating={updateSkillMutation.isPending}
               isDeleting={deleteSkillMutation.isPending}
             />
           ) : (
             <div className="rounded-[24px] border border-dashed border-[#dce4d3] bg-[#f8faf4] py-10 text-center text-[#72806c]">
               <p>Bạn chưa thêm kỹ năng nào.</p>
-              <p className="mt-1 text-sm">Hãy thêm kỹ năng để tăng cơ hội được giao đúng việc và giúp AI hiểu rõ hồ sơ năng lực hơn.</p>
+              <p className="mt-1 text-sm">
+                Hãy thêm kỹ năng để tăng cơ hội được giao đúng việc và giúp AI hiểu rõ hồ sơ năng
+                lực hơn.
+              </p>
             </div>
           )}
         </div>

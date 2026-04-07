@@ -1,8 +1,8 @@
 ---
 name: critique
 description: Evaluate design effectiveness from a UX perspective. Assesses visual hierarchy, information architecture, emotional resonance, and overall design quality with actionable feedback.
-user-invokable: true
-argument-hint: [AREA=<value>]
+user-invocable: true
+argument-hint: "[AREA=<value>]"
 ---
 
 Conduct a holistic design critique, evaluating whether the interface actually works—not just technically, but as a designed experience. Think like a design director giving feedback.

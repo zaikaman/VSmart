@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { canManageOrganizationSettings, type AppRole } from '@/lib/auth/permissions';
 import { supabaseAdmin } from '@/lib/supabase/client';
+import {
+  normalizeOrganizationName,
+  validateOrganizationName,
+} from '@/lib/validation/organization-name';
 
 export interface Organization {
   id: string;
@@ -30,12 +34,22 @@ const organizationSettingsSchema = z
   })
   .strict();
 
+const organizationNameSchema = z
+  .string({ error: 'Tên tổ chức là bắt buộc.' })
+  .transform(value => normalizeOrganizationName(value))
+  .superRefine((value, context) => {
+    const error = validateOrganizationName(value);
+
+    if (error) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: error,
+      });
+    }
+  });
+
 const createOrganizationSchema = z.object({
-  ten: z
-    .string({ error: 'Tên tổ chức là bắt buộc.' })
-    .trim()
-    .min(1, 'Tên tổ chức là bắt buộc.')
-    .max(120, 'Tên tổ chức không được vượt quá 120 ký tự.'),
+  ten: organizationNameSchema,
   mo_ta: z.string().trim().max(500, 'Mô tả không được vượt quá 500 ký tự.').optional(),
   logo_url: z.url('Logo URL không hợp lệ.').optional(),
   settings: organizationSettingsSchema.optional(),
@@ -43,18 +57,18 @@ const createOrganizationSchema = z.object({
 
 const updateOrganizationSchema = z
   .object({
-    ten: z.string().trim().min(1, 'Tên tổ chức là bắt buộc.').max(120, 'Tên tổ chức không được vượt quá 120 ký tự.').optional(),
+    ten: organizationNameSchema.optional(),
     mo_ta: z.string().trim().max(500, 'Mô tả không được vượt quá 500 ký tự.').optional(),
     logo_url: z.union([z.url('Logo URL không hợp lệ.'), z.literal('')]).optional(),
     settings: organizationSettingsSchema.optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, {
+  .refine(value => Object.keys(value).length > 0, {
     message: 'Cần ít nhất một trường để cập nhật tổ chức.',
   });
 
-function normalizeOrganization<T extends Partial<Organization> & { settings?: Partial<Organization['settings']> | null }>(
-  organization: T
-): T & { settings: Organization['settings'] } {
+function normalizeOrganization<
+  T extends Partial<Organization> & { settings?: Partial<Organization['settings']> | null },
+>(organization: T): T & { settings: Organization['settings'] } {
   return {
     ...organization,
     settings: {
@@ -62,6 +76,23 @@ function normalizeOrganization<T extends Partial<Organization> & { settings?: Pa
       ...(organization.settings || {}),
     },
   };
+}
+
+async function findDuplicateOrganizationName(ten: string, excludeId?: string) {
+  let query = supabaseAdmin.from('to_chuc').select('id').ilike('ten', ten).limit(1);
+
+  if (excludeId) {
+    query = query.neq('id', excludeId);
+  }
+
+  const { data } = await query;
+  return data?.[0] || null;
+}
+
+function isDuplicateOrganizationError(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === '23505' || error?.message?.toLowerCase().includes('duplicate key') === true
+  );
 }
 
 async function getNormalizedOrganizationSettings(organizationId: string) {
@@ -154,6 +185,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Người dùng đã thuộc một tổ chức' }, { status: 400 });
     }
 
+    const duplicateOrganization = await findDuplicateOrganizationName(validated.ten);
+    if (duplicateOrganization) {
+      return NextResponse.json(
+        { error: 'Tên tổ chức này đã tồn tại. Vui lòng chọn tên khác.' },
+        { status: 409 }
+      );
+    }
+
     const { data: organization, error: createError } = await supabaseAdmin
       .from('to_chuc')
       .insert({
@@ -171,6 +210,14 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.error('Error creating organization:', createError);
+
+      if (isDuplicateOrganizationError(createError)) {
+        return NextResponse.json(
+          { error: 'Tên tổ chức này đã tồn tại. Vui lòng chọn tên khác.' },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json({ error: 'Không thể tạo tổ chức' }, { status: 500 });
     }
 
@@ -182,13 +229,19 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error('Error updating user organization:', updateError);
       await supabaseAdmin.from('to_chuc').delete().eq('id', organization.id);
-      return NextResponse.json({ error: 'Không thể cập nhật thông tin người dùng' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Không thể cập nhật thông tin người dùng' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(normalizeOrganization(organization), { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' },
+        { status: 400 }
+      );
     }
 
     console.error('Error creating organization:', error);
@@ -224,18 +277,38 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!canManageOrganizationSettings(userData.vai_tro as AppRole)) {
-      return NextResponse.json({ error: 'Bạn không có quyền cập nhật tổ chức này' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Bạn không có quyền cập nhật tổ chức này' },
+        { status: 403 }
+      );
     }
 
     const updateData: Record<string, unknown> = {};
-    if (validated.ten !== undefined) updateData.ten = validated.ten;
+    if (validated.ten !== undefined) {
+      const duplicateOrganization = await findDuplicateOrganizationName(
+        validated.ten,
+        userData.to_chuc_id
+      );
+
+      if (duplicateOrganization) {
+        return NextResponse.json(
+          { error: 'Tên tổ chức này đã tồn tại. Vui lòng chọn tên khác.' },
+          { status: 409 }
+        );
+      }
+
+      updateData.ten = validated.ten;
+    }
     if (validated.mo_ta !== undefined) updateData.mo_ta = validated.mo_ta || null;
     if (validated.logo_url !== undefined) updateData.logo_url = validated.logo_url || null;
     if (validated.settings !== undefined) {
       const existingSettings = await getNormalizedOrganizationSettings(userData.to_chuc_id);
 
       if (!existingSettings) {
-        return NextResponse.json({ error: 'Không tìm thấy cấu hình tổ chức hiện tại' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'Không tìm thấy cấu hình tổ chức hiện tại' },
+          { status: 404 }
+        );
       }
 
       updateData.settings = {
@@ -253,13 +326,24 @@ export async function PATCH(request: NextRequest) {
 
     if (updateError) {
       console.error('Error updating organization:', updateError);
+
+      if (isDuplicateOrganizationError(updateError)) {
+        return NextResponse.json(
+          { error: 'Tên tổ chức này đã tồn tại. Vui lòng chọn tên khác.' },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json({ error: 'Không thể cập nhật tổ chức' }, { status: 500 });
     }
 
     return NextResponse.json(normalizeOrganization(organization));
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' }, { status: 400 });
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' },
+        { status: 400 }
+      );
     }
 
     console.error('Error updating organization:', error);
