@@ -112,6 +112,85 @@ export function useUpdateOrganization() {
   });
 }
 
+export function useDeleteOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { confirmation_name: string }) => {
+      const response = await fetch('/api/organizations', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Không thể xóa tổ chức');
+      }
+
+      return payload as { message: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-members'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-invitations', 'manage'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-join-requests', 'manage'] });
+      queryClient.invalidateQueries({ queryKey: ['phong-ban'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['my-organization-join-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['discover-organizations'] });
+    },
+  });
+}
+
+export function useLeaveOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/organizations/leave', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Không thể rời tổ chức');
+      }
+
+      return payload as { message: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-members'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-invitations', 'manage'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-join-requests', 'manage'] });
+      queryClient.invalidateQueries({ queryKey: ['phong-ban'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-bootstrap'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['settings-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['reviews-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
 export function useOrganizationMembers(options?: { enabled?: boolean; meta?: Record<string, unknown> }) {
   return useQuery({
     queryKey: ['organization-members'],
@@ -167,6 +246,44 @@ export function useUpdateOrganizationMemberRole() {
       queryClient.invalidateQueries({ queryKey: ['reviews-current-user'] });
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
+export function useRemoveOrganizationMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['remove-organization-member'],
+    mutationFn: async (data: { user_id: string }) => {
+      const response = await fetch('/api/organization-members', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Không thể gỡ thành viên khỏi tổ chức');
+      }
+
+      return payload as { message: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-members'] });
+      queryClient.invalidateQueries({ queryKey: ['organization'] });
+      queryClient.invalidateQueries({ queryKey: ['phong-ban'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['reviews-current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }

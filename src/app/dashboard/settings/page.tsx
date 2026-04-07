@@ -23,14 +23,21 @@ import { OrganizationInvitationsPanel } from '@/components/settings/organization
 import { OrganizationJoinRequestsPanel } from '@/components/settings/organization-join-requests-panel';
 import { OrganizationMembersPanel } from '@/components/settings/organization-members-panel';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { APP_ROLE_LABELS, canManageOrganizationSettings } from '@/lib/auth/permissions';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
-import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
+import {
+  useDeleteOrganization,
+  useLeaveOrganization,
+  useOrganization,
+  useUpdateOrganization,
+} from '@/lib/hooks/use-organizations';
 import { defaultSettings, useUpdateUserSettings, useUserSettings } from '@/lib/hooks/use-settings';
+import { normalizeOrganizationName } from '@/lib/validation/organization-name';
 
 type SettingsScope = 'personal' | 'organization' | 'members';
 
@@ -148,16 +155,25 @@ function EmptyWorkspaceState({
 export default function SettingsPage() {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showOrganizationDeleteConfirm, setShowOrganizationDeleteConfirm] = useState(false);
+  const [showLeaveOrganizationConfirm, setShowLeaveOrganizationConfirm] = useState(false);
+  const [organizationDeleteName, setOrganizationDeleteName] = useState('');
   const [createOrganizationOpen, setCreateOrganizationOpen] = useState(false);
   const [selectedScope, setSelectedScope] = useState<SettingsScope>('personal');
   const { data: settingsResponse, isLoading } = useUserSettings();
   const { data: organization, isLoading: isOrganizationLoading } = useOrganization();
   const updateSettings = useUpdateUserSettings();
   const updateOrganization = useUpdateOrganization();
+  const deleteOrganization = useDeleteOrganization();
+  const leaveOrganization = useLeaveOrganization();
   const settings = settingsResponse?.data || defaultSettings;
   const { data: currentUser } = useCurrentUser();
 
   const canEditOrganization = currentUser?.vai_tro ? canManageOrganizationSettings(currentUser.vai_tro) : false;
+  const canDeleteOrganization = currentUser?.vai_tro === 'owner';
+  const organizationDeleteMatched = organization
+    ? normalizeOrganizationName(organizationDeleteName) === normalizeOrganizationName(organization.ten)
+    : false;
 
   const logoutOthersMutation = useMutation({
     mutationFn: async () => {
@@ -527,6 +543,196 @@ export default function SettingsPage() {
 
             <DashboardSection title="Phòng ban" description="Danh sách này dùng chung cho thành viên và lúc chia phần dự án.">
               <OrganizationDepartmentsPanel canManage={canEditOrganization} />
+            </DashboardSection>
+
+            <DashboardSection
+              title="Rời workspace"
+              description="Dùng khi bạn không còn làm việc trong workspace này nữa."
+            >
+              <div className="rounded-[28px] border border-[#e5e4d6] bg-[linear-gradient(135deg,#fbfbf5_0%,#f6f4ec_100%)] p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="max-w-2xl">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#dddccd] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#6f6b56]">
+                      <LogOut className="h-3.5 w-3.5" />
+                      Tự rời workspace
+                    </div>
+                    <p className="mt-4 text-lg font-semibold text-[#343223]">
+                      Khi rời đi, bạn sẽ mất quyền vào workspace này và cũng không còn nằm trong các dự án nội bộ hiện tại.
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-[#65614f]">
+                      Nếu bạn đang là owner cuối cùng, hệ thống sẽ yêu cầu chuyển quyền owner trước rồi mới cho rời.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#e2dfcf] bg-white/80 px-4 py-3 text-sm text-[#66614d]">
+                    {currentUser?.vai_tro
+                      ? `Vai trò hiện tại: ${APP_ROLE_LABELS[currentUser.vai_tro]}.`
+                      : 'Đang kiểm tra vai trò hiện tại của bạn.'}
+                  </div>
+                </div>
+
+                {!showLeaveOrganizationConfirm ? (
+                  <div className="mt-5">
+                    <Button
+                      variant="outline"
+                      className="border-[#d9d5c3] bg-white text-[#5f5a46] hover:bg-[#f6f2e8]"
+                      onClick={() => setShowLeaveOrganizationConfirm(true)}
+                    >
+                      Rời workspace
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-[24px] border border-[#e4e0d0] bg-white/85 p-4">
+                    <p className="text-sm leading-6 text-[#6a6551]">
+                      Sau bước này, bạn sẽ quay về trạng thái chưa thuộc workspace nào. Nếu muốn vào lại, bạn cần được mời hoặc gửi yêu cầu gia nhập lại từ đầu.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className="border-[#d9d5c3] bg-white text-[#5f5a46] hover:bg-[#f6f2e8]"
+                        onClick={() => setShowLeaveOrganizationConfirm(false)}
+                        disabled={leaveOrganization.isPending}
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          leaveOrganization.mutate(undefined, {
+                            onSuccess: (result) => {
+                              toast.success(result.message);
+                              setShowLeaveOrganizationConfirm(false);
+                              router.refresh();
+                            },
+                            onError: (error: Error) => toast.error(error.message),
+                          });
+                        }}
+                        disabled={leaveOrganization.isPending}
+                      >
+                        {leaveOrganization.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          'Xác nhận rời workspace'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DashboardSection>
+
+            <DashboardSection
+              title="Đóng workspace"
+              description="Phần này dành cho lúc bạn muốn dừng hẳn tổ chức hiện tại."
+            >
+              <div className="rounded-[28px] border border-[#f0ddd1] bg-[linear-gradient(135deg,#fff8f3_0%,#fff2ea_100%)] p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="max-w-2xl">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#efddcf] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#9c6445]">
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      Vùng thao tác nhạy cảm
+                    </div>
+                    <p className="mt-4 text-lg font-semibold text-[#7c4630]">
+                      Xóa workspace sẽ gỡ tổ chức này khỏi tài khoản của bạn và dọn toàn bộ dữ liệu quản trị đi kèm.
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-[#98664c]">
+                      Hệ thống chỉ cho xóa khi bạn là chủ tổ chức, không còn thành viên khác và không còn dự án đang hoạt động.
+                    </p>
+                  </div>
+
+                  <div className="rounded-[22px] border border-[#ead6c8] bg-white/80 px-4 py-3 text-sm text-[#916148]">
+                    {canDeleteOrganization
+                      ? 'Bạn đang giữ quyền chủ tổ chức.'
+                      : 'Chỉ chủ tổ chức mới có thể thực hiện thao tác này.'}
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-[24px] border border-[#edd9cc] bg-white/85 p-4">
+                  <p className="text-sm leading-6 text-[#8b5b43]">
+                    Tên cần nhập để xác nhận: <span className="font-semibold text-[#6f3f2b]">{organization.ten}</span>
+                  </p>
+
+                  {!showOrganizationDeleteConfirm ? (
+                    <div className="mt-4">
+                      <Button
+                        variant="destructive"
+                        onClick={() => setShowOrganizationDeleteConfirm(true)}
+                        disabled={!canDeleteOrganization}
+                      >
+                        Xóa workspace
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <Label htmlFor="organization-delete-name" className="text-sm text-[#754634]">
+                          Nhập đúng tên workspace để tiếp tục
+                        </Label>
+                        <Input
+                          id="organization-delete-name"
+                          value={organizationDeleteName}
+                          onChange={(event) => setOrganizationDeleteName(event.target.value)}
+                          placeholder={organization.ten}
+                          className="mt-2 border-[#e8d5c9] bg-[#fffaf6] text-[#6e4230]"
+                          disabled={deleteOrganization.isPending || !canDeleteOrganization}
+                        />
+                        <p className="mt-2 text-sm text-[#9a6d55]">
+                          Khi xóa xong, bạn sẽ rời khỏi workspace này ngay và không thể hoàn tác.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          className="border-[#e6cdbf] bg-white text-[#8f5a3e] hover:bg-[#fff2ea]"
+                          onClick={() => {
+                            setShowOrganizationDeleteConfirm(false);
+                            setOrganizationDeleteName('');
+                          }}
+                          disabled={deleteOrganization.isPending}
+                        >
+                          Hủy
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          disabled={
+                            deleteOrganization.isPending ||
+                            !canDeleteOrganization ||
+                            !organizationDeleteMatched
+                          }
+                          onClick={() => {
+                            deleteOrganization.mutate(
+                              { confirmation_name: organizationDeleteName },
+                              {
+                                onSuccess: (result) => {
+                                  toast.success(result.message);
+                                  setOrganizationDeleteName('');
+                                  setShowOrganizationDeleteConfirm(false);
+                                  router.refresh();
+                                },
+                                onError: (error: Error) => toast.error(error.message),
+                              }
+                            );
+                          }}
+                        >
+                          {deleteOrganization.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Đang xóa...
+                            </>
+                          ) : (
+                            'Xác nhận xóa workspace'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </DashboardSection>
           </>
         ) : (

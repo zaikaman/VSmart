@@ -27,6 +27,7 @@ import {
 } from '@/lib/auth/permissions';
 import {
   useOrganizationMembers,
+  useRemoveOrganizationMember,
   useUpdateOrganizationMemberRole,
 } from '@/lib/hooks/use-organizations';
 import { type PhongBan, usePhongBan } from '@/lib/hooks/use-phong-ban';
@@ -65,11 +66,13 @@ function getInitials(name: string) {
 export function OrganizationMembersPanel() {
   const { data: response, isLoading } = useOrganizationMembers();
   const updateMemberMutation = useUpdateOrganizationMemberRole();
+  const removeMemberMutation = useRemoveOrganizationMember();
   const { data: departments } = usePhongBan();
   const [draftRoles, setDraftRoles] = useState<Record<string, AppRole>>({});
   const [draftDepartments, setDraftDepartments] = useState<Record<string, string>>({});
 
   const pendingUserId = updateMemberMutation.variables?.user_id;
+  const removingUserId = removeMemberMutation.variables?.user_id;
 
   const roleCounts = useMemo(() => {
     return (response?.data || []).reduce<Record<AppRole, number>>(
@@ -164,6 +167,7 @@ export function OrganizationMembersPanel() {
             const draftDepartment = draftDepartments[member.id] || currentDepartmentValue;
             const isSelf = member.id === permissions.currentUserId;
             const isPending = pendingUserId === member.id && updateMemberMutation.isPending;
+            const isRemoving = removingUserId === member.id && removeMemberMutation.isPending;
             const canManageTarget =
               isSelf ||
               canManageOrganizationTarget(permissions.currentUserRole, member.vai_tro);
@@ -179,6 +183,8 @@ export function OrganizationMembersPanel() {
             const departmentChanged = draftDepartment !== currentDepartmentValue;
             const canSave =
               (roleChanged && canEditRole) || (departmentChanged && canEditDepartment);
+            const canRemove =
+              permissions.canManageRoles && !isSelf && canManageTarget;
             const Icon = roleIconMap[member.vai_tro];
             const currentDepartmentStillSelectable =
               Boolean(member.phong_ban_id) &&
@@ -188,7 +194,7 @@ export function OrganizationMembersPanel() {
             return (
               <div
                 key={member.id}
-                className="grid gap-4 rounded-[24px] border border-[#e3eadc] bg-white/90 px-4 py-4 shadow-[0_16px_35px_-32px_rgba(98,115,88,0.34)] md:grid-cols-[minmax(0,1.2fr)_300px_140px]"
+                className="grid gap-4 rounded-[24px] border border-[#e3eadc] bg-white/90 px-4 py-4 shadow-[0_16px_35px_-32px_rgba(98,115,88,0.34)] md:grid-cols-[minmax(0,1.15fr)_300px_180px]"
               >
                 <div className="flex items-start gap-3">
                   <Avatar className="h-11 w-11 border border-[#dfe5d6]">
@@ -226,7 +232,7 @@ export function OrganizationMembersPanel() {
                           [member.id]: value as AppRole,
                         }))
                       }
-                      disabled={!canEditRole || isPending}
+                      disabled={!canEditRole || isPending || isRemoving}
                     >
                       <SelectTrigger
                         id={`role-${member.id}`}
@@ -256,7 +262,7 @@ export function OrganizationMembersPanel() {
                           [member.id]: value,
                         }))
                       }
-                      disabled={!canEditDepartment || isPending}
+                      disabled={!canEditDepartment || isPending || isRemoving}
                     >
                       <SelectTrigger
                         id={`department-${member.id}`}
@@ -289,7 +295,7 @@ export function OrganizationMembersPanel() {
                 <div className="flex flex-col items-start justify-between gap-3 md:items-end">
                   <Button
                     className="border border-[#d5e1c7] bg-[#edf6df] text-[#42533d] hover:bg-[#e4efd3]"
-                    disabled={!canSave || isPending}
+                    disabled={!canSave || isPending || isRemoving}
                     onClick={() => {
                       const payload: {
                         user_id: string;
@@ -325,6 +331,23 @@ export function OrganizationMembersPanel() {
                     }}
                   >
                     {isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="border-[#efd7cb] bg-[#fff8f4] text-[#9b5f42] hover:bg-[#fff1ea]"
+                    disabled={!canRemove || isPending || isRemoving}
+                    onClick={() => {
+                      removeMemberMutation.mutate(
+                        { user_id: member.id },
+                        {
+                          onSuccess: (result) => toast.success(result.message),
+                          onError: (error: Error) => toast.error(error.message),
+                        }
+                      );
+                    }}
+                  >
+                    {isRemoving ? 'Đang gỡ...' : 'Mời ra khỏi workspace'}
                   </Button>
 
                   <p className="text-right text-xs leading-5 text-[#7a8774]">

@@ -66,6 +66,12 @@ const updateOrganizationSchema = z
     message: 'Cần ít nhất một trường để cập nhật tổ chức.',
   });
 
+const deleteOrganizationSchema = z.object({
+  confirmation_name: z
+    .string({ error: 'Cần nhập tên tổ chức để xác nhận.' })
+    .transform(value => normalizeOrganizationName(value)),
+});
+
 function normalizeOrganization<
   T extends Partial<Organization> & { settings?: Partial<Organization['settings']> | null },
 >(organization: T): T & { settings: Organization['settings'] } {
@@ -347,6 +353,189 @@ export async function PATCH(request: NextRequest) {
     }
 
     console.error('Error updating organization:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE /api/organizations - Xóa tổ chức hiện tại
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const validated = deleteOrganizationSchema.parse(body);
+
+    const { data: userData, error: userError } = await supabase
+      .from('nguoi_dung')
+      .select('id, to_chuc_id, vai_tro')
+      .eq('email', user.email)
+      .single();
+
+    if (userError || !userData?.to_chuc_id) {
+      return NextResponse.json({ error: 'Không tìm thấy tổ chức để xóa' }, { status: 404 });
+    }
+
+    if (userData.vai_tro !== 'owner') {
+      return NextResponse.json(
+        { error: 'Chỉ chủ tổ chức mới có thể xóa workspace này' },
+        { status: 403 }
+      );
+    }
+
+    const { data: organization, error: organizationError } = await supabaseAdmin
+      .from('to_chuc')
+      .select('id, ten')
+      .eq('id', userData.to_chuc_id)
+      .single();
+
+    if (organizationError || !organization) {
+      return NextResponse.json({ error: 'Không tìm thấy tổ chức' }, { status: 404 });
+    }
+
+    if (validated.confirmation_name !== normalizeOrganizationName(organization.ten)) {
+      return NextResponse.json(
+        { error: 'Tên xác nhận chưa khớp với tên tổ chức hiện tại' },
+        { status: 400 }
+      );
+    }
+
+    const { count: memberCount, error: memberCountError } = await supabaseAdmin
+      .from('nguoi_dung')
+      .select('id', { count: 'exact', head: true })
+      .eq('to_chuc_id', organization.id);
+
+    if (memberCountError) {
+      return NextResponse.json(
+        { error: 'Không thể kiểm tra số lượng thành viên hiện tại' },
+        { status: 500 }
+      );
+    }
+
+    if ((memberCount || 0) > 1) {
+      return NextResponse.json(
+        {
+          error: `Tổ chức vẫn còn ${memberCount} thành viên. Hãy chuyển hoặc gỡ các thành viên khác trước khi xóa.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { count: activeProjectCount, error: activeProjectCountError } = await supabaseAdmin
+      .from('du_an')
+      .select('id', { count: 'exact', head: true })
+      .eq('to_chuc_id', organization.id)
+      .is('deleted_at', null);
+
+    if (activeProjectCountError) {
+      return NextResponse.json(
+        { error: 'Không thể kiểm tra danh sách dự án hiện tại' },
+        { status: 500 }
+      );
+    }
+
+    if ((activeProjectCount || 0) > 0) {
+      return NextResponse.json(
+        {
+          error: `Tổ chức vẫn còn ${activeProjectCount} dự án đang hoạt động. Hãy xóa hoặc đóng toàn bộ dự án trước khi xóa workspace.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { error: detachProjectError } = await supabaseAdmin
+      .from('du_an')
+      .update({ to_chuc_id: null })
+      .eq('to_chuc_id', organization.id);
+
+    if (detachProjectError) {
+      return NextResponse.json(
+        { error: 'Không thể xử lý dữ liệu dự án cũ của tổ chức' },
+        { status: 500 }
+      );
+    }
+
+    const { error: deleteInvitationError } = await supabaseAdmin
+      .from('loi_moi_to_chuc')
+      .delete()
+      .eq('to_chuc_id', organization.id);
+
+    if (deleteInvitationError) {
+      return NextResponse.json(
+        { error: 'Không thể dọn lời mời tổ chức trước khi xóa' },
+        { status: 500 }
+      );
+    }
+
+    const { error: deleteJoinRequestError } = await supabaseAdmin
+      .from('yeu_cau_gia_nhap_to_chuc')
+      .delete()
+      .eq('to_chuc_id', organization.id);
+
+    if (deleteJoinRequestError) {
+      return NextResponse.json(
+        { error: 'Không thể dọn yêu cầu gia nhập trước khi xóa' },
+        { status: 500 }
+      );
+    }
+
+    const { error: detachMembersError } = await supabaseAdmin
+      .from('nguoi_dung')
+      .update({
+        to_chuc_id: null,
+        vai_tro: 'member',
+        phong_ban_id: null,
+        ten_cong_ty: null,
+        ten_phong_ban: null,
+      })
+      .eq('to_chuc_id', organization.id);
+
+    if (detachMembersError) {
+      return NextResponse.json(
+        { error: 'Không thể tách thành viên ra khỏi tổ chức' },
+        { status: 500 }
+      );
+    }
+
+    const { error: deleteDepartmentsError } = await supabaseAdmin
+      .from('phong_ban')
+      .delete()
+      .eq('to_chuc_id', organization.id);
+
+    if (deleteDepartmentsError) {
+      return NextResponse.json(
+        { error: 'Không thể xóa dữ liệu phòng ban của tổ chức' },
+        { status: 500 }
+      );
+    }
+
+    const { error: deleteOrganizationError } = await supabaseAdmin
+      .from('to_chuc')
+      .delete()
+      .eq('id', organization.id);
+
+    if (deleteOrganizationError) {
+      return NextResponse.json({ error: 'Không thể xóa tổ chức' }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Đã xóa tổ chức thành công' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Dữ liệu không hợp lệ.' },
+        { status: 400 }
+      );
+    }
+
+    console.error('Error deleting organization:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

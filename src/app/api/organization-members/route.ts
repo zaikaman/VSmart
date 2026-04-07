@@ -46,6 +46,10 @@ const updateMemberSchema = z
     'Cần ít nhất một thay đổi để cập nhật.'
   );
 
+const removeMemberSchema = z.object({
+  user_id: z.string().uuid(),
+});
+
 function sortMembers(a: OrganizationMember, b: OrganizationMember) {
   const priorityDiff = APP_ROLE_PRIORITY[b.vai_tro] - APP_ROLE_PRIORITY[a.vai_tro];
 
@@ -120,6 +124,79 @@ async function getOrganizationMembers(organizationId: string) {
       }))
       .sort(sortMembers),
   };
+}
+
+async function removeUserFromOrganizationProjects(params: {
+  organizationId: string;
+  userId: string;
+  email: string;
+}) {
+  const { data: organizationProjects, error: projectError } = await supabaseAdmin
+    .from('du_an')
+    .select('id')
+    .eq('to_chuc_id', params.organizationId)
+    .is('deleted_at', null);
+
+  if (projectError) {
+    return { error: projectError };
+  }
+
+  const projectIds = (organizationProjects || []).map(project => project.id);
+
+  if (projectIds.length === 0) {
+    return { error: null };
+  }
+
+  const { error: membershipError } = await supabaseAdmin
+    .from('thanh_vien_du_an')
+    .update({
+      trang_thai: 'declined',
+      nguoi_dung_id: null,
+    })
+    .in('du_an_id', projectIds)
+    .eq('email', params.email)
+    .eq('trang_thai', 'active');
+
+  if (membershipError) {
+    return { error: membershipError };
+  }
+
+  const { data: projectParts, error: partError } = await supabaseAdmin
+    .from('phan_du_an')
+    .select('id')
+    .in('du_an_id', projectIds)
+    .is('deleted_at', null);
+
+  if (partError) {
+    return { error: partError };
+  }
+
+  const projectPartIds = (projectParts || []).map(part => part.id);
+
+  if (projectPartIds.length > 0) {
+    const { error: taskError } = await supabaseAdmin
+      .from('task')
+      .update({ assignee_id: null })
+      .in('phan_du_an_id', projectPartIds)
+      .eq('assignee_id', params.userId)
+      .is('deleted_at', null);
+
+    if (taskError) {
+      return { error: taskError };
+    }
+
+    const { error: recurringRuleError } = await supabaseAdmin
+      .from('recurring_task_rule')
+      .update({ assignee_id: null })
+      .in('phan_du_an_id', projectPartIds)
+      .eq('assignee_id', params.userId);
+
+    if (recurringRuleError) {
+      return { error: recurringRuleError };
+    }
+  }
+
+  return { error: null };
 }
 
 export async function GET() {
@@ -305,6 +382,124 @@ export async function PATCH(request: NextRequest) {
     }
 
     console.error('Error in PATCH /api/organization-members:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const context = await getOrgMemberContext();
+
+    if (!context) {
+      return NextResponse.json({ error: 'Báº¡n chÆ°a thuá»™c tá»• chá»©c nÃ o' }, { status: 404 });
+    }
+
+    if (!canManageOrganizationRoles(context.currentUser.vai_tro)) {
+      return NextResponse.json(
+        { error: 'Báº¡n khÃ´ng cÃ³ quyá»n gá»¡ thÃ nh viÃªn khá»i tá»• chá»©c' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const validated = removeMemberSchema.parse(body);
+
+    if (validated.user_id === context.currentUser.id) {
+      return NextResponse.json(
+        {
+          error:
+            'KhÃ´ng thá»±c hiá»‡n thao tÃ¡c nÃ y cho chÃ­nh mÃ¬nh á»Ÿ Ä‘Ã¢y. HÃ£y dÃ¹ng luá»“ng rá»i workspace.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data: targetUser, error: targetError } = await supabaseAdmin
+      .from('nguoi_dung')
+      .select('id, ten, email, vai_tro, to_chuc_id')
+      .eq('id', validated.user_id)
+      .single();
+
+    if (targetError || !targetUser || targetUser.to_chuc_id !== context.organizationId) {
+      return NextResponse.json(
+        { error: 'KhÃ´ng tÃ¬m tháº¥y thÃ nh viÃªn trong tá»• chá»©c nÃ y' },
+        { status: 404 }
+      );
+    }
+
+    const targetRole = targetUser.vai_tro as AppRole;
+
+    if (!canManageOrganizationTarget(context.currentUser.vai_tro, targetRole)) {
+      return NextResponse.json(
+        { error: 'Báº¡n khÃ´ng cÃ³ quyá»n gá»¡ thÃ nh viÃªn nÃ y' },
+        { status: 403 }
+      );
+    }
+
+    if (targetRole === 'owner') {
+      const { count, error: ownerCountError } = await supabaseAdmin
+        .from('nguoi_dung')
+        .select('id', { count: 'exact', head: true })
+        .eq('to_chuc_id', context.organizationId)
+        .eq('vai_tro', 'owner');
+
+      if (ownerCountError) {
+        return NextResponse.json(
+          { error: 'KhÃ´ng thá»ƒ xÃ¡c nháº­n sá»‘ lÆ°á»£ng owner hiá»‡n táº¡i' },
+          { status: 500 }
+        );
+      }
+
+      if ((count || 0) <= 1) {
+        return NextResponse.json(
+          { error: 'Tá»• chá»©c cáº§n giá»¯ láº¡i Ã­t nháº¥t má»™t owner' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const cleanupProjectsResult = await removeUserFromOrganizationProjects({
+      organizationId: context.organizationId,
+      userId: targetUser.id,
+      email: targetUser.email,
+    });
+
+    if (cleanupProjectsResult.error) {
+      return NextResponse.json(
+        { error: 'KhÃ´ng thá»ƒ cÃ¢n chá»‰nh dá»¯ liá»‡u dá»± Ã¡n trÆ°á»›c khi gá»¡ thÃ nh viÃªn' },
+        { status: 500 }
+      );
+    }
+
+    const { error: removeError } = await supabaseAdmin
+      .from('nguoi_dung')
+      .update({
+        to_chuc_id: null,
+        vai_tro: 'member',
+        phong_ban_id: null,
+        ten_cong_ty: null,
+        ten_phong_ban: null,
+      })
+      .eq('id', targetUser.id)
+      .eq('to_chuc_id', context.organizationId);
+
+    if (removeError) {
+      return NextResponse.json(
+        { error: 'KhÃ´ng thá»ƒ gá»¡ thÃ nh viÃªn khá»i tá»• chá»©c' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ message: `ÄÃ£ gá»¡ ${targetUser.ten} khá»i workspace` });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message || 'Dá»¯ liá»‡u khÃ´ng há»£p lá»‡.' },
+        { status: 400 }
+      );
+    }
+
+    console.error('Error in DELETE /api/organization-members:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
